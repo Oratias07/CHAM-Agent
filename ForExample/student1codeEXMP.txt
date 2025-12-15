@@ -1,0 +1,39 @@
+student1 code:
+#include <stdio.h>
+
+#define MAX_NUM 1000
+#define MIN_NUM 1
+
+int main(void)
+{
+	int num = 0;
+	
+	do
+	{
+		printf("Please enter a num between 1-1000: ");
+		if (scanf("%d", &num) != 1) //checking if the num is really a num and not a char
+		{
+			printf("Invalid input!\n");
+			while ((getchar()) != '\n'); //clearing the buffer
+			continue; //restarting loop
+		}
+	
+		if (num % 2 == 0 && (num >= MIN_NUM && num <= MAX_NUM)) //making sure number is even and between 1-1000
+		{
+			printf("Valid number\n");
+			return 0;
+		}
+		else
+		{
+			printf("Invalid number!\n"); //if it isn't 
+		}
+	} while (1);
+	/*
+	get num-
+	check if even-
+	check if its from 1-1000-
+	if not (either) loop-
+	if yes (both) end-
+	*/
+	return 0;
+}

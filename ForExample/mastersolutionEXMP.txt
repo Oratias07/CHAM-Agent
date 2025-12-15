@@ -1,0 +1,43 @@
+master solution:
+/*********************************
+Class: MAGSHIMIM C1 *
+Week 6 *
+Input validation *
+**********************************/
+#include <stdlib.h>
+#include <stdio.h>
+/**
+The program gets the user's choice of an even number between 1 - 1000.
+Input:
+None
+Output:
+The program returns 0 upon successful completion of its running (windows convention)
+*/
+int main(void)
+{
+// Variable declaration
+const unsigned int MIN = 1;
+const unsigned int MAX = 1000;
+int num = 0;
+unsigned int isValid = 0;
+code
+Code
+// Get user input and check if it is valid.
+// Since we get the input at least once, we use a DO-WHILE loop
+do
+{
+	printf("Enter a number between %d - %d: ", MIN, MAX);		// Get user input
+	scanf("%d", &num);
+
+	isValid = (num >= MIN && num <= MAX && num % 2 ==0);
+	if (!isValid)									// Check if the number is valid
+	{
+		printf("Invalid number!\n");
+	}
+}
+while (!isValid);									// Repeat until num is valid
+
+printf("Your number is: %d\n", num);
+	
+return 0;
+}
