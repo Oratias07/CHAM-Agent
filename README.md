@@ -1,11 +1,11 @@
 # 🤖 AI Code Grader
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![React](https://img.shields.io/badge/react-19.0-blue)
-![Gemini](https://img.shields.io/badge/AI-Gemini%202.5-orange)
+![Gemini](https://img.shields.io/badge/AI-Gemini%203%20Pro-purple)
 
-> **An automated evaluation tool for student code submissions, providing scores and professional feedback in Hebrew using Google's Gemini 2.5 Flash model.**
+> **An automated evaluation tool for student code submissions, providing scores and professional feedback in Hebrew using Google's Gemini 3 Pro model with advanced reasoning.**
 
 ---
 
@@ -42,7 +42,8 @@ It generates a **numerical score (0-10)** and detailed, constructive **feedback 
 
 ## ✨ Key Features
 
-*   **🤖 AI-Powered Analysis**: Uses Gemini 2.5 Flash to understand code logic, syntax, and style.
+*   **🤖 Advanced AI Reasoning**: Uses **Gemini 3 Pro** with Thinking Mode to deeply analyze code logic, syntax, and style.
+*   **💬 AI Chat Assistant**: Integrated chatbot to answer questions about grading or code.
 *   **🇮🇱 Hebrew Feedback**: Generates professional, culturally appropriate feedback automatically.
 *   **⚡ Rapid Grading Workflow**: Auto-saves results and immediately advances to the next student.
 *   **📊 Integrated Gradebook**: A "Sheets-like" view to manage the entire class progress.

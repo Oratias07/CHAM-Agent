@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import InputSection from './components/InputSection';
 import ResultSection from './components/ResultSection';
 import GradeBook from './components/GradeBook';
+import ChatBot from './components/ChatBot';
 import { evaluateSubmission } from './services/geminiService';
 import { GradingInputs, GradingResult, TabOption, GradeBookState } from './types';
 import { 
@@ -268,6 +269,9 @@ const App: React.FC = () => {
           </div>
         )}
       </main>
+
+      {/* Floating Chat Bot */}
+      <ChatBot />
     </div>
   );
 };

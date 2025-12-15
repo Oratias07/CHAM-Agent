@@ -41,13 +41,16 @@ export const evaluateSubmission = async (
     .replace("{AGENT_CUSTOM_INSTRUCTIONS}", inputs.customInstructions);
 
   try {
+    // Using gemini-3-pro-preview with thinking for complex reasoning (Grading)
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3-pro-preview",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
         responseSchema: responseSchema,
-        temperature: 0.2, // Low temperature for consistent grading
+        thinkingConfig: {
+          thinkingBudget: 32768, 
+        },
       },
     });
 
@@ -61,6 +64,36 @@ export const evaluateSubmission = async (
 
   } catch (error) {
     console.error("Error calling Gemini API:", error);
+    throw error;
+  }
+};
+
+export const sendChatMessage = async (
+  message: string,
+  history: { role: string; parts: { text: string }[] }[]
+): Promise<string> => {
+  if (!apiKey) {
+    throw new Error("API Key is missing.");
+  }
+
+  try {
+    const chat = ai.chats.create({
+      model: "gemini-3-pro-preview",
+      history: history,
+      config: {
+        // Chatbot doesn't necessarily need strict JSON or heavy thinking for simple queries,
+        // but the prompt requests "gemini-3-pro-preview" for the chatbot.
+        // We will enable thinking here as well to handle "complex queries" as requested.
+        thinkingConfig: {
+            thinkingBudget: 32768
+        }
+      }
+    });
+
+    const result = await chat.sendMessage({ message });
+    return result.text || "No response generated.";
+  } catch (error) {
+    console.error("Error in chat:", error);
     throw error;
   }
 };
