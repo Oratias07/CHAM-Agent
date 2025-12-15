@@ -56,6 +56,8 @@ It generates a **numerical score (0-10)** and detailed, constructive **feedback 
 
 Follow this step-by-step guide to grade your class efficiently.
 
+## link for website: https://stsystem.vercel.app/
+
 ### Step 1: Define the Assessment
 In the **Single Grader** view, fill out the first three tabs on the left panel. This provides the context for the AI.
 1.  **Question**: Paste the assignment description.
@@ -84,27 +86,6 @@ Switch to **Sheets View** to see the big picture.
 ### Step 5: Export Data
 Click the green **Download CSV** button in the Gradebook header.
 *   The file uses a special encoding (BOM) to ensure Hebrew text appears correctly in Excel.
-
----
-
-## ☁️ Deployment (Free)
-
-You can upload this system to the cloud to use it on any computer without paying. The recommended method is **Vercel** or **Netlify**.
-
-### Prerequisites
-1.  A free [GitHub](https://github.com/) account.
-2.  Your Google Gemini API Key.
-
-### Steps to Deploy on Vercel
-1.  **Push to GitHub**: Upload your project code to a new repository on GitHub.
-2.  **Sign up for Vercel**: Go to [vercel.com](https://vercel.com) and sign up using your GitHub account.
-3.  **Add New Project**: Click "Add New..." > "Project" and select your repository.
-4.  **Configure Environment Variables**:
-    *   In the project settings during setup, look for "Environment Variables".
-    *   Add Name: `API_KEY`
-    *   Add Value: `your-google-gemini-api-key-here`
-5.  **Deploy**: Click "Deploy".
-6.  **Done!** Vercel will give you a domain (e.g., `ai-grader.vercel.app`). You can now open this link on **any computer** or tablet to grade students.
 
 ---
 
