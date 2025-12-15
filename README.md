@@ -9,6 +9,20 @@
 
 ---
 
+## 📸 Application Preview
+
+| **Setup & Configuration** | **Evaluation & Feedback** |
+|:---:|:---:|
+| <img src="./screenshots/setup.png" alt="Setup Screen" width="400"/> | <img src="./screenshots/result.png" alt="Evaluation Result" width="400"/> |
+| *Define Question, Solution, and Rubric* | *Receive Instant AI Score & Feedback* |
+
+| **Class Gradebook** | **Example: C Programming** |
+|:---:|:---:|
+| <img src="./screenshots/gradebook.png" alt="Gradebook View" width="400"/> | <img src="./screenshots/c_example.png" alt="C Code Example" width="400"/> |
+| *Track progress and export to Excel* | *Detects logical errors (e.g., duplicated logic)* |
+
+---
+
 ## 📖 Table of Contents
 - [About the Project](#-about-the-project)
 - [Key Features](#-key-features)
@@ -47,14 +61,10 @@ In the **Single Grader** view, fill out the first three tabs on the left panel. 
 2.  **Master Solution**: Provide the correct code implementation.
 3.  **Rubric**: Define the scoring criteria.
 
-![Setup Assessment](./screenshots/setup.png)
-
 ### Step 2: Select a Student & Paste Code
 1.  Select a student from the dropdown menu at the top.
 2.  Switch to the **Student Code** tab.
 3.  Paste the student's submission.
-
-![Select Student](./screenshots/student.png)
 
 ### Step 3: Evaluate
 Click the **✨ Evaluate & Save** button.
@@ -64,15 +74,11 @@ The system will:
 *   **Auto-save** the result to the Gradebook.
 *   **Auto-advance** to the next student in the list.
 
-![Evaluation Result](./screenshots/result.png)
-
 ### Step 4: Class Management (Sheets View)
 Switch to **Sheets View** to see the big picture.
 *   **Rename Students**: Click on any name to edit it.
 *   **Edit Grades**: Manually override scores or feedback if needed.
 *   **Add Exercises**: Click "Complete & Start Next Exercise" when finished with the current one.
-
-![Gradebook View](./screenshots/gradebook.png)
 
 ### Step 5: Export Data
 Click the green **Download CSV** button in the Gradebook header.
