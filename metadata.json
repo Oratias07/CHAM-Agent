@@ -1,0 +1,5 @@
+{
+  "name": "AI Code Grader",
+  "description": "An automated evaluation tool for student code submissions, providing scores and professional feedback in Hebrew using Gemini 2.5 Flash.",
+  "requestFramePermissions": []
+}
