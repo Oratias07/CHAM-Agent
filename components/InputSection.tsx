@@ -59,6 +59,17 @@ const InputSection: React.FC<InputSectionProps> = ({
     { id: TabOption.CUSTOM, label: 'Custom Instr.', icon: '⚙️' },
   ];
 
+  const getPlaceholder = () => {
+    switch (activeTab) {
+      case TabOption.QUESTION: return 'Write here the question...';
+      case TabOption.SOLUTION: return 'Write here the master solution...';
+      case TabOption.RUBRIC: return 'Write here the rubric...';
+      case TabOption.STUDENT_CODE: return 'Write here the student code...';
+      case TabOption.CUSTOM: return 'Write here the custom instructions...';
+      default: return 'Write here...';
+    }
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-lg flex flex-col h-full border border-gray-100 overflow-hidden">
       {/* Student Selector Header */}
@@ -103,7 +114,7 @@ const InputSection: React.FC<InputSectionProps> = ({
           className="w-full h-full p-4 text-sm font-mono text-gray-800 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-none custom-scrollbar transition-all"
           value={getActiveValue()}
           onChange={(e) => setActiveValue(e.target.value)}
-          placeholder={`Write here the ${activeTab.toLowerCase().replace('_', ' ')}...`}
+          placeholder={getPlaceholder()}
         />
         
         <div className="absolute bottom-6 right-8">

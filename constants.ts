@@ -1,16 +1,12 @@
 import { GradeBookState } from "./types";
 
-export const DEFAULT_QUESTION = `Paste the assignment question here...`;
+export const DEFAULT_QUESTION = "";
 
-export const DEFAULT_SOLUTION = `Paste the master solution code here...`;
+export const DEFAULT_SOLUTION = "";
 
-export const DEFAULT_RUBRIC = `Paste the grading rubric here...
-1. Functional Check
-2. Syntax Check
-3. Code Quality
-4. Originality`;
+export const DEFAULT_RUBRIC = "";
 
-export const DEFAULT_STUDENT_CODE = `Paste the student's submission here...`;
+export const DEFAULT_STUDENT_CODE = "";
 
 export const AGENT_SYSTEM_PROMPT_TEMPLATE = `[INSTRUCTIONS FOR AI AGENT]
 

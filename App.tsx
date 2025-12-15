@@ -25,7 +25,10 @@ const App: React.FC = () => {
   const [gradeBookState, setGradeBookState] = useState<GradeBookState>(INITIAL_GRADEBOOK_STATE);
   
   // Track selected student for Single Grader auto-save
-  const [selectedStudentId, setSelectedStudentId] = useState<string>('');
+  // Initialize with the first student if available
+  const [selectedStudentId, setSelectedStudentId] = useState<string>(
+    INITIAL_GRADEBOOK_STATE.students.length > 0 ? INITIAL_GRADEBOOK_STATE.students[0].id : ''
+  );
 
   const [inputs, setInputs] = useState<GradingInputs>({
     question: DEFAULT_QUESTION,
@@ -69,13 +72,14 @@ const App: React.FC = () => {
         handleUpdateEntry(currentExercise.id, selectedStudentId, 'score', evaluation.score);
         handleUpdateEntry(currentExercise.id, selectedStudentId, 'feedback', evaluation.feedback);
 
+        // Always clear student code after successful evaluation to prepare for the next submission
+        setInputs(prev => ({ ...prev, studentCode: '' }));
+
         // Auto-advance to next student
         const currentIndex = gradeBookState.students.findIndex(s => s.id === selectedStudentId);
         if (currentIndex !== -1 && currentIndex < gradeBookState.students.length - 1) {
           const nextStudent = gradeBookState.students[currentIndex + 1];
           setSelectedStudentId(nextStudent.id);
-          // Clear student code input for the next student
-          setInputs(prev => ({ ...prev, studentCode: '' }));
         }
       }
 
@@ -98,7 +102,8 @@ const App: React.FC = () => {
       });
       setResult(null);
       setError(null);
-      setSelectedStudentId('');
+      // Reset to first student
+      setSelectedStudentId(INITIAL_GRADEBOOK_STATE.students.length > 0 ? INITIAL_GRADEBOOK_STATE.students[0].id : '');
       setViewMode('SINGLE');
     }
   };
@@ -135,11 +140,27 @@ const App: React.FC = () => {
       };
     });
 
-    // Reset to first student and clear code
+    // Reset to first student
     if (gradeBookState.students.length > 0) {
       setSelectedStudentId(gradeBookState.students[0].id);
     }
-    setInputs(prev => ({ ...prev, studentCode: '' }));
+
+    // Reset Question, Master Solution, and Student Code for the new exercise
+    // BUT preserve Rubric and Custom Instructions
+    setInputs(prev => ({
+      question: DEFAULT_QUESTION,
+      masterSolution: DEFAULT_SOLUTION,
+      studentCode: '',
+      rubric: prev.rubric, // Keep existing rubric
+      customInstructions: prev.customInstructions // Keep existing custom instructions
+    }));
+
+    setResult(null);
+    setError(null);
+    
+    // Switch view back to Single so the user can setup the new assignment
+    setViewMode('SINGLE');
+    setActiveTab(TabOption.QUESTION);
   };
 
   const handleAddStudent = () => {
