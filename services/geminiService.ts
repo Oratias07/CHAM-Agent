@@ -2,13 +2,16 @@ import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { AGENT_SYSTEM_PROMPT_TEMPLATE } from "../constants";
 import { GradingInputs, GradingResult } from "../types";
 
-// Ensure the API key is available
+// Access the API key defined in vite.config.ts
 const apiKey = process.env.API_KEY;
-if (!apiKey) {
-  console.error("API_KEY environment variable is missing.");
-}
 
-const ai = new GoogleGenAI({ apiKey: apiKey || "" });
+// Initialize the client. If apiKey is missing, we pass a placeholder to avoid immediate crash,
+// but specific actions will verify the key.
+const ai = new GoogleGenAI({ apiKey: apiKey || "MISSING_KEY" });
+
+if (!apiKey) {
+  console.warn("Warning: API_KEY is missing in process.env. Submissions will fail.");
+}
 
 const responseSchema: Schema = {
   type: Type.OBJECT,
@@ -28,8 +31,8 @@ const responseSchema: Schema = {
 export const evaluateSubmission = async (
   inputs: GradingInputs
 ): Promise<GradingResult> => {
-  if (!apiKey) {
-    throw new Error("API Key is missing. Please check your environment configuration.");
+  if (!apiKey || apiKey === "MISSING_KEY") {
+    throw new Error("API Key is missing. Please check your Vercel project settings (Environment Variables) and ensure 'API_KEY' is set, then redeploy.");
   }
 
   // Interpolate the template
@@ -64,6 +67,9 @@ export const evaluateSubmission = async (
 
   } catch (error) {
     console.error("Error calling Gemini API:", error);
+    if (error instanceof Error && error.message.includes("403")) {
+       throw new Error("API Key invalid or not enabled for this model. Please check Google AI Studio settings.");
+    }
     throw error;
   }
 };
@@ -72,7 +78,7 @@ export const sendChatMessage = async (
   message: string,
   history: { role: string; parts: { text: string }[] }[]
 ): Promise<string> => {
-  if (!apiKey) {
+  if (!apiKey || apiKey === "MISSING_KEY") {
     throw new Error("API Key is missing.");
   }
 
