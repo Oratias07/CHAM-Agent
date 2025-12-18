@@ -84,7 +84,7 @@ const ChatBot: React.FC = () => {
             <h3 className="text-white font-bold flex items-center">
               <span className="mr-2">🤖</span> Grading Assistant
             </h3>
-            <span className="text-xs text-indigo-200 bg-indigo-700 px-2 py-0.5 rounded">Gemini 3 Pro</span>
+            <span className="text-xs text-indigo-200 bg-indigo-700 px-2 py-0.5 rounded">Gemini 3 Flash</span>
           </div>
 
           {/* Messages */}
@@ -142,9 +142,6 @@ const ChatBot: React.FC = () => {
                   <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
                 </svg>
               </button>
-            </div>
-            <div className="text-center mt-1">
-              <span className="text-[10px] text-gray-400">Thinking enabled • Responses may take longer</span>
             </div>
           </div>
         </div>

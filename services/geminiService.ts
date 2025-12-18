@@ -20,11 +20,10 @@ const responseSchema: Schema = {
 export const evaluateSubmission = async (
   inputs: GradingInputs
 ): Promise<GradingResult> => {
-  // Use process.env.API_KEY which is injected by Vite during build
   const apiKey = process.env.API_KEY;
   
   if (!apiKey || apiKey === "undefined" || apiKey === "") {
-    throw new Error("API_KEY is not defined in the environment. Please add it to your Vercel Project Settings and Redeploy.");
+    throw new Error("API_KEY is not defined. Please add it to your environment variables and redeploy.");
   }
 
   const ai = new GoogleGenAI({ apiKey });
@@ -37,16 +36,12 @@ export const evaluateSubmission = async (
     .replace("{AGENT_CUSTOM_INSTRUCTIONS}", inputs.customInstructions);
 
   try {
-    // Switched to Flash for better availability and quota
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
         responseSchema: responseSchema,
-        thinkingConfig: {
-          thinkingBudget: 0, // Flash is extremely fast, minimal thinking needed for standard tasks
-        },
       },
     });
 
@@ -59,7 +54,7 @@ export const evaluateSubmission = async (
   } catch (error: any) {
     console.error("Evaluation error:", error);
     if (error?.message?.includes("429") || error?.status === "RESOURCE_EXHAUSTED") {
-      throw new Error("API Rate Limit Reached. Please wait a moment before trying again.");
+      throw new Error("Rate limit reached. The free tier allows limited requests per minute. Please try again in 60 seconds.");
     }
     throw error;
   }
@@ -84,7 +79,7 @@ export const sendChatMessage = async (
     return result.text || "I couldn't generate a response.";
   } catch (error: any) {
     console.error("Chat error:", error);
-    if (error?.message?.includes("429")) return "Rate limit exceeded. Please wait.";
+    if (error?.message?.includes("429")) return "Rate limit exceeded. Please wait a moment.";
     throw error;
   }
 };
