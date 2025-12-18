@@ -8,19 +8,6 @@ interface ResultSectionProps {
 }
 
 const ResultSection: React.FC<ResultSectionProps> = ({ result, error, isEvaluating }) => {
-  const handleOpenKeySelector = async () => {
-    // Access the platform-provided key selector if available
-    // @ts-ignore
-    if (window.aistudio && window.aistudio.openSelectKey) {
-      // @ts-ignore
-      await window.aistudio.openSelectKey();
-      // After selection, we usually need a reload or a state change to trigger a retry
-      window.location.reload();
-    } else {
-      alert("API Key selection dialog is not available in this environment. Please set the API_KEY environment variable.");
-    }
-  };
-
   if (isEvaluating) {
     return (
       <div className="h-full flex flex-col items-center justify-center bg-white rounded-xl shadow-lg border border-gray-100 p-8 text-center animate-pulse">
@@ -33,29 +20,16 @@ const ResultSection: React.FC<ResultSectionProps> = ({ result, error, isEvaluati
   }
 
   if (error) {
-    const isKeyError = error.toLowerCase().includes("api key") || error.toLowerCase().includes("unauthorized");
-    
     return (
       <div className="h-full flex flex-col items-center justify-center bg-red-50 rounded-xl shadow-lg border border-red-100 p-8 text-center">
         <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mb-4 text-3xl">
           ⚠️
         </div>
         <h3 className="text-xl font-bold text-red-700 mb-2">Evaluation Failed</h3>
-        <p className="text-red-600 max-w-md mb-6">{error}</p>
-        
-        {isKeyError && (
-          <div className="flex flex-col space-y-3 w-full max-w-xs">
-            <button 
-              onClick={handleOpenKeySelector}
-              className="bg-white text-red-600 border border-red-200 px-4 py-2 rounded-lg font-bold hover:bg-red-100 transition-colors shadow-sm"
-            >
-              🔑 Select API Key Manually
-            </button>
-            <p className="text-[10px] text-red-400 italic">
-              Note: Using the selector is a temporary fix. For production, set the environment variable in Vercel.
-            </p>
-          </div>
-        )}
+        <p className="text-red-600 max-w-md">{error}</p>
+        <p className="mt-4 text-xs text-red-400">
+          Ensure your API_KEY is correctly set in your environment variables.
+        </p>
       </div>
     );
   }
@@ -74,7 +48,6 @@ const ResultSection: React.FC<ResultSectionProps> = ({ result, error, isEvaluati
     );
   }
 
-  // Determine color based on score
   const getScoreColor = (score: number) => {
     if (score >= 9) return 'text-green-600 border-green-200 bg-green-50';
     if (score >= 7) return 'text-blue-600 border-blue-200 bg-blue-50';
@@ -117,12 +90,12 @@ const ResultSection: React.FC<ResultSectionProps> = ({ result, error, isEvaluati
         </div>
 
         <div className="mt-8 text-center">
-             <button 
-                onClick={() => navigator.clipboard.writeText(result.feedback)}
-                className="text-indigo-600 hover:text-indigo-800 text-sm font-medium flex items-center justify-center w-full transition-colors"
-             >
-                 Copy Feedback to Clipboard
-             </button>
+          <button 
+            onClick={() => navigator.clipboard.writeText(result.feedback)}
+            className="text-indigo-600 hover:text-indigo-800 text-sm font-medium flex items-center justify-center w-full transition-colors"
+          >
+            Copy Feedback to Clipboard
+          </button>
         </div>
       </div>
     </div>
