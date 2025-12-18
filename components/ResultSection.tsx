@@ -8,6 +8,19 @@ interface ResultSectionProps {
 }
 
 const ResultSection: React.FC<ResultSectionProps> = ({ result, error, isEvaluating }) => {
+  const handleOpenKeySelector = async () => {
+    // Access the platform-provided key selector if available
+    // @ts-ignore
+    if (window.aistudio && window.aistudio.openSelectKey) {
+      // @ts-ignore
+      await window.aistudio.openSelectKey();
+      // After selection, we usually need a reload or a state change to trigger a retry
+      window.location.reload();
+    } else {
+      alert("API Key selection dialog is not available in this environment. Please set the API_KEY environment variable.");
+    }
+  };
+
   if (isEvaluating) {
     return (
       <div className="h-full flex flex-col items-center justify-center bg-white rounded-xl shadow-lg border border-gray-100 p-8 text-center animate-pulse">
@@ -20,13 +33,29 @@ const ResultSection: React.FC<ResultSectionProps> = ({ result, error, isEvaluati
   }
 
   if (error) {
+    const isKeyError = error.toLowerCase().includes("api key") || error.toLowerCase().includes("unauthorized");
+    
     return (
       <div className="h-full flex flex-col items-center justify-center bg-red-50 rounded-xl shadow-lg border border-red-100 p-8 text-center">
         <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mb-4 text-3xl">
           ⚠️
         </div>
         <h3 className="text-xl font-bold text-red-700 mb-2">Evaluation Failed</h3>
-        <p className="text-red-600 max-w-md">{error}</p>
+        <p className="text-red-600 max-w-md mb-6">{error}</p>
+        
+        {isKeyError && (
+          <div className="flex flex-col space-y-3 w-full max-w-xs">
+            <button 
+              onClick={handleOpenKeySelector}
+              className="bg-white text-red-600 border border-red-200 px-4 py-2 rounded-lg font-bold hover:bg-red-100 transition-colors shadow-sm"
+            >
+              🔑 Select API Key Manually
+            </button>
+            <p className="text-[10px] text-red-400 italic">
+              Note: Using the selector is a temporary fix. For production, set the environment variable in Vercel.
+            </p>
+          </div>
+        )}
       </div>
     );
   }
@@ -34,11 +63,9 @@ const ResultSection: React.FC<ResultSectionProps> = ({ result, error, isEvaluati
   if (!result) {
     return (
       <div className="h-full flex flex-col items-center justify-center bg-white rounded-xl shadow-lg border border-gray-100 p-8 text-center">
-        <img 
-            src="https://picsum.photos/100/100" 
-            alt="Placeholder" 
-            className="w-24 h-24 rounded-full mb-6 opacity-50 grayscale" 
-        />
+        <div className="w-24 h-24 bg-indigo-50 text-indigo-300 rounded-full flex items-center justify-center mb-6 text-4xl">
+          🤖
+        </div>
         <h3 className="text-xl font-semibold text-gray-700 mb-2">Ready to Grade</h3>
         <p className="text-gray-500 max-w-sm">
           Enter the student's code and the grading rubric on the left, then click "Evaluate Code".

@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import InputSection from './components/InputSection';
 import ResultSection from './components/ResultSection';
 import GradeBook from './components/GradeBook';
 import ChatBot from './components/ChatBot';
-import { evaluateSubmission, isApiKeyMissing } from './services/geminiService';
+import { evaluateSubmission } from './services/geminiService';
 import { GradingInputs, GradingResult, TabOption, GradeBookState } from './types';
 import { 
   DEFAULT_QUESTION, 
@@ -22,16 +22,12 @@ const App: React.FC = () => {
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [result, setResult] = useState<GradingResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [apiKeyStatus, setApiKeyStatus] = useState<'Checking' | 'Connected' | 'Missing'>('Checking');
 
   // GradeBook State
   const [gradeBookState, setGradeBookState] = useState<GradeBookState>(INITIAL_GRADEBOOK_STATE);
   
-  useEffect(() => {
-    setApiKeyStatus(isApiKeyMissing() ? 'Missing' : 'Connected');
-  }, []);
-
-  // Track selected student
+  // Track selected student for Single Grader auto-save
+  // Initialize with the first student if available
   const [selectedStudentId, setSelectedStudentId] = useState<string>(
     INITIAL_GRADEBOOK_STATE.students.length > 0 ? INITIAL_GRADEBOOK_STATE.students[0].id : ''
   );
@@ -63,11 +59,6 @@ const App: React.FC = () => {
   };
 
   const handleEvaluate = async () => {
-    if (apiKeyStatus === 'Missing') {
-      setError("CRITICAL: API Key not detected in build. Please add it to your environment variables and redeploy.");
-      return;
-    }
-
     setIsEvaluating(true);
     setError(null);
     setResult(null);
@@ -76,19 +67,24 @@ const App: React.FC = () => {
       const evaluation = await evaluateSubmission(inputs);
       setResult(evaluation);
 
+      // Auto-save to GradeBook if a student is selected
       if (selectedStudentId && gradeBookState.exercises.length > 0) {
+        // Assume we are grading for the latest exercise
         const currentExercise = gradeBookState.exercises[gradeBookState.exercises.length - 1];
         handleUpdateEntry(currentExercise.id, selectedStudentId, 'score', evaluation.score);
         handleUpdateEntry(currentExercise.id, selectedStudentId, 'feedback', evaluation.feedback);
 
+        // Always clear student code after successful evaluation to prepare for the next submission
         setInputs(prev => ({ ...prev, studentCode: '' }));
 
+        // Auto-advance to next student
         const currentIndex = gradeBookState.students.findIndex(s => s.id === selectedStudentId);
         if (currentIndex !== -1 && currentIndex < gradeBookState.students.length - 1) {
           const nextStudent = gradeBookState.students[currentIndex + 1];
           setSelectedStudentId(nextStudent.id);
         }
       }
+
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred during evaluation.');
     } finally {
@@ -108,11 +104,13 @@ const App: React.FC = () => {
       });
       setResult(null);
       setError(null);
+      // Reset to first student
       setSelectedStudentId(INITIAL_GRADEBOOK_STATE.students.length > 0 ? INITIAL_GRADEBOOK_STATE.students[0].id : '');
       setViewMode('SINGLE');
     }
   };
 
+  // GradeBook Handlers
   const handleUpdateStudentName = (id: string, newName: string) => {
     setGradeBookState(prev => ({
       ...prev,
@@ -144,20 +142,25 @@ const App: React.FC = () => {
       };
     });
 
+    // Reset to first student
     if (gradeBookState.students.length > 0) {
       setSelectedStudentId(gradeBookState.students[0].id);
     }
 
+    // Reset Question, Master Solution, and Student Code for the new exercise
+    // BUT preserve Rubric and Custom Instructions
     setInputs(prev => ({
       question: DEFAULT_QUESTION,
       masterSolution: DEFAULT_SOLUTION,
       studentCode: '',
-      rubric: prev.rubric,
-      customInstructions: prev.customInstructions
+      rubric: prev.rubric, // Keep existing rubric
+      customInstructions: prev.customInstructions // Keep existing custom instructions
     }));
 
     setResult(null);
     setError(null);
+    
+    // Switch view back to Single so the user can setup the new assignment
     setViewMode('SINGLE');
     setActiveTab(TabOption.QUESTION);
   };
@@ -180,6 +183,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans text-slate-900">
+      {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-20 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -192,13 +196,6 @@ const App: React.FC = () => {
           </div>
           
           <div className="flex items-center space-x-4">
-             <div className="flex items-center space-x-2 mr-2">
-                <span className={`w-2.5 h-2.5 rounded-full ${apiKeyStatus === 'Connected' ? 'bg-green-500' : apiKeyStatus === 'Missing' ? 'bg-red-500' : 'bg-yellow-500'}`}></span>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                  {apiKeyStatus === 'Connected' ? 'API Active' : apiKeyStatus === 'Missing' ? 'API Error' : 'Checking...'}
-                </span>
-             </div>
-
              <div className="bg-gray-100 p-1 rounded-lg flex items-center">
                 <button 
                   onClick={() => setViewMode('SINGLE')}
@@ -223,19 +220,19 @@ const App: React.FC = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                </svg>
              </button>
+
+             <div className="text-sm text-gray-500 hidden md:block pl-4 border-l border-gray-200">
+                Powered by Gemini 2.5 Flash
+             </div>
           </div>
         </div>
       </header>
 
-      {apiKeyStatus === 'Missing' && (
-        <div className="bg-red-600 text-white py-2 px-4 text-center text-sm font-bold animate-pulse">
-          ⚠️ API Key Missing: Ensure 'API_KEY' is set in Vercel settings and REDEPLOY.
-        </div>
-      )}
-
+      {/* Main Content */}
       <main className="flex-grow p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full">
         {viewMode === 'SINGLE' ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-8rem)] min-h-[600px]">
+            {/* Left Column: Inputs */}
             <section className="h-full">
               <InputSection 
                 inputs={inputs}
@@ -251,6 +248,7 @@ const App: React.FC = () => {
               />
             </section>
 
+            {/* Right Column: Output */}
             <section className="h-full">
               <ResultSection 
                 result={result}
@@ -273,6 +271,7 @@ const App: React.FC = () => {
         )}
       </main>
 
+      {/* Floating Chat Bot */}
       <ChatBot />
     </div>
   );
