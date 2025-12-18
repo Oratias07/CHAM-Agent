@@ -1,12 +1,131 @@
 import { GradeBookState } from "./types";
 
-export const DEFAULT_QUESTION = "";
+export const DEFAULT_QUESTION = `כתבו תוכנית הקולטת מספר מהמשתמש ובודקת אם הוא מספר זוגי בטווח של 1-1000 (כולל). אם המספר לא נמצא בטווח, או שאינו זוגיֿ, יש לבקש מהמשתמש להזין מספר אחר, עד שיוזן מספר שעומד בדרישות.`;
 
-export const DEFAULT_SOLUTION = "";
+export const DEFAULT_SOLUTION = `/*********************************
+Class: MAGSHIMIM C1 *
+Week 6 *
+Input validation *
+**********************************/
+#include <stdlib.h>
+#include <stdio.h>
+/**
+The program gets the user's choice of an even number between 1 - 1000.
+Input:
+None
+Output:
+The program returns 0 upon successful completion of its running (windows convention)
+*/
+int main(void)
+{
+// Variable declaration
+const unsigned int MIN = 1;
+const unsigned int MAX = 1000;
+int num = 0;
+unsigned int isValid = 0;
 
-export const DEFAULT_RUBRIC = "";
+// Get user input and check if it is valid.
+// Since we get the input at least once, we use a DO-WHILE loop
+do
+{
+	printf("Enter a number between %d - %d: ", MIN, MAX);		// Get user input
+	scanf("%d", &num);
 
-export const DEFAULT_STUDENT_CODE = "";
+	isValid = (num >= MIN && num <= MAX && num % 2 ==0);
+	if (!isValid)									// Check if the number is valid
+	{
+		printf("Invalid number!\n");
+	}
+}
+while (!isValid);									// Repeat until num is valid
+
+printf("Your number is: %d\\n", num);
+	
+return 0;
+}`;
+
+export const DEFAULT_RUBRIC = `הנחיית הערכה מקצועית ושיטתית לקוד סטודנטים
+מבנה המשימה והקלט:
+קלט ראשוני: תסופק סדרה של שלושה רכיבים:
+א. השאלה: תיאור המשימה המקורית שניתנה לסטודנטים.
+ב. הפתרון המקורי (Master Solution): תכנית קוד מלאה ונכונה המהווה את פתרון הבסיס לתרגיל.
+ג. פתרונות סטודנטים: קודים שונים שהוגשו להערכה.
+פלט נדרש: עבור כל פתרון סטודנט, יש לספק שני אלמנטים במבנה הבא:
+א. ציון: יש לכתוב את הציון המספרי שנקבע מעל הפסקה, בפורמט: [X]/10-10/10 (כאשר X הוא הציון).
+ב. משוב ממוקד: פסקה אחת של משוב מקצועי ומקיף.
+קריטריוני הניתוח והערכה (Grade Rubric)
+בדיקה פונקציונלית (Functional Check)
+• עמידה בדרישות המשתנים: האם הקוד כולל הגדרה של משתנה שלם (int) ומשתנה עשרוני (float).
+• הקצאת ערכים: האם בוצעה הקצאה או אתחול (Assignment) של ערכים למשתנים שהוגדרו.
+• ביצוע והדפסה:
+o האם בוצעה הדפסה של המשתנים, בצירוף הודעה מלווה ברורה.
+o האם בוצע חישוב והדפסה של מכפלת המשתנים.
+• אימות חישוב: בדיקה ואישור שהחישוב מתבצע באמצעות המשתנים שהוגדרו (ולא באמצעות ערכים קשיחים - Hard-Coded Values).
+• התאמת הפלט: בדיקה שהפורמט והתוכן של הפלט תואמים במדויק להוראות השאלה.
+בדיקת תקינות סינטקס וריצה (Syntax & Execution)
+• תקינות הקוד: הקוד נקי משגיאות קומפילציה.
+• שימוש נכון בפונקציות: שימוש נכון בפקודות הדפסה (printf) והתאמה של מפרטי הפורמט (Format Specifiers) לסוגי המשתנים המודפסים (%d, %f וכו').
+• יציבות: הקוד רץ בפועל עד סופו ללא קריסות (Run-time errors).
+קריטריוני איכות וקריאות קוד (Code Quality & Readability)
+• שמות משתנים: שימוש בשמות משתנים קריאים, משמעותיים והגיוניים בהקשר הלימודי (יש להימנע משמות מוזרים או לא מקצועיים).
+• מבנה לוגי: שמירה על מבנה קוד סדור ועקבי: הגדרת משתנים ← חישובים ← הדפסות ← סיום תוכנית עם return 0.
+• תיעוד (הערות):
+o חובה לכלול הערות קוד.
+o בדיקה שההערות מוסיפות ערך והבנה לקוד, ואינן מיותרות או חסרות היגיון.
+בדיקת מקוריות (Originality Check)
+• הערכה: הערכה האם הקוד נכתב על ידי הסטודנט או עשוי להיות מועתק ממקור חיצוני / בינה מלאכותית, תוך התייחסות לאינדיקציות כגון:
+o הערות בשפה פורמלית יתר על המידה או לא טבעית.
+o דפוסי שמות משתנים אחידים בצורה חשודה.
+o שימוש בפונקציות, ספריות או פורמטים לא צפויים ביחס לרמת השאלה.
+o מבנה קוד מורכב או מתוחכם שאינו הולם את רמת המשימה.
+תהליך הניקוד והמשוב
+ניקוד: הציון הסופי יינתן מ-0 עד 10, תוך שקלול של כלל הקריטריונים, כאשר הפונקציונליות ועמידה בדרישות השאלה מקבלות את המשקל הגבוה ביותר. מקוריות (חשד להעתקה/AI) יכולה להשפיע לרעה על הציון.
+כתיבת המשוב:
+• פורמט: המשוב ייכתב כפסקה אחת, שלמה, ישירה וברורה.
+• פנייה: הפנייה היא ישירות לסטודנט, מנוסחת בטון מקצועי ומכבד (כך שניתן יהיה להעתיק ולהשתמש בה).
+• תוכן: המשוב אינו חוזר על דברים ואינו מפרט יתר על המידה – הוא מסביר באופן ממוקד מה בוצע היטב ומה נדרש לתיקון או שיפור.
+• הערות מינוריות: אם קיימות הערות קלות ומינוריות בלבד (כגון פקודת getchar() מיותרת), הן יצוינו במשוב, אך לא יגרמו להורדת נקודות.`;
+
+export const DEFAULT_STUDENT_CODE = `#include <stdio.h>
+
+#define MAX_NUM 1000
+#define MIN_NUM 1
+
+int main(void)
+{
+	int num = 0;
+	
+	do
+	{
+		printf("Please enter a num between 1-1000: ");
+		if (scanf("%d", &num) != 1) //checking if the num is really a num and not a char
+		{
+			printf("Invalid input!\\n");
+			while ((getchar()) != '\\n'); //clearing the buffer
+			continue; //restarting loop
+		}
+	
+		if (num % 2 == 0 && (num >= MIN_NUM && num <= MAX_NUM)) //making sure number is even and between 1-1000
+		{
+			printf("Valid number\\n");
+			return 0;
+		}
+		else
+		{
+			printf("Invalid number!\\n"); //if it isn't 
+		}
+	} while (1);
+	/*
+	get num-
+	check if even-
+	check if its from 1-1000-
+	if not (either) loop-
+	if yes (both) end-
+	*/
+	return 0;
+}`;
+
+export const DEFAULT_CUSTOM_INSTRUCTIONS = `חל איסור על שימוש בפקודות הבאות בעקבות שאיננו למדנו אותן: "break", "continue"`;
 
 export const AGENT_SYSTEM_PROMPT_TEMPLATE = `[INSTRUCTIONS FOR AI AGENT]
 

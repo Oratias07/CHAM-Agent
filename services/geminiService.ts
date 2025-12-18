@@ -1,19 +1,28 @@
-import { GoogleGenAI, Type, Schema } from "@google/genai";
+
+// Always use the correct import from @google/genai
+import { GoogleGenAI, Type } from "@google/genai";
 import { AGENT_SYSTEM_PROMPT_TEMPLATE } from "../constants";
 import { GradingInputs, GradingResult } from "../types";
 
-// Access the API key defined in vite.config.ts
-const apiKey = process.env.API_KEY;
+/**
+ * Access the API key exclusively from the environment variable process.env.API_KEY.
+ * The SDK must be initialized with a named parameter: { apiKey: string }.
+ */
+const getApiKey = () => {
+  const key = process.env.API_KEY;
+  if (key && key !== "MISSING_KEY" && key.length > 5) {
+    return key;
+  }
+  return null;
+};
 
-// Initialize the client. If apiKey is missing, we pass a placeholder to avoid immediate crash,
-// but specific actions will verify the key.
-const ai = new GoogleGenAI({ apiKey: apiKey || "MISSING_KEY" });
+const apiKey = getApiKey();
 
-if (!apiKey) {
-  console.warn("Warning: API_KEY is missing in process.env. Submissions will fail.");
-}
+// Initialize AI client; we ensure it uses the provided API_KEY format
+const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
-const responseSchema: Schema = {
+// Define responseSchema using the Type enum. Do not use the deprecated Schema type.
+const responseSchema = {
   type: Type.OBJECT,
   properties: {
     score: {
@@ -28,14 +37,18 @@ const responseSchema: Schema = {
   required: ["score", "feedback"],
 };
 
+export const isApiKeyMissing = () => !apiKey;
+
+/**
+ * Evaluates a student's code submission using the Gemini 3 Pro model.
+ */
 export const evaluateSubmission = async (
   inputs: GradingInputs
 ): Promise<GradingResult> => {
-  if (!apiKey || apiKey === "MISSING_KEY") {
-    throw new Error("API Key is missing. Please check your Vercel project settings (Environment Variables) and ensure 'API_KEY' is set, then redeploy.");
+  if (!ai || !apiKey) {
+    throw new Error("API Key is missing from the application build. Please add 'API_KEY' to your Vercel Environment Variables and REDEPLOY the project.");
   }
 
-  // Interpolate the template
   const prompt = AGENT_SYSTEM_PROMPT_TEMPLATE
     .replace("{QUESTION_TEXT}", inputs.question)
     .replace("{MASTER_SOLUTION}", inputs.masterSolution)
@@ -44,7 +57,7 @@ export const evaluateSubmission = async (
     .replace("{AGENT_CUSTOM_INSTRUCTIONS}", inputs.customInstructions);
 
   try {
-    // Using gemini-3-pro-preview with thinking for complex reasoning (Grading)
+    // Call generateContent directly with model name and contents.
     const response = await ai.models.generateContent({
       model: "gemini-3-pro-preview",
       contents: prompt,
@@ -52,54 +65,61 @@ export const evaluateSubmission = async (
         responseMimeType: "application/json",
         responseSchema: responseSchema,
         thinkingConfig: {
+          // Gemini 3 Pro supports reasoning; 32768 is the maximum budget for Pro series.
           thinkingBudget: 32768, 
         },
       },
     });
 
+    // Directly access the .text property of the GenerateContentResponse object.
     const textResponse = response.text;
     if (!textResponse) {
       throw new Error("Received empty response from Gemini.");
     }
 
-    const result = JSON.parse(textResponse) as GradingResult;
-    return result;
+    // Trim output before parsing as per JSON response best practices.
+    return JSON.parse(textResponse.trim()) as GradingResult;
 
-  } catch (error) {
-    console.error("Error calling Gemini API:", error);
-    if (error instanceof Error && error.message.includes("403")) {
-       throw new Error("API Key invalid or not enabled for this model. Please check Google AI Studio settings.");
+  } catch (error: any) {
+    console.error("Gemini API Error:", error);
+    
+    const errorMessage = error?.message || "";
+    if (errorMessage.includes("403") || errorMessage.includes("API_KEY_INVALID")) {
+      throw new Error("Invalid API Key. Please verify your Gemini API key.");
     }
-    throw error;
+    
+    throw new Error(`Evaluation failed: ${errorMessage || "Unknown error during API call"}`);
   }
 };
 
+/**
+ * Sends a chat message and returns the model response.
+ */
 export const sendChatMessage = async (
   message: string,
   history: { role: string; parts: { text: string }[] }[]
 ): Promise<string> => {
-  if (!apiKey || apiKey === "MISSING_KEY") {
-    throw new Error("API Key is missing.");
+  if (!ai || !apiKey) {
+    throw new Error("API Key missing.");
   }
 
   try {
+    // Create a new chat session. The model and config are required.
     const chat = ai.chats.create({
       model: "gemini-3-pro-preview",
       history: history,
       config: {
-        // Chatbot doesn't necessarily need strict JSON or heavy thinking for simple queries,
-        // but the prompt requests "gemini-3-pro-preview" for the chatbot.
-        // We will enable thinking here as well to handle "complex queries" as requested.
         thinkingConfig: {
             thinkingBudget: 32768
         }
       }
     });
 
+    // Use sendMessage with the message parameter and access the .text property for the output.
     const result = await chat.sendMessage({ message });
     return result.text || "No response generated.";
-  } catch (error) {
-    console.error("Error in chat:", error);
-    throw error;
+  } catch (error: any) {
+    console.error("Chat Error:", error);
+    return `Chat error: ${error?.message || "Check your API connection"}`;
   }
 };
