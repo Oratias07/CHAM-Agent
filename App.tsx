@@ -23,11 +23,7 @@ const App: React.FC = () => {
   const [result, setResult] = useState<GradingResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // GradeBook State
   const [gradeBookState, setGradeBookState] = useState<GradeBookState>(INITIAL_GRADEBOOK_STATE);
-  
-  // Track selected student for Single Grader auto-save
-  // Initialize with the first student if available
   const [selectedStudentId, setSelectedStudentId] = useState<string>(
     INITIAL_GRADEBOOK_STATE.students.length > 0 ? INITIAL_GRADEBOOK_STATE.students[0].id : ''
   );
@@ -67,17 +63,14 @@ const App: React.FC = () => {
       const evaluation = await evaluateSubmission(inputs);
       setResult(evaluation);
 
-      // Auto-save to GradeBook if a student is selected
       if (selectedStudentId && gradeBookState.exercises.length > 0) {
-        // Assume we are grading for the latest exercise
         const currentExercise = gradeBookState.exercises[gradeBookState.exercises.length - 1];
         handleUpdateEntry(currentExercise.id, selectedStudentId, 'score', evaluation.score);
         handleUpdateEntry(currentExercise.id, selectedStudentId, 'feedback', evaluation.feedback);
 
-        // Always clear student code after successful evaluation to prepare for the next submission
+        // AUTOMATICALLY clear student code after evaluation
         setInputs(prev => ({ ...prev, studentCode: '' }));
 
-        // Auto-advance to next student
         const currentIndex = gradeBookState.students.findIndex(s => s.id === selectedStudentId);
         if (currentIndex !== -1 && currentIndex < gradeBookState.students.length - 1) {
           const nextStudent = gradeBookState.students[currentIndex + 1];
@@ -104,13 +97,11 @@ const App: React.FC = () => {
       });
       setResult(null);
       setError(null);
-      // Reset to first student
       setSelectedStudentId(INITIAL_GRADEBOOK_STATE.students.length > 0 ? INITIAL_GRADEBOOK_STATE.students[0].id : '');
       setViewMode('SINGLE');
     }
   };
 
-  // GradeBook Handlers
   const handleUpdateStudentName = (id: string, newName: string) => {
     setGradeBookState(prev => ({
       ...prev,
@@ -142,25 +133,21 @@ const App: React.FC = () => {
       };
     });
 
-    // Reset to first student
     if (gradeBookState.students.length > 0) {
       setSelectedStudentId(gradeBookState.students[0].id);
     }
 
-    // Reset Question, Master Solution, and Student Code for the new exercise
-    // BUT preserve Rubric and Custom Instructions
+    // AUTOMATICALLY clear Question, Master Solution, and Student Code for the new exercise
+    // PRESERVE Rubric and Custom Instructions
     setInputs(prev => ({
-      question: DEFAULT_QUESTION,
-      masterSolution: DEFAULT_SOLUTION,
-      studentCode: '',
-      rubric: prev.rubric, // Keep existing rubric
-      customInstructions: prev.customInstructions // Keep existing custom instructions
+      ...prev,
+      question: '',
+      masterSolution: '',
+      studentCode: ''
     }));
 
     setResult(null);
     setError(null);
-    
-    // Switch view back to Single so the user can setup the new assignment
     setViewMode('SINGLE');
     setActiveTab(TabOption.QUESTION);
   };
@@ -183,7 +170,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans text-slate-900">
-      {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-20 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -222,17 +208,15 @@ const App: React.FC = () => {
              </button>
 
              <div className="text-sm text-gray-500 hidden md:block pl-4 border-l border-gray-200">
-                Powered by Gemini 2.5 Flash
+                Powered by Gemini 3 Flash
              </div>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="flex-grow p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full">
         {viewMode === 'SINGLE' ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-8rem)] min-h-[600px]">
-            {/* Left Column: Inputs */}
             <section className="h-full">
               <InputSection 
                 inputs={inputs}
@@ -248,7 +232,6 @@ const App: React.FC = () => {
               />
             </section>
 
-            {/* Right Column: Output */}
             <section className="h-full">
               <ResultSection 
                 result={result}
@@ -271,7 +254,6 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* Floating Chat Bot */}
       <ChatBot />
     </div>
   );
