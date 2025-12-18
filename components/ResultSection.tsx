@@ -20,16 +20,29 @@ const ResultSection: React.FC<ResultSectionProps> = ({ result, error, isEvaluati
   }
 
   if (error) {
+    const isQuotaError = error.includes("Rate Limit") || error.includes("429");
+    const isKeyError = error.includes("API_KEY");
+
     return (
       <div className="h-full flex flex-col items-center justify-center bg-red-50 rounded-xl shadow-lg border border-red-100 p-8 text-center">
         <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mb-4 text-3xl">
-          ⚠️
+          {isQuotaError ? '⏳' : '⚠️'}
         </div>
-        <h3 className="text-xl font-bold text-red-700 mb-2">Evaluation Failed</h3>
+        <h3 className="text-xl font-bold text-red-700 mb-2">
+          {isQuotaError ? 'Rate Limit Reached' : 'Evaluation Failed'}
+        </h3>
         <p className="text-red-600 max-w-md">{error}</p>
-        <p className="mt-4 text-xs text-red-400">
-          Ensure your API_KEY is correctly set in your environment variables.
-        </p>
+        
+        {isKeyError && (
+          <div className="mt-6 p-4 bg-white border border-red-200 rounded-lg text-xs text-left text-gray-600">
+            <p className="font-bold mb-2 text-red-700">How to fix:</p>
+            <ol className="list-decimal ml-4 space-y-1">
+              <li>Go to <b>Vercel Dashboard</b> &rarr; Settings &rarr; Env Variables.</li>
+              <li>Add <b>API_KEY</b> with your Google AI key.</li>
+              <li>Go to <b>Deployments</b> and click "Redeploy".</li>
+            </ol>
+          </div>
+        )}
       </div>
     );
   }
