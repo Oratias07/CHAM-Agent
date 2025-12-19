@@ -36,6 +36,11 @@ export interface Exercise {
   name: string;
   maxScore: number;
   entries: { [studentId: string]: GradeEntry };
+  // Context preserved per exercise
+  question: string;
+  masterSolution: string;
+  rubric: string;
+  customInstructions: string;
 }
 
 export interface GradeBookState {

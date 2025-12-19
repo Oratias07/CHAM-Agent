@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import InputSection from './components/InputSection';
 import ResultSection from './components/ResultSection';
 import GradeBook from './components/GradeBook';
 import ChatBot from './components/ChatBot';
 import { evaluateSubmission } from './services/geminiService';
-import { GradingInputs, GradingResult, TabOption, GradeBookState } from './types';
+import { GradingInputs, GradingResult, TabOption, GradeBookState, Exercise } from './types';
 import { 
   DEFAULT_QUESTION, 
   DEFAULT_SOLUTION, 
@@ -27,14 +27,61 @@ const App: React.FC = () => {
   const [selectedStudentId, setSelectedStudentId] = useState<string>(
     INITIAL_GRADEBOOK_STATE.students.length > 0 ? INITIAL_GRADEBOOK_STATE.students[0].id : ''
   );
+  
+  const [activeExerciseId, setActiveExerciseId] = useState<string>(INITIAL_GRADEBOOK_STATE.exercises[0].id);
 
-  const [inputs, setInputs] = useState<GradingInputs>({
-    question: DEFAULT_QUESTION,
-    masterSolution: DEFAULT_SOLUTION,
-    rubric: DEFAULT_RUBRIC,
-    studentCode: DEFAULT_STUDENT_CODE,
-    customInstructions: DEFAULT_CUSTOM_INSTRUCTIONS
-  });
+  // Buffer for the student code (which is per-student, not per-exercise globally)
+  const [studentCode, setStudentCode] = useState(DEFAULT_STUDENT_CODE);
+
+  // Sync inputs with the active exercise
+  const currentExercise = gradeBookState.exercises.find(ex => ex.id === activeExerciseId) || gradeBookState.exercises[0];
+
+  const handleUpdateExerciseData = (field: keyof Exercise, value: any) => {
+    setGradeBookState(prev => ({
+      ...prev,
+      exercises: prev.exercises.map(ex => 
+        ex.id === activeExerciseId ? { ...ex, [field]: value } : ex
+      )
+    }));
+  };
+
+  const handleEvaluate = async () => {
+    setIsEvaluating(true);
+    setError(null);
+    setResult(null);
+
+    const inputs: GradingInputs = {
+      question: currentExercise.question,
+      masterSolution: currentExercise.masterSolution,
+      rubric: currentExercise.rubric,
+      customInstructions: currentExercise.customInstructions,
+      studentCode: studentCode
+    };
+
+    try {
+      const evaluation = await evaluateSubmission(inputs);
+      setResult(evaluation);
+
+      if (selectedStudentId) {
+        handleUpdateEntry(activeExerciseId, selectedStudentId, 'score', evaluation.score);
+        handleUpdateEntry(activeExerciseId, selectedStudentId, 'feedback', evaluation.feedback);
+
+        // AUTOMATICALLY clear student code after evaluation
+        setStudentCode('');
+
+        const currentIndex = gradeBookState.students.findIndex(s => s.id === selectedStudentId);
+        if (currentIndex !== -1 && currentIndex < gradeBookState.students.length - 1) {
+          const nextStudent = gradeBookState.students[currentIndex + 1];
+          setSelectedStudentId(nextStudent.id);
+        }
+      }
+
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred during evaluation.');
+    } finally {
+      setIsEvaluating(false);
+    }
+  };
 
   const handleUpdateEntry = (exerciseId: string, studentId: string, field: 'score' | 'feedback', value: any) => {
     setGradeBookState(prev => ({
@@ -54,50 +101,14 @@ const App: React.FC = () => {
     }));
   };
 
-  const handleEvaluate = async () => {
-    setIsEvaluating(true);
-    setError(null);
-    setResult(null);
-
-    try {
-      const evaluation = await evaluateSubmission(inputs);
-      setResult(evaluation);
-
-      if (selectedStudentId && gradeBookState.exercises.length > 0) {
-        const currentExercise = gradeBookState.exercises[gradeBookState.exercises.length - 1];
-        handleUpdateEntry(currentExercise.id, selectedStudentId, 'score', evaluation.score);
-        handleUpdateEntry(currentExercise.id, selectedStudentId, 'feedback', evaluation.feedback);
-
-        // AUTOMATICALLY clear student code after evaluation
-        setInputs(prev => ({ ...prev, studentCode: '' }));
-
-        const currentIndex = gradeBookState.students.findIndex(s => s.id === selectedStudentId);
-        if (currentIndex !== -1 && currentIndex < gradeBookState.students.length - 1) {
-          const nextStudent = gradeBookState.students[currentIndex + 1];
-          setSelectedStudentId(nextStudent.id);
-        }
-      }
-
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred during evaluation.');
-    } finally {
-      setIsEvaluating(false);
-    }
-  };
-
   const handleReset = () => {
-    if (window.confirm("⚠️ Are you sure you want to restart? This will clear all data, including grades and students.")) {
+    if (window.confirm("⚠️ Are you sure you want to restart? This will clear all data.")) {
       setGradeBookState(INITIAL_GRADEBOOK_STATE);
-      setInputs({
-        question: DEFAULT_QUESTION,
-        masterSolution: DEFAULT_SOLUTION,
-        rubric: DEFAULT_RUBRIC,
-        studentCode: DEFAULT_STUDENT_CODE,
-        customInstructions: DEFAULT_CUSTOM_INSTRUCTIONS
-      });
+      setStudentCode(DEFAULT_STUDENT_CODE);
       setResult(null);
       setError(null);
       setSelectedStudentId(INITIAL_GRADEBOOK_STATE.students.length > 0 ? INITIAL_GRADEBOOK_STATE.students[0].id : '');
+      setActiveExerciseId(INITIAL_GRADEBOOK_STATE.exercises[0].id);
       setViewMode('SINGLE');
     }
   };
@@ -117,35 +128,30 @@ const App: React.FC = () => {
   };
 
   const handleAddExercise = () => {
-    setGradeBookState(prev => {
-      const nextNum = prev.exercises.length + 1;
-      return {
-        ...prev,
-        exercises: [
-          ...prev.exercises,
-          {
-            id: `ex-${nextNum}-${Date.now()}`,
-            name: `Exercise ${nextNum}`,
-            maxScore: 10,
-            entries: {}
-          }
-        ]
-      };
-    });
+    const nextNum = gradeBookState.exercises.length + 1;
+    const newId = `ex-${nextNum}-${Date.now()}`;
+    
+    // Default to the previous rubric and instructions as a convenience, or clean if desired
+    const lastEx = gradeBookState.exercises[gradeBookState.exercises.length - 1];
 
-    if (gradeBookState.students.length > 0) {
-      setSelectedStudentId(gradeBookState.students[0].id);
-    }
-
-    // AUTOMATICALLY clear Question, Master Solution, and Student Code for the new exercise
-    // PRESERVE Rubric and Custom Instructions
-    setInputs(prev => ({
-      ...prev,
+    const newExercise: Exercise = {
+      id: newId,
+      name: `Exercise ${nextNum}`,
+      maxScore: 10,
+      entries: {},
       question: '',
       masterSolution: '',
-      studentCode: ''
+      rubric: lastEx ? lastEx.rubric : DEFAULT_RUBRIC, // Carry over rubric by default
+      customInstructions: lastEx ? lastEx.customInstructions : DEFAULT_CUSTOM_INSTRUCTIONS
+    };
+
+    setGradeBookState(prev => ({
+      ...prev,
+      exercises: [...prev.exercises, newExercise]
     }));
 
+    setActiveExerciseId(newId);
+    setStudentCode('');
     setResult(null);
     setError(null);
     setViewMode('SINGLE');
@@ -219,8 +225,10 @@ const App: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-8rem)] min-h-[600px]">
             <section className="h-full">
               <InputSection 
-                inputs={inputs}
-                setInputs={setInputs}
+                activeExercise={currentExercise}
+                onUpdateExerciseData={handleUpdateExerciseData}
+                studentCode={studentCode}
+                setStudentCode={setStudentCode}
                 activeTab={activeTab}
                 setActiveTab={setActiveTab}
                 isEvaluating={isEvaluating}
@@ -228,7 +236,9 @@ const App: React.FC = () => {
                 students={gradeBookState.students}
                 selectedStudentId={selectedStudentId}
                 setSelectedStudentId={setSelectedStudentId}
-                currentExerciseName={gradeBookState.exercises[gradeBookState.exercises.length - 1]?.name || 'New Exercise'}
+                exercises={gradeBookState.exercises}
+                setActiveExerciseId={setActiveExerciseId}
+                onAddExercise={handleAddExercise}
               />
             </section>
 

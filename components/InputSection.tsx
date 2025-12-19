@@ -1,9 +1,11 @@
 import React from 'react';
-import { TabOption, GradingInputs, Student } from '../types';
+import { TabOption, Student, Exercise } from '../types';
 
 interface InputSectionProps {
-  inputs: GradingInputs;
-  setInputs: React.Dispatch<React.SetStateAction<GradingInputs>>;
+  activeExercise: Exercise;
+  onUpdateExerciseData: (field: keyof Exercise, value: any) => void;
+  studentCode: string;
+  setStudentCode: (code: string) => void;
   activeTab: TabOption;
   setActiveTab: (tab: TabOption) => void;
   isEvaluating: boolean;
@@ -11,12 +13,16 @@ interface InputSectionProps {
   students: Student[];
   selectedStudentId: string;
   setSelectedStudentId: (id: string) => void;
-  currentExerciseName: string;
+  exercises: Exercise[];
+  setActiveExerciseId: (id: string) => void;
+  onAddExercise: () => void;
 }
 
 const InputSection: React.FC<InputSectionProps> = ({
-  inputs,
-  setInputs,
+  activeExercise,
+  onUpdateExerciseData,
+  studentCode,
+  setStudentCode,
   activeTab,
   setActiveTab,
   isEvaluating,
@@ -24,30 +30,29 @@ const InputSection: React.FC<InputSectionProps> = ({
   students,
   selectedStudentId,
   setSelectedStudentId,
-  currentExerciseName
+  exercises,
+  setActiveExerciseId,
+  onAddExercise
 }) => {
-  const handleChange = (field: keyof GradingInputs, value: string) => {
-    setInputs((prev) => ({ ...prev, [field]: value }));
-  };
-
+  
   const getActiveValue = () => {
     switch (activeTab) {
-      case TabOption.QUESTION: return inputs.question;
-      case TabOption.SOLUTION: return inputs.masterSolution;
-      case TabOption.RUBRIC: return inputs.rubric;
-      case TabOption.STUDENT_CODE: return inputs.studentCode;
-      case TabOption.CUSTOM: return inputs.customInstructions;
+      case TabOption.QUESTION: return activeExercise.question;
+      case TabOption.SOLUTION: return activeExercise.masterSolution;
+      case TabOption.RUBRIC: return activeExercise.rubric;
+      case TabOption.STUDENT_CODE: return studentCode;
+      case TabOption.CUSTOM: return activeExercise.customInstructions;
       default: return '';
     }
   };
 
   const setActiveValue = (value: string) => {
     switch (activeTab) {
-      case TabOption.QUESTION: handleChange('question', value); break;
-      case TabOption.SOLUTION: handleChange('masterSolution', value); break;
-      case TabOption.RUBRIC: handleChange('rubric', value); break;
-      case TabOption.STUDENT_CODE: handleChange('studentCode', value); break;
-      case TabOption.CUSTOM: handleChange('customInstructions', value); break;
+      case TabOption.QUESTION: onUpdateExerciseData('question', value); break;
+      case TabOption.SOLUTION: onUpdateExerciseData('masterSolution', value); break;
+      case TabOption.RUBRIC: onUpdateExerciseData('rubric', value); break;
+      case TabOption.STUDENT_CODE: setStudentCode(value); break;
+      case TabOption.CUSTOM: onUpdateExerciseData('customInstructions', value); break;
     }
   };
 
@@ -61,21 +66,51 @@ const InputSection: React.FC<InputSectionProps> = ({
 
   const getPlaceholder = () => {
     switch (activeTab) {
-      case TabOption.QUESTION: return 'Write here the question...';
-      case TabOption.SOLUTION: return 'Write here the master solution...';
-      case TabOption.RUBRIC: return 'Write here the rubric...';
-      case TabOption.STUDENT_CODE: return 'Write here the student code...';
-      case TabOption.CUSTOM: return 'Write here the custom instructions...';
+      case TabOption.QUESTION: return 'Write the question here...';
+      case TabOption.SOLUTION: return 'Provide the correct solution here...';
+      case TabOption.RUBRIC: return 'Define grading criteria here...';
+      case TabOption.STUDENT_CODE: return 'Paste student code here...';
+      case TabOption.CUSTOM: return 'Add any custom limitations (forbidden keywords, etc.)...';
       default: return 'Write here...';
     }
   };
 
   return (
     <div className="bg-white rounded-xl shadow-lg flex flex-col h-full border border-gray-100 overflow-hidden">
-      {/* Student Selector Header */}
+      {/* Configuration Header */}
+      <div className="bg-slate-800 px-4 py-3 flex flex-wrap items-center gap-3">
+        <div className="flex items-center space-x-2 flex-grow min-w-[200px]">
+          <span className="text-white text-xs font-bold uppercase tracking-wider">Exercise:</span>
+          <select 
+            value={activeExercise.id}
+            onChange={(e) => setActiveExerciseId(e.target.value)}
+            className="bg-slate-700 text-white text-sm border-none rounded px-2 py-1 outline-none focus:ring-1 focus:ring-indigo-400"
+          >
+            {exercises.map(ex => (
+              <option key={ex.id} value={ex.id}>{ex.name}</option>
+            ))}
+          </select>
+          <input 
+            type="text"
+            value={activeExercise.name}
+            onChange={(e) => onUpdateExerciseData('name', e.target.value)}
+            className="bg-slate-900/50 text-indigo-300 text-sm font-bold border-none rounded px-2 py-1 outline-none focus:ring-1 focus:ring-indigo-400 flex-grow"
+            placeholder="Rename exercise..."
+          />
+        </div>
+
+        <button 
+          onClick={onAddExercise}
+          className="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded transition-colors shadow-sm"
+        >
+          + New Exercise
+        </button>
+      </div>
+
+      {/* Student Selector Sub-Header */}
       <div className="bg-indigo-50 px-4 py-3 border-b border-indigo-100 flex items-center justify-between">
-        <label className="text-sm font-semibold text-indigo-900 flex items-center">
-          <span className="mr-2">🎓</span> Grading for:
+        <label className="text-sm font-semibold text-indigo-900 flex items-center whitespace-nowrap">
+          <span className="mr-2">🎓</span> Student:
         </label>
         <select 
           value={selectedStudentId}
@@ -87,8 +122,8 @@ const InputSection: React.FC<InputSectionProps> = ({
             <option key={s.id} value={s.id}>{s.name}</option>
           ))}
         </select>
-        <div className="ml-4 text-xs text-indigo-500 font-medium bg-indigo-100 px-2 py-1 rounded">
-          Target: {currentExerciseName}
+        <div className="ml-4 text-[10px] text-indigo-500 font-bold bg-indigo-100 px-2 py-1 rounded uppercase tracking-widest">
+          Active
         </div>
       </div>
 

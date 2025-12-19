@@ -11,36 +11,34 @@ const ResultSection: React.FC<ResultSectionProps> = ({ result, error, isEvaluati
   if (isEvaluating) {
     return (
       <div className="h-full flex flex-col items-center justify-center bg-white rounded-xl shadow-lg border border-gray-100 p-8 text-center animate-pulse">
-        <div className="w-24 h-24 bg-gray-200 rounded-full mb-4"></div>
-        <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
-        <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-        <p className="mt-8 text-gray-400 text-sm">AI Agent is analyzing structure, logic, and style...</p>
+        <div className="w-24 h-24 bg-indigo-50 rounded-full mb-4 flex items-center justify-center">
+          <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+        <h3 className="text-lg font-bold text-indigo-900 mb-2">Analyzing Submission...</h3>
+        <p className="text-gray-400 text-sm">Optimizing logic check with Flash Speed</p>
       </div>
     );
   }
 
   if (error) {
-    const isQuotaError = error.includes("Rate Limit") || error.includes("429");
-    const isKeyError = error.includes("API_KEY");
+    const isQuotaError = error.includes("Rate Limit") || error.includes("429") || error.includes("quota");
 
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-red-50 rounded-xl shadow-lg border border-red-100 p-8 text-center">
-        <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mb-4 text-3xl">
-          {isQuotaError ? '⏳' : '⚠️'}
+      <div className={`h-full flex flex-col items-center justify-center rounded-xl shadow-lg border p-8 text-center ${isQuotaError ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200'}`}>
+        <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 text-3xl ${isQuotaError ? 'bg-amber-100 text-amber-600' : 'bg-red-100 text-red-500'}`}>
+          {isQuotaError ? '⌛' : '⚠️'}
         </div>
-        <h3 className="text-xl font-bold text-red-700 mb-2">
-          {isQuotaError ? 'Rate Limit Reached' : 'Evaluation Failed'}
+        <h3 className={`text-xl font-bold mb-2 ${isQuotaError ? 'text-amber-800' : 'text-red-700'}`}>
+          {isQuotaError ? 'Speed Limit Reached' : 'Evaluation Failed'}
         </h3>
-        <p className="text-red-600 max-w-md">{error}</p>
+        <p className={`${isQuotaError ? 'text-amber-700' : 'text-red-600'} max-w-md mb-4`}>
+          {error}
+        </p>
         
-        {isKeyError && (
-          <div className="mt-6 p-4 bg-white border border-red-200 rounded-lg text-xs text-left text-gray-600">
-            <p className="font-bold mb-2 text-red-700">How to fix:</p>
-            <ol className="list-decimal ml-4 space-y-1">
-              <li>Go to <b>Vercel Dashboard</b> &rarr; Settings &rarr; Env Variables.</li>
-              <li>Add <b>API_KEY</b> with your Google AI key.</li>
-              <li>Go to <b>Deployments</b> and click "Redeploy".</li>
-            </ol>
+        {isQuotaError && (
+          <div className="p-4 bg-white border border-amber-100 rounded-lg text-xs text-left text-gray-600 shadow-sm">
+            <p className="font-bold mb-1 text-amber-800">Why am I seeing this?</p>
+            <p>The <b>Google Free Tier</b> limits how many times you can use the AI per minute. To "remove" this limit, you must use an API key from a <b>Paid Google Cloud Project</b>.</p>
           </div>
         )}
       </div>
@@ -54,9 +52,16 @@ const ResultSection: React.FC<ResultSectionProps> = ({ result, error, isEvaluati
           🤖
         </div>
         <h3 className="text-xl font-semibold text-gray-700 mb-2">Ready to Grade</h3>
-        <p className="text-gray-500 max-w-sm">
-          Enter the student's code and the grading rubric on the left, then click "Evaluate Code".
+        <p className="text-gray-500 max-w-sm mb-6">
+          Enter code and click "Evaluate" to receive instant Hebrew feedback.
         </p>
+        <div className="flex items-center space-x-2 text-xs font-bold text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-100">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+          </span>
+          <span>SYSTEM READY: FLASH SPEED MODE</span>
+        </div>
       </div>
     );
   }
@@ -76,7 +81,10 @@ const ResultSection: React.FC<ResultSectionProps> = ({ result, error, isEvaluati
         <h2 className="text-lg font-bold text-gray-800 flex items-center">
           <span className="mr-2">📊</span> Evaluation Report
         </h2>
-        <span className="text-xs font-mono text-gray-400 uppercase tracking-widest">AI Generated</span>
+        <div className="flex items-center space-x-2">
+           <span className="text-[10px] font-bold text-indigo-400 border border-indigo-100 px-2 py-0.5 rounded-full uppercase tracking-tighter">Latency: Ultra-Low</span>
+           <span className="text-xs font-mono text-gray-400 uppercase tracking-widest">AI Generated</span>
+        </div>
       </div>
       
       <div className="p-8 flex-grow overflow-y-auto custom-scrollbar">
@@ -102,13 +110,14 @@ const ResultSection: React.FC<ResultSectionProps> = ({ result, error, isEvaluati
           </p>
         </div>
 
-        <div className="mt-8 text-center">
+        <div className="mt-8 text-center flex flex-col items-center">
           <button 
             onClick={() => navigator.clipboard.writeText(result.feedback)}
-            className="text-indigo-600 hover:text-indigo-800 text-sm font-medium flex items-center justify-center w-full transition-colors"
+            className="text-indigo-600 hover:text-indigo-800 text-sm font-medium flex items-center justify-center transition-colors mb-2"
           >
-            Copy Feedback to Clipboard
+            Copy Feedback
           </button>
+          <p className="text-[10px] text-gray-400 italic">Code cleared and ready for next student.</p>
         </div>
       </div>
     </div>

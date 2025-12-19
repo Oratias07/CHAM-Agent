@@ -10,46 +10,36 @@ export const DEFAULT_STUDENT_CODE = ``;
 
 export const DEFAULT_CUSTOM_INSTRUCTIONS = ``;
 
-export const AGENT_SYSTEM_PROMPT_TEMPLATE = `[INSTRUCTIONS FOR AI AGENT]
-
-You are a professional AI agent for evaluating student code submissions.
-You will receive the question in Hebrew, master solution, rubric, and student code.
+export const AGENT_SYSTEM_PROMPT_TEMPLATE = `[INSTRUCTIONS]
+Evaluate student C code against a question and master solution.
 
 [GOAL]
-Return a score (0-10) and feedback in Hebrew.
-The feedback MUST be a **very short paragraph (max 2-3 sentences)** and must focus primarily on the **problems, errors, and missing requirements** in the code. 
+Return score (0-10) and Hebrew feedback.
+Feedback must be 2-3 sentences MAX.
+Focus ONLY on problems, errors, and requirement violations.
 
-[CORE REQUIREMENTS]
-- **Buffer Cleaning**: In C programming, specifically check if the student handles input buffer cleaning correctly (e.g., using a loop like \`while(getchar() != '\\n');\`) after input operations like \`scanf\`. If this is missing or handled incorrectly, mention it as a problem.
-- **Problem Focus**: Prioritize identifying logical flaws, efficiency issues, or violations of the provided rubric/instructions.
-- **Conciseness**: Do not be overly verbose. Be direct.
+[C REQUIREMENTS]
+1. Buffer Cleaning: Mandatory check for "while(getchar() != '\\n');" or equivalent after scanf. If missing, penalize and mention it.
+2. Logic: Ensure range checks and conditions are correct.
+3. Style: Check for forbidden commands (break/continue) if noted in custom instructions.
 
-[STRICT CONSTRAINTS]
-- Do NOT use "-" or "–" (hyphens/dashes) in the feedback text.
-- Feedback must be in Hebrew only.
-- Output ONLY JSON.
+[CONSTRAINTS]
+- NO hyphens (-) or dashes (–) in feedback.
+- Hebrew ONLY.
+- Output ONLY valid JSON.
 
-[OUTPUT FORMAT]
+[OUTPUT]
 {
-  "score": X,
-  "feedback": "..."
+  "score": number,
+  "feedback": "string"
 }
 
 ---
-Question:
-{QUESTION_TEXT}
-
-Master Solution:
-{MASTER_SOLUTION}
-
-Rubric:
-{RUBRIC}
-
-Student Code:
-{STUDENT_CODE}
-
-Custom Instructions:
-{AGENT_CUSTOM_INSTRUCTIONS}
+Q: {QUESTION_TEXT}
+Solution: {MASTER_SOLUTION}
+Rubric: {RUBRIC}
+Student: {STUDENT_CODE}
+Instructions: {AGENT_CUSTOM_INSTRUCTIONS}
 `;
 
 export const INITIAL_GRADEBOOK_STATE: GradeBookState = {
@@ -62,7 +52,11 @@ export const INITIAL_GRADEBOOK_STATE: GradeBookState = {
       id: 'ex-1',
       name: 'Exercise 1',
       maxScore: 10,
-      entries: {}
+      entries: {},
+      question: DEFAULT_QUESTION,
+      masterSolution: DEFAULT_SOLUTION,
+      rubric: DEFAULT_RUBRIC,
+      customInstructions: DEFAULT_CUSTOM_INSTRUCTIONS
     }
   ]
 };
