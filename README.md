@@ -13,7 +13,7 @@
 
 | **Setup & Configuration** | **Evaluation & Feedback** |
 |:---:|:---:|
-| <img src="creenshots\SetupNConfi.png" alt="Setup Screen" width="400"/> | <img src="screenshots\EvaluationNFeedback.png" alt="Evaluation Result" width="400"/> |
+| <img src="screenshots\SetupNConfi.png" alt="Setup Screen" width="400"/> | <img src="screenshots\EvaluationNFeedback.png" alt="Evaluation Result" width="400"/> |
 | *Define Question, Solution, and Rubric* | *Receive Instant AI Score & Feedback* |
 
 | **Class Gradebook** | **Example: C Programming** |
