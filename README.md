@@ -13,12 +13,12 @@
 
 | **Setup & Configuration** | **Evaluation & Feedback** |
 |:---:|:---:|
-| <img src="screenshots\SetupNConfi.png" alt="Setup Screen" width="400"/> | <img src="screenshots\EvaluationNFeedback.png" alt="Evaluation Result" width="400"/> |
+| <img src="screenshots\Screenshot 2025-12-15 164505.png" alt="Setup Screen" width="400"/> | <img src="./screenshots/result.png" alt="Evaluation Result" width="400"/> |
 | *Define Question, Solution, and Rubric* | *Receive Instant AI Score & Feedback* |
 
 | **Class Gradebook** | **Example: C Programming** |
 |:---:|:---:|
-| <img src="screenshots\ClassGradebook.png" alt="Gradebook View" width="400"/> | <img src="screenshots\ExcalIMG.png" alt="C Code Example" width="400"/> |
+| <img src="./screenshots/gradebook.png" alt="Gradebook View" width="400"/> | <img src="./screenshots/c_example.png" alt="C Code Example" width="400"/> |
 | *Track progress and export to Excel* | *Detects logical errors (e.g., duplicated logic)* |
 
 ---
