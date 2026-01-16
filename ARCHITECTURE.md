@@ -1,42 +1,70 @@
-# 📐 System Architecture & DevOps
+# 📐 System Architecture & Security Specification
 
-This document details the flow of data and the deployment lifecycle of the AI Code Grader.
+This document provides a technical deep-dive into the AI Code Grader infrastructure. The system is designed as a secure, high-availability SaaS platform leveraging modern serverless paradigms.
 
-## 🔄 Runtime Data Flow
+---
 
-The following diagram illustrates how a grading request is processed securely without exposing secrets to the browser.
+## 1. High-Level System Overview
+
+The application utilizes a **Decoupled Full-Stack Architecture**:
+
+*   **Frontend Layer**: A specialized Single Page Application (SPA) built with **React 19** and **Vite**. It handles state management for the grading session and provides a real-time "Sheets" view for class management.
+*   **API Layer (Backend)**: An **Express.js** engine deployed as **Vercel Serverless Functions**. This layer acts as a secure gateway, managing authentication, database transactions, and AI orchestration.
+*   **Persistence Layer**: A distributed **MongoDB Atlas** cluster storing teacher profiles, encrypted session tokens, and the student gradebook.
+*   **Intelligence Layer**: **Google Gemini API** (Gemini 3 Flash), accessed via the `@google/genai` SDK on the server-side to ensure API key security.
+
+---
+
+## 2. Security Architecture
+
+Security is integrated at every layer of the stack to protect sensitive student data and intellectual property.
+
+### 🔐 Authentication & Identity
+The system implements **OAuth 2.0** via Google Identity Services. 
+- **Passport.js** manages the strategy on the backend.
+- Upon successful login, a unique user record is created/linked in MongoDB based on the `googleId`.
+- No passwords are ever stored or processed by our infrastructure.
+
+### 🍪 Session Management
+- **Stateful Sessions**: Sessions are managed using `express-session` and persisted in MongoDB via `connect-mongo`.
+- **Security Policy**: A strict **2-hour sliding expiration** is enforced. If a user is inactive for 120 minutes, the session is invalidated both in the browser (cookie) and the database.
+- **CSRF & Proxy Protection**: `app.set('trust proxy', 1)` is enabled to allow secure cookie transmission through Vercel's load balancers.
+
+### 🛡️ Secret Protection
+- **Zero-Exposure Policy**: The Gemini `API_KEY` and Google Client Secrets are stored exclusively in Vercel's encrypted Environment Variables.
+- **Backend Proxying**: All AI evaluations are proxied through the `/api/evaluate` endpoint. The frontend never communicates directly with Google’s servers, preventing API key extraction from the browser's network tab.
+
+---
+
+## 3. Runtime Data Flow (Grading Engine)
+
+The diagram below illustrates the lifecycle of a single grading request:
 
 ```mermaid
 graph TD
-    User((Teacher)) -->|Pastes Code| Frontend[React Vite App]
-    Frontend -->|POST /api/evaluate| Proxy[Vercel Serverless Function]
-    Proxy -->|Validate Session| SessionStore[(MongoDB Session Store)]
-    Proxy -->|Retrieve API_KEY| Env[Environment Variables]
-    Proxy -->|Structured Prompt| Gemini[Google Gemini AI]
-    Gemini -->|JSON Response| Proxy
-    Proxy -->|Persist Result| DB[(MongoDB Atlas)]
-    Proxy -->|JSON Result| Frontend
-    Frontend -->|Update UI| User
+    User((Teacher)) -->|1. Paste Code| FE[React Frontend]
+    FE -->|2. POST /api/evaluate| BE[Express Serverless]
+    BE -->|3. Auth Check| Session[(MongoDB Session Store)]
+    Session -->|Valid| BE
+    BE -->|4. Inject API_KEY| SecretManager[Env Variables]
+    BE -->|5. Structured Prompt| AI[Gemini 3 Flash]
+    AI -->|6. JSON Output| BE
+    BE -->|7. Auto-Save| DB[(MongoDB Gradebook)]
+    BE -->|8. Final Response| FE
+    FE -->|9. Hebrew UI Render| User
 ```
 
-## 🛠️ DevOps Lifecycle
+---
 
-1.  **Commit**: Code is pushed to the repository.
-2.  **Build**: Vercel triggers a build, bundling React with Vite and preparing Serverless Functions in `/api`.
-3.  **Deploy**: The app is served via Vercel's Edge Network.
-4.  **Security**: Headers are set to handle CORS and `trust proxy` for secure cookie management.
+## 4. DevOps & Deployment
 
-## 🎨 Infographic Design Prompt
-Use the prompt below in a high-quality AI Image Generator to create a visual representation of this architecture:
+### CI/CD Pipeline
+- **Atomic Deploys**: Every push to the main branch triggers a Vercel deployment. 
+- **Build Optimization**: Vite performs tree-shaking and asset minification to ensure the frontend bundle remains under 200KB.
+- **Edge Distribution**: The frontend is cached globally at the Edge, while the `/api` functions run in the region closest to the MongoDB Atlas cluster to minimize latency.
 
-> **Prompt:** A professional 2x2 grid infographic showing a "DevOps & SaaS Architecture" for a web application. The flow starts from a Code Commit (GitHub), goes through CI/CD (Vercel), to a Serverless Node.js backend, connecting to MongoDB Atlas and Google Gemini AI API. 
-> 
-> **Top-Left (Modern Apple Style):** Ultra-clean, white background, soft rounded glassmorphism cards, san-serif typography, subtle shadows, high-end minimalist icons.
-> **Top-Right (n8n Workflow Style):** Dark mode canvas with nodes and curved connecting lines. Each step (Auth, DB, AI) is a functional block with input/output indicators.
-> **Bottom-Left (Lego Style):** The entire architecture built out of 3D Lego bricks. The "Database" is a stack of blue bricks, "AI" is a glowing brain brick, and "User" is a mini-figure holding a laptop.
-> **Bottom-Right (AWS Style):** Standard technical cloud architecture diagram using AWS-like icons (Lambda symbols for serverless, Shield for auth, Database cylinders). 
-> 
-> **Instructions:** Blur all sensitive strings like IP addresses or domain names. Professional lighting, 4k resolution, high contrast, organized layout.
+### Database Strategy
+- **Idempotent Connection**: The backend uses a "Cached Connection" pattern to reuse MongoDB sockets across serverless invocations, preventing "Too many connections" errors during traffic spikes.
 
 ---
-*Last Updated: v1.2.0*
+*Last Updated: v1.2.0 | Confidential & Proprietary*
