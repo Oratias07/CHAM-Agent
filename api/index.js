@@ -10,25 +10,40 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const app = express();
+// Essential for Vercel behind a proxy
 app.set('trust proxy', 1);
 app.use(express.json());
 
 const MONGODB_URI = process.env.MONGODB_URI;
 
+// --- STARTUP DIAGNOSTICS ---
+console.log("--- SYSTEM STARTUP ---");
+console.log("MONGODB_URI present:", !!MONGODB_URI);
+console.log("GOOGLE_CLIENT_ID present:", !!process.env.GOOGLE_CLIENT_ID);
+console.log("----------------------");
+
 // Better connection management for Serverless
 let cachedDb = null;
 const connectDB = async () => {
-  if (cachedDb) return cachedDb;
+  if (cachedDb && mongoose.connection.readyState === 1) return cachedDb;
+  
   if (!MONGODB_URI) {
-    console.error("CRITICAL: MONGODB_URI is not defined in environment variables.");
-    throw new Error("Database configuration missing (MONGODB_URI)");
+    throw new Error("MONGODB_URI is missing in Vercel environment variables.");
   }
   
-  const db = await mongoose.connect(MONGODB_URI, {
-    serverSelectionTimeoutMS: 5000,
-  });
-  cachedDb = db;
-  return db;
+  console.log("Connecting to MongoDB...");
+  try {
+    const db = await mongoose.connect(MONGODB_URI, {
+      serverSelectionTimeoutMS: 10000, // 10 seconds timeout
+      socketTimeoutMS: 45000,
+    });
+    cachedDb = db;
+    console.log("MongoDB Connected Successfully");
+    return db;
+  } catch (err) {
+    console.error("MongoDB Connection Error:", err.message);
+    throw err;
+  }
 };
 
 const UserSchema = new mongoose.Schema({
@@ -50,7 +65,7 @@ const GradeSchema = new mongoose.Schema({
 const User = mongoose.models.User || mongoose.model('User', UserSchema);
 const Grade = mongoose.models.Grade || mongoose.model('Grade', GradeSchema);
 
-// Configure session store safely
+// Configure session store
 const sessionConfig = {
   secret: process.env.SESSION_SECRET || 'gradersaas-ultra-secret-key-99',
   resave: false,
@@ -65,7 +80,8 @@ const sessionConfig = {
 if (MONGODB_URI) {
   sessionConfig.store = MongoStore.create({ 
     mongoUrl: MONGODB_URI,
-    ttl: 14 * 24 * 60 * 60 
+    ttl: 14 * 24 * 60 * 60,
+    autoRemove: 'native'
   });
 }
 
@@ -73,7 +89,7 @@ app.use(session(sessionConfig));
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Initialize Google Strategy
+// Google Strategy
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   passport.use(new GoogleStrategy({
       clientID: process.env.GOOGLE_CLIENT_ID,
@@ -95,14 +111,21 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
         }
         return done(null, user);
       } catch (err) {
-        console.error("OAuth DB Error:", err.message);
-        return done(err, null);
+        console.error("Critical Error in Strategy Verify:", err.message);
+        return done(err);
       }
     }
   ));
 }
 
-passport.serializeUser((user, done) => done(null, user.id));
+passport.serializeUser((user, done) => {
+  if (user && user.id) {
+    done(null, user.id);
+  } else {
+    done(new Error("Failed to serialize user: ID missing"), null);
+  }
+});
+
 passport.deserializeUser(async (id, done) => {
   try {
     await connectDB();
@@ -110,6 +133,16 @@ passport.deserializeUser(async (id, done) => {
     done(null, user);
   } catch (err) {
     done(err, null);
+  }
+});
+
+// Diagnostic route
+app.get('/api/test-db', async (req, res) => {
+  try {
+    await connectDB();
+    res.json({ status: "success", message: "Database is connected!" });
+  } catch (err) {
+    res.status(500).json({ status: "error", message: err.message });
   }
 });
 
@@ -127,19 +160,33 @@ app.get('/api/auth/me', async (req, res) => {
 });
 
 app.get('/api/auth/google', (req, res, next) => {
-  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
-    return res.status(500).json({ error: "Configuration Error: Google Client ID or Secret is missing in Vercel settings." });
-  }
   passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
 });
 
+// Enhanced Callback with Error Visibility
 app.get('/api/auth/google/callback', (req, res, next) => {
-  passport.authenticate('google', { 
-    failureRedirect: '/login',
-    failureMessage: true 
+  passport.authenticate('google', (err, user, info) => {
+    if (err) {
+      // THIS WILL SHOW YOU THE ACTUAL ERROR IN THE BROWSER
+      return res.status(500).send(`
+        <h1>Login Error</h1>
+        <p>The server encountered an error during the Google login process.</p>
+        <pre style="background: #f4f4f4; padding: 15px; border-radius: 5px; color: red;">${err.message}</pre>
+        <p><strong>Common causes:</strong> 
+          1. MongoDB IP Whitelist (add 0.0.0.0/0 in Atlas). 
+          2. Incorrect MongoDB password in MONGODB_URI.
+        </p>
+        <a href="/">Try Again</a>
+      `);
+    }
+    if (!user) {
+      return res.redirect('/login');
+    }
+    req.logIn(user, (err) => {
+      if (err) return next(err);
+      return res.redirect('/');
+    });
   })(req, res, next);
-}, (req, res) => {
-  res.redirect('/');
 });
 
 app.get('/api/auth/logout', (req, res) => {
