@@ -10,20 +10,25 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const app = express();
-// Vercel handles SSL/Proxy. Trusting proxy ensures the callback protocol is 'https'
 app.set('trust proxy', 1);
 app.use(express.json());
 
 const MONGODB_URI = process.env.MONGODB_URI;
 
+// Better connection management for Serverless
+let cachedDb = null;
 const connectDB = async () => {
-  if (mongoose.connection.readyState >= 1) return;
-  if (!MONGODB_URI) return;
-  try {
-    await mongoose.connect(MONGODB_URI);
-  } catch (err) {
-    console.error("MongoDB Connection Error:", err);
+  if (cachedDb) return cachedDb;
+  if (!MONGODB_URI) {
+    console.error("CRITICAL: MONGODB_URI is not defined in environment variables.");
+    throw new Error("Database configuration missing (MONGODB_URI)");
   }
+  
+  const db = await mongoose.connect(MONGODB_URI, {
+    serverSelectionTimeoutMS: 5000,
+  });
+  cachedDb = db;
+  return db;
 };
 
 const UserSchema = new mongoose.Schema({
@@ -45,22 +50,30 @@ const GradeSchema = new mongoose.Schema({
 const User = mongoose.models.User || mongoose.model('User', UserSchema);
 const Grade = mongoose.models.Grade || mongoose.model('Grade', GradeSchema);
 
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'gradersaas-secret-321',
+// Configure session store safely
+const sessionConfig = {
+  secret: process.env.SESSION_SECRET || 'gradersaas-ultra-secret-key-99',
   resave: false,
   saveUninitialized: false,
-  store: MONGODB_URI ? MongoStore.create({ mongoUrl: MONGODB_URI }) : undefined,
   cookie: { 
-    maxAge: 1000 * 60 * 60 * 24 * 7, // 1 week
+    maxAge: 1000 * 60 * 60 * 24 * 7,
     secure: true, 
     sameSite: 'none'
   }
-}));
+};
 
+if (MONGODB_URI) {
+  sessionConfig.store = MongoStore.create({ 
+    mongoUrl: MONGODB_URI,
+    ttl: 14 * 24 * 60 * 60 
+  });
+}
+
+app.use(session(sessionConfig));
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Initialize Google Strategy ONLY if credentials exist
+// Initialize Google Strategy
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   passport.use(new GoogleStrategy({
       clientID: process.env.GOOGLE_CLIENT_ID,
@@ -82,12 +95,11 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
         }
         return done(null, user);
       } catch (err) {
+        console.error("OAuth DB Error:", err.message);
         return done(err, null);
       }
     }
   ));
-} else {
-  console.error("CRITICAL: GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET is missing from Environment Variables.");
 }
 
 passport.serializeUser((user, done) => done(null, user.id));
@@ -100,11 +112,6 @@ passport.deserializeUser(async (id, done) => {
     done(err, null);
   }
 });
-
-const isAuthenticated = (req, res, next) => {
-  if (req.isAuthenticated()) return next();
-  res.status(401).json({ message: "Login required" });
-};
 
 app.get('/api/auth/me', async (req, res) => {
   if (req.user) {
@@ -120,16 +127,20 @@ app.get('/api/auth/me', async (req, res) => {
 });
 
 app.get('/api/auth/google', (req, res, next) => {
-  if (!process.env.GOOGLE_CLIENT_ID) {
-    return res.status(500).send("Server Configuration Error: Google Client ID missing.");
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    return res.status(500).json({ error: "Configuration Error: Google Client ID or Secret is missing in Vercel settings." });
   }
   passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
 });
 
-app.get('/api/auth/google/callback', 
-  passport.authenticate('google', { failureRedirect: '/login' }),
-  (req, res) => res.redirect('/')
-);
+app.get('/api/auth/google/callback', (req, res, next) => {
+  passport.authenticate('google', { 
+    failureRedirect: '/login',
+    failureMessage: true 
+  })(req, res, next);
+}, (req, res) => {
+  res.redirect('/');
+});
 
 app.get('/api/auth/logout', (req, res) => {
   req.logout((err) => {
@@ -137,27 +148,14 @@ app.get('/api/auth/logout', (req, res) => {
   });
 });
 
-app.post('/api/chat', isAuthenticated, async (req, res) => {
-  try {
-    const { message, history } = req.body;
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: [...history, { role: 'user', parts: [{ text: message }] }],
-    });
-    res.json({ text: response.text });
-  } catch (err) {
-    res.status(500).json({ text: "I'm having trouble thinking right now." });
-  }
-});
-
-app.post('/api/evaluate', isAuthenticated, async (req, res) => {
+app.post('/api/evaluate', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ message: "Login required" });
   try {
     const { question, rubric, studentCode } = req.body;
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview', 
-      contents: `Grade this code. Rubric: ${rubric}. Question: ${question}. Student: ${studentCode}. Feedback in Hebrew. Output JSON ONLY: {"score": number, "feedback": "string"}`,
+      contents: `Grade this code. Rubric: ${rubric}. Question: ${question}. Student: ${studentCode}. Feedback in Hebrew. Output JSON: {"score": number, "feedback": "string"}`,
       config: { responseMimeType: "application/json" }
     });
     res.json(JSON.parse(response.text));
@@ -166,7 +164,8 @@ app.post('/api/evaluate', isAuthenticated, async (req, res) => {
   }
 });
 
-app.post('/api/grades/save', isAuthenticated, async (req, res) => {
+app.post('/api/grades/save', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ message: "Login required" });
   try {
     await connectDB();
     const { exerciseId, studentId, score, feedback } = req.body;
@@ -181,7 +180,8 @@ app.post('/api/grades/save', isAuthenticated, async (req, res) => {
   }
 });
 
-app.get('/api/grades', isAuthenticated, async (req, res) => {
+app.get('/api/grades', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ message: "Login required" });
   try {
     await connectDB();
     const grades = await Grade.find({ userId: req.user.googleId });
