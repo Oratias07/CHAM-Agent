@@ -77,11 +77,19 @@ const Grade = mongoose.models.Grade || mongoose.model('Grade', GradeSchema);
 const uriResult = getSafeUri();
 const sessionConfig = {
   secret: process.env.SESSION_SECRET || 'st-system-secret-9922',
-  resave: false, saveUninitialized: false,
-  cookie: { maxAge: 1000 * 60 * 60 * 24 * 7, secure: true, sameSite: 'none' }
+  resave: false, 
+  saveUninitialized: false,
+  cookie: { 
+    maxAge: 1000 * 60 * 60 * 2, // 2 HOURS SESSION LIMIT
+    secure: true, 
+    sameSite: 'none' 
+  }
 };
 if (typeof uriResult === 'string') {
-  sessionConfig.store = MongoStore.create({ mongoUrl: uriResult, ttl: 14 * 24 * 60 * 60 });
+  sessionConfig.store = MongoStore.create({ 
+    mongoUrl: uriResult, 
+    ttl: 60 * 60 * 2 // Match session store TTL to 2 hours
+  });
 }
 app.use(session(sessionConfig));
 app.use(passport.initialize());
@@ -154,7 +162,7 @@ router.post('/evaluate', async (req, res) => {
   const apiKey = process.env.API_KEY;
   if (!apiKey) {
     return res.status(500).json({ 
-      message: "API_KEY is missing! Go to Vercel -> Settings -> Environment Variables and add 'API_KEY' with your Gemini key." 
+      message: "API_KEY is missing! Go to Vercel -> Settings -> Environment Variables and add 'API_KEY'." 
     });
   }
 
@@ -162,8 +170,9 @@ router.post('/evaluate', async (req, res) => {
     const { question, rubric, studentCode, masterSolution, customInstructions } = req.body;
     
     const ai = new GoogleGenAI({ apiKey });
+    // Switched to 'gemini-3-flash-preview' for better stability and free-tier compatibility
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview', 
+      model: 'gemini-3-flash-preview', 
       contents: `Grade this code. 
       Question: ${question}
       Master Solution: ${masterSolution}
@@ -177,7 +186,7 @@ router.post('/evaluate', async (req, res) => {
     });
 
     if (!response.text) {
-      throw new Error("Empty response from AI");
+      throw new Error("AI returned empty text. This might be a safety filter block.");
     }
 
     res.json(JSON.parse(response.text));
@@ -185,11 +194,19 @@ router.post('/evaluate', async (req, res) => {
     console.error("AI Error Detail:", err);
     let userMessage = "AI Evaluation failed";
     
-    if (err.message.includes("429")) userMessage = "Quota Exceeded: Too many requests. Try again in a minute.";
-    if (err.message.includes("403")) userMessage = "Invalid API Key: The key in Vercel is incorrect.";
-    if (err.message.includes("400")) userMessage = "Bad Request: Check if the model 'gemini-3-pro-preview' is available for your key.";
+    // Improved specific error messaging
+    if (err.message.includes("429")) {
+      userMessage = "Quota Exceeded: Too many requests. Wait 60 seconds.";
+    } else if (err.message.includes("403")) {
+      userMessage = "Invalid API Key: Access denied.";
+    } else if (err.message.includes("400")) {
+      userMessage = "Bad Request: Check your inputs or API key permissions.";
+    } else {
+      // Return the specific technical error if it's not a standard one
+      userMessage = `AI Error: ${err.message}`;
+    }
     
-    res.status(500).json({ message: userMessage, details: err.message });
+    res.status(500).json({ message: userMessage });
   }
 });
 
