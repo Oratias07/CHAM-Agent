@@ -3,20 +3,19 @@ import InputSection from './components/InputSection';
 import ResultSection from './components/ResultSection';
 import GradeBook from './components/GradeBook';
 import ChatBot from './components/ChatBot';
-import { evaluateSubmission } from './services/geminiService';
-import { GradingInputs, GradingResult, TabOption, GradeBookState, Exercise } from './types';
+import Login from './components/Login';
+import { apiService } from './services/apiService';
+import { GradingInputs, GradingResult, TabOption, GradeBookState, Exercise, User } from './types';
 import { 
-  DEFAULT_QUESTION, 
-  DEFAULT_SOLUTION, 
-  DEFAULT_RUBRIC, 
   DEFAULT_STUDENT_CODE,
-  DEFAULT_CUSTOM_INSTRUCTIONS,
-  INITIAL_GRADEBOOK_STATE
+  INITIAL_GRADEBOOK_STATE,
+  GOOGLE_CLIENT_ID
 } from './constants';
 
 type ViewMode = 'SINGLE' | 'SHEETS';
 
 const App: React.FC = () => {
+  const [user, setUser] = useState<User | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('SINGLE');
   const [activeTab, setActiveTab] = useState<TabOption>(TabOption.STUDENT_CODE);
   const [isEvaluating, setIsEvaluating] = useState(false);
@@ -29,11 +28,35 @@ const App: React.FC = () => {
   );
   
   const [activeExerciseId, setActiveExerciseId] = useState<string>(INITIAL_GRADEBOOK_STATE.exercises[0].id);
-
-  // Buffer for the student code (which is per-student, not per-exercise globally)
   const [studentCode, setStudentCode] = useState(DEFAULT_STUDENT_CODE);
 
-  // Sync inputs with the active exercise
+  // SaaS SYNC: Load user and their data on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const currentUser = await apiService.getCurrentUser();
+        if (currentUser) {
+          setUser(currentUser);
+          const history = await apiService.getGradebook();
+          if (history) setGradeBookState(history);
+        }
+      } catch (e) {
+        console.error("Session check failed", e);
+      }
+    };
+    checkAuth();
+  }, []);
+
+  const handleLogin = () => {
+    // Redirect to the backend OAuth route
+    // This is the "True SaaS" way to handle secrets
+    window.location.href = "/api/auth/google";
+  };
+
+  const handleLogout = () => {
+    window.location.href = "/api/auth/logout";
+  };
+
   const currentExercise = gradeBookState.exercises.find(ex => ex.id === activeExerciseId) || gradeBookState.exercises[0];
 
   const handleUpdateExerciseData = (field: keyof Exercise, value: any) => {
@@ -46,6 +69,8 @@ const App: React.FC = () => {
   };
 
   const handleEvaluate = async () => {
+    if (!user) return;
+    
     setIsEvaluating(true);
     setError(null);
     setResult(null);
@@ -59,14 +84,17 @@ const App: React.FC = () => {
     };
 
     try {
-      const evaluation = await evaluateSubmission(inputs);
+      const evaluation = await apiService.evaluate(inputs);
       setResult(evaluation);
 
       if (selectedStudentId) {
+        // Update Local State
         handleUpdateEntry(activeExerciseId, selectedStudentId, 'score', evaluation.score);
         handleUpdateEntry(activeExerciseId, selectedStudentId, 'feedback', evaluation.feedback);
 
-        // AUTOMATICALLY clear student code after evaluation
+        // PERSIST TO MONGODB (SaaS Logic)
+        await apiService.saveGrade(activeExerciseId, selectedStudentId, evaluation);
+
         setStudentCode('');
 
         const currentIndex = gradeBookState.students.findIndex(s => s.id === selectedStudentId);
@@ -77,7 +105,7 @@ const App: React.FC = () => {
       }
 
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred during evaluation.');
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred.');
     } finally {
       setIsEvaluating(false);
     }
@@ -88,7 +116,6 @@ const App: React.FC = () => {
       ...prev,
       exercises: prev.exercises.map(ex => {
         if (ex.id !== exerciseId) return ex;
-        
         const currentEntry = ex.entries[studentId] || { score: 0, feedback: '' };
         return {
           ...ex,
@@ -102,7 +129,7 @@ const App: React.FC = () => {
   };
 
   const handleReset = () => {
-    if (window.confirm("⚠️ Are you sure you want to restart? This will clear all data.")) {
+    if (window.confirm("⚠️ Clear current session data?")) {
       setGradeBookState(INITIAL_GRADEBOOK_STATE);
       setStudentCode(DEFAULT_STUDENT_CODE);
       setResult(null);
@@ -130,8 +157,6 @@ const App: React.FC = () => {
   const handleAddExercise = () => {
     const nextNum = gradeBookState.exercises.length + 1;
     const newId = `ex-${nextNum}-${Date.now()}`;
-    
-    // Default to the previous rubric and instructions as a convenience, or clean if desired
     const lastEx = gradeBookState.exercises[gradeBookState.exercises.length - 1];
 
     const newExercise: Exercise = {
@@ -141,8 +166,8 @@ const App: React.FC = () => {
       entries: {},
       question: '',
       masterSolution: '',
-      rubric: lastEx ? lastEx.rubric : DEFAULT_RUBRIC, // Carry over rubric by default
-      customInstructions: lastEx ? lastEx.customInstructions : DEFAULT_CUSTOM_INSTRUCTIONS
+      rubric: lastEx ? lastEx.rubric : '',
+      customInstructions: lastEx ? lastEx.customInstructions : ''
     };
 
     setGradeBookState(prev => ({
@@ -165,14 +190,15 @@ const App: React.FC = () => {
         ...prev,
         students: [
           ...prev.students,
-          {
-            id: `student-${nextNum}-${Date.now()}`,
-            name: `Student ${nextNum}`
-          }
+          { id: `student-${nextNum}-${Date.now()}`, name: `Student ${nextNum}` }
         ]
       }
     });
   };
+
+  if (!user) {
+    return <Login onLogin={handleLogin} />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans text-slate-900">
@@ -183,7 +209,7 @@ const App: React.FC = () => {
               AI
             </div>
             <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 hidden sm:block">
-              CodeGrader Agent
+              CodeGrader SaaS
             </h1>
           </div>
           
@@ -193,28 +219,27 @@ const App: React.FC = () => {
                   onClick={() => setViewMode('SINGLE')}
                   className={`px-3 sm:px-4 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'SINGLE' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                 >
-                  Single Grader
+                  Grader
                 </button>
                 <button 
                   onClick={() => setViewMode('SHEETS')}
                   className={`px-3 sm:px-4 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'SHEETS' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                 >
-                  Sheets View
+                  Sheets
                 </button>
              </div>
              
-             <button 
-               onClick={handleReset}
-               className="text-gray-400 hover:text-red-500 transition-colors p-2 rounded-full hover:bg-red-50"
-               title="Restart System"
-             >
-               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-               </svg>
-             </button>
-
-             <div className="text-sm text-gray-500 hidden md:block pl-4 border-l border-gray-200">
-                Powered by Gemini 3 Flash
+             <div className="flex items-center space-x-2 pl-4 border-l border-gray-200">
+                <div className="text-right hidden sm:block">
+                  <div className="text-xs font-bold text-gray-900">{user.name}</div>
+                  <div className="text-[10px] text-gray-500">{user.email}</div>
+                </div>
+                <button onClick={handleLogout} className="group relative">
+                  <img src={user.picture} className="w-8 h-8 rounded-full border-2 border-indigo-100 group-hover:border-red-200 transition-all" alt="Avatar" />
+                  <div className="absolute inset-0 bg-red-500/80 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px] font-bold transition-opacity">
+                    EXIT
+                  </div>
+                </button>
              </div>
           </div>
         </div>

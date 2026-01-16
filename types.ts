@@ -1,3 +1,10 @@
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  picture?: string;
+}
+
 export interface GradingResult {
   score: number;
   feedback: string;
@@ -19,8 +26,6 @@ export enum TabOption {
   CUSTOM = 'CUSTOM'
 }
 
-// GradeBook Types
-
 export interface Student {
   id: string;
   name: string;
@@ -36,7 +41,6 @@ export interface Exercise {
   name: string;
   maxScore: number;
   entries: { [studentId: string]: GradeEntry };
-  // Context preserved per exercise
   question: string;
   masterSolution: string;
   rubric: string;

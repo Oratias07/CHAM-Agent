@@ -1,23 +1,14 @@
 import { GradeBookState } from "./types";
 
+// PROD NOTE: Updated with your provided Client ID
+export const GOOGLE_CLIENT_ID = "990002507324-plr6eu66n22qc21d0uff5note7lkkkl0.apps.googleusercontent.com";
+
 export const DEFAULT_QUESTION = ``;
-
 export const DEFAULT_SOLUTION = ``;
-
 export const DEFAULT_RUBRIC = ``;
-
 export const DEFAULT_STUDENT_CODE = ``;
-
 export const DEFAULT_CUSTOM_INSTRUCTIONS = ``;
 
-/**
- * PROMPT ENGINEERING EXPLANATION:
- * 1. Persona: "Senior C Programming Instructor" - sets the tone and expertise.
- * 2. Context: "Beginner level (Magshimim)" - ensures feedback isn't too advanced.
- * 3. Delimiters: Using [HEADERS] and {VARIABLES} prevents instruction mixing.
- * 4. Constraint Enforcement: Strict rules on sentence count and character usage.
- * 5. Logical Priority: Explicitly mentions "Buffer Cleaning" as a non-negotiable check.
- */
 export const AGENT_SYSTEM_PROMPT_TEMPLATE = `[ROLE]
 You are a Senior C Programming Instructor and Automated Evaluation Agent. Your tone is professional, direct, and pedagogically focused.
 
