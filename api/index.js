@@ -10,6 +10,8 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const app = express();
+// CRITICAL: Vercel uses a proxy. Without this, Google OAuth might receive 'http' instead of 'https'
+app.set('trust proxy', 1);
 app.use(express.json());
 
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -46,7 +48,7 @@ app.use(session({
   store: MONGODB_URI ? MongoStore.create({ mongoUrl: MONGODB_URI }) : undefined,
   cookie: { 
     maxAge: 1000 * 60 * 60 * 24 * 7,
-    secure: process.env.NODE_ENV === 'production',
+    secure: true, // Since we are on Vercel/HTTPS
     sameSite: 'lax'
   }
 }));
@@ -59,7 +61,7 @@ if (process.env.GOOGLE_CLIENT_ID) {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       callbackURL: "/api/auth/google/callback",
-      proxy: true
+      proxy: true // Tells Passport to trust the headers from Vercel
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
@@ -121,7 +123,6 @@ app.get('/api/auth/logout', (req, res) => {
   req.logout(() => res.redirect('/'));
 });
 
-// CHAT ASSISTANT PROXY
 app.post('/api/chat', isAuthenticated, async (req, res) => {
   try {
     const { message, history } = req.body;
@@ -132,7 +133,7 @@ app.post('/api/chat', isAuthenticated, async (req, res) => {
     });
     res.json({ text: response.text });
   } catch (err) {
-    res.status(500).json({ text: "I'm having trouble thinking right now. Please try again later." });
+    res.status(500).json({ text: "I'm having trouble thinking right now." });
   }
 });
 
@@ -142,7 +143,7 @@ app.post('/api/evaluate', isAuthenticated, async (req, res) => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview', 
-      contents: `Grade this code. Rubric: ${rubric}. Question: ${question}. Student: ${studentCode}. Feedback in Hebrew. Output ONLY valid JSON: {"score": number, "feedback": "string"}`,
+      contents: `Grade this code. Rubric: ${rubric}. Question: ${question}. Student: ${studentCode}. Feedback in Hebrew. Output JSON: {"score": number, "feedback": "string"}`,
       config: { responseMimeType: "application/json" }
     });
     res.json(JSON.parse(response.text));

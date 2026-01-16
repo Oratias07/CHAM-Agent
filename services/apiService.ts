@@ -1,6 +1,5 @@
-import { User, GradeBookState, GradingResult, GradingInputs } from "../types";
-
-const BASE_URL = ""; // Empty string allows the browser to use relative paths (works for both local and prod)
+import { User, GradeBookState, GradingResult, GradingInputs, Exercise } from "../types";
+import { INITIAL_GRADEBOOK_STATE } from "../constants";
 
 export const apiService = {
   async getCurrentUser(): Promise<User | null> {
@@ -13,26 +12,70 @@ export const apiService = {
     }
   },
 
+  /**
+   * Fetches saved grades and reconstructs the GradeBookState
+   */
   async getGradebook(): Promise<GradeBookState | null> {
     try {
       const res = await fetch(`/api/grades`);
       if (!res.ok) return null;
-      const data = await res.json();
+      const dbGrades = await res.json();
       
-      // In a real SaaS, you'd map the flat MongoDB list back into the GradeBookState structure.
-      // For now, we return null to trigger local initial state if DB is empty.
-      return null; 
+      if (!dbGrades || dbGrades.length === 0) return null;
+
+      // Reconstruct the nested state from the flat MongoDB array
+      const state: GradeBookState = {
+        students: [...INITIAL_GRADEBOOK_STATE.students],
+        exercises: [...INITIAL_GRADEBOOK_STATE.exercises]
+      };
+
+      dbGrades.forEach((g: any) => {
+        let exercise = state.exercises.find(ex => ex.id === g.exerciseId);
+        
+        // If the exercise doesn't exist in our current state, we need to add it
+        if (!exercise) {
+          exercise = {
+            id: g.exerciseId,
+            name: `Restored ${g.exerciseId}`,
+            maxScore: 10,
+            entries: {},
+            question: '',
+            masterSolution: '',
+            rubric: '',
+            customInstructions: ''
+          };
+          state.exercises.push(exercise);
+        }
+
+        // Add the grade entry
+        exercise.entries[g.studentId] = {
+          score: g.score,
+          feedback: g.feedback
+        };
+
+        // Also ensure the student exists in the students list
+        if (!state.students.find(s => s.id === g.studentId)) {
+          state.students.push({ id: g.studentId, name: `Student ${g.studentId}` });
+        }
+      });
+
+      return state;
     } catch (e) {
+      console.error("Error loading gradebook", e);
       return null;
     }
   },
 
   async saveGrade(exerciseId: string, studentId: string, result: GradingResult): Promise<void> {
-    await fetch(`/api/grades/save`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ exerciseId, studentId, ...result })
-    });
+    try {
+      await fetch(`/api/grades/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ exerciseId, studentId, ...result })
+      });
+    } catch (e) {
+      console.error("Failed to save grade", e);
+    }
   },
 
   async evaluate(inputs: GradingInputs): Promise<GradingResult> {
