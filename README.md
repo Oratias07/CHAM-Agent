@@ -1,107 +1,47 @@
-# 🤖 AI Code Grader
+# 🤖 AI Code Grader Enterprise (v1.2.0)
 
-![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.2.0-indigo.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
-![React](https://img.shields.io/badge/react-19.0-blue)
-![Gemini](https://img.shields.io/badge/AI-Gemini%203%20Pro-purple)
+![Platform](https://img.shields.io/badge/Platform-Vercel-black)
+![Database](https://img.shields.io/badge/Database-MongoDB%20Atlas-emerald)
+![AI](https://img.shields.io/badge/AI-Gemini%203%20Flash-blue)
 
-> **An automated evaluation tool for student code submissions, providing scores and professional feedback in Hebrew using Google's Gemini 3 Pro model with advanced reasoning.**
-
----
-
-## 📸 Application Preview
-
-| **Setup & Configuration** | **Evaluation & Feedback** |
-|:---:|:---:|
-| <img src="screenshots\Screenshot 2025-12-15 164505.png" alt="Setup Screen" width="400"/> | <img src="./screenshots/result.png" alt="Evaluation Result" width="400"/> |
-| *Define Question, Solution, and Rubric* | *Receive Instant AI Score & Feedback* |
-
-| **Class Gradebook** | **Example: C Programming** |
-|:---:|:---:|
-| <img src="./screenshots/gradebook.png" alt="Gradebook View" width="400"/> | <img src="./screenshots/c_example.png" alt="C Code Example" width="400"/> |
-| *Track progress and export to Excel* | *Detects logical errors (e.g., duplicated logic)* |
+> **A professional-grade SaaS platform for automated code evaluation. Empowering educators with high-precision grading, Hebrew-localized feedback, and real-time class management.**
 
 ---
 
-## 📖 Table of Contents
-- [About the Project](#-about-the-project)
-- [Key Features](#-key-features)
-- [How to Use](#-how-to-use)
-- [Deployment (Free)](#-deployment-free)
-- [FAQ](#-faq)
+## 🏗️ Technical Architecture
 
----
+This application is built as a **Full-Stack SaaS** using a decoupled architecture optimized for scalability and security:
 
-## 🧐 About the Project
-
-The **AI Code Grader** is designed to streamline the grading process for programming instructors. Instead of manually debugging every line of student code, this tool uses advanced AI to analyze submissions against a master solution and a defined rubric.
-
-It generates a **numerical score (0-10)** and detailed, constructive **feedback in Hebrew**, allowing teachers to focus on teaching rather than grading mechanics.
+*   **Frontend**: React 19 (Vite) with Tailwind CSS for a high-performance, responsive UI.
+*   **Backend**: Node.js / Express.js deployed as **Vercel Serverless Functions**.
+*   **Persistence**: MongoDB Atlas (Cloud) for user data and grade book history.
+*   **Intelligence**: Google Gemini API (`gemini-3-flash-preview`) for sub-second code analysis.
+*   **Security**: 
+    *   **OAuth 2.0**: Google Identity Services for secure teacher authentication.
+    *   **Session Management**: Encrypted sessions stored in MongoDB with a **strict 2-hour sliding expiration policy**.
+    *   **Environment Isolation**: Sensitive keys (API_KEY, Client Secrets) are stored exclusively in Vercel's encrypted environment layer.
 
 ---
 
 ## ✨ Key Features
 
-*   **🤖 Advanced AI Reasoning**: Uses **Gemini 3 Pro** with Thinking Mode to deeply analyze code logic, syntax, and style.
-*   **💬 AI Chat Assistant**: Integrated chatbot to answer questions about grading or code.
-*   **🇮🇱 Hebrew Feedback**: Generates professional, culturally appropriate feedback automatically.
-*   **⚡ Rapid Grading Workflow**: Auto-saves results and immediately advances to the next student.
-*   **📊 Integrated Gradebook**: A "Sheets-like" view to manage the entire class progress.
-*   **💾 Smart Export**: Download grades to CSV with full Hebrew support (Excel/Google Sheets compatible).
-*   **📝 Customizable Rubrics**: Define exactly how you want the AI to grade.
+*   **⚡ Ultra-Low Latency Grading**: Optimized prompt engineering using the Gemini 3 Flash model for near-instant results.
+*   **📊 Dynamic Gradebook (Sheets View)**: A collaborative-style grid for managing entire classrooms, featuring real-time editing and auto-save.
+*   **🇮🇱 Hebrew Feedback Engine**: Proprietary system instructions ensuring professional, pedagogically sound feedback in Hebrew.
+*   **📥 Smart Export**: Advanced CSV generation with BOM encoding for seamless integration with Microsoft Excel and Google Sheets.
+*   **⚙️ Custom Constraints**: Ability to define forbidden logic (e.g., "No 'break' statements") which the AI enforces during evaluation.
+*   **🤖 Integrated AI Assistant**: A real-time chat bot to help instructors refine rubrics or debug complex student submissions.
 
 ---
 
-## 🚀 How to Use
-
-Follow this step-by-step guide to grade your class efficiently.
-
-## link for website: https://stsystem.vercel.app/
-
-### Step 1: Define the Assessment
-In the **Single Grader** view, fill out the first three tabs on the left panel. This provides the context for the AI.
-1.  **Question**: Paste the assignment description.
-2.  **Master Solution**: Provide the correct code implementation.
-3.  **Rubric**: Define the scoring criteria.
-
-### Step 2: Select a Student & Paste Code
-1.  Select a student from the dropdown menu at the top.
-2.  Switch to the **Student Code** tab.
-3.  Paste the student's submission.
-
-### Step 3: Evaluate
-Click the **✨ Evaluate & Save** button.
-The system will:
-*   Send the code to the AI.
-*   Generate a score and feedback.
-*   **Auto-save** the result to the Gradebook.
-*   **Auto-advance** to the next student in the list.
-
-### Step 4: Class Management (Sheets View)
-Switch to **Sheets View** to see the big picture.
-*   **Rename Students**: Click on any name to edit it.
-*   **Edit Grades**: Manually override scores or feedback if needed.
-*   **Add Exercises**: Click "Complete & Start Next Exercise" when finished with the current one.
-
-### Step 5: Export Data
-Click the green **Download CSV** button in the Gradebook header.
-*   The file uses a special encoding (BOM) to ensure Hebrew text appears correctly in Excel.
-
----
-
-## ❓ FAQ
-
-**Q: How do I open the CSV in Google Sheets?**
-A: Open Google Sheets → File → Import → Upload. The file is formatted to work perfectly with Hebrew text.
-
-**Q: Can I grade Python/Java/C++?**
-A: Yes! The AI understands almost all major programming languages. Just paste the code.
-
-**Q: Where is the data saved?**
-A: Currently, data is held in your browser's memory. If you refresh the page, data resets (unless you are using the persistence version). **Always download your CSV before closing the tab!**
+## 🚀 Documentation Links
+- [User Guide](./USER_GUIDE.md) - How to use the platform.
+- [Architecture Details](./ARCHITECTURE.md) - Deep dive into DevOps and Flow.
 
 ---
 
 <div align="center">
-  <sub>Built with ❤️ by the AI Code Grader Team</sub>
+  <sub>Built with Excellence for Educators by the AI Code Grader Team</sub>
 </div>
