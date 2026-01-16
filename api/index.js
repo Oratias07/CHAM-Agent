@@ -92,6 +92,11 @@ passport.deserializeUser(async (id, done) => {
   }
 });
 
+const isAuthenticated = (req, res, next) => {
+  if (req.isAuthenticated()) return next();
+  res.status(401).json({ message: "Login required" });
+};
+
 app.get('/api/auth/me', async (req, res) => {
   if (req.user) {
     res.json({
@@ -116,14 +121,28 @@ app.get('/api/auth/logout', (req, res) => {
   req.logout(() => res.redirect('/'));
 });
 
-app.post('/api/evaluate', async (req, res) => {
-  if (!req.isAuthenticated()) return res.status(401).json({ message: "Login required" });
+// CHAT ASSISTANT PROXY
+app.post('/api/chat', isAuthenticated, async (req, res) => {
+  try {
+    const { message, history } = req.body;
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: [...history, { role: 'user', parts: [{ text: message }] }],
+    });
+    res.json({ text: response.text });
+  } catch (err) {
+    res.status(500).json({ text: "I'm having trouble thinking right now. Please try again later." });
+  }
+});
+
+app.post('/api/evaluate', isAuthenticated, async (req, res) => {
   try {
     const { question, rubric, studentCode } = req.body;
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview', 
-      contents: `Grade this code. Rubric: ${rubric}. Question: ${question}. Student: ${studentCode}. Feedback in Hebrew. Output JSON: {"score": number, "feedback": "string"}`,
+      contents: `Grade this code. Rubric: ${rubric}. Question: ${question}. Student: ${studentCode}. Feedback in Hebrew. Output ONLY valid JSON: {"score": number, "feedback": "string"}`,
       config: { responseMimeType: "application/json" }
     });
     res.json(JSON.parse(response.text));
@@ -132,23 +151,29 @@ app.post('/api/evaluate', async (req, res) => {
   }
 });
 
-app.post('/api/grades/save', async (req, res) => {
-  if (!req.isAuthenticated()) return res.status(401).json({ message: "Login required" });
-  await connectDB();
-  const { exerciseId, studentId, score, feedback } = req.body;
-  await Grade.findOneAndUpdate(
-    { userId: req.user.googleId, exerciseId, studentId },
-    { score, feedback, timestamp: Date.now() },
-    { upsert: true }
-  );
-  res.json({ success: true });
+app.post('/api/grades/save', isAuthenticated, async (req, res) => {
+  try {
+    await connectDB();
+    const { exerciseId, studentId, score, feedback } = req.body;
+    await Grade.findOneAndUpdate(
+      { userId: req.user.googleId, exerciseId, studentId },
+      { score, feedback, timestamp: Date.now() },
+      { upsert: true }
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false });
+  }
 });
 
-app.get('/api/grades', async (req, res) => {
-  if (!req.isAuthenticated()) return res.status(401).json({ message: "Login required" });
-  await connectDB();
-  const grades = await Grade.find({ userId: req.user.googleId });
-  res.json(grades);
+app.get('/api/grades', isAuthenticated, async (req, res) => {
+  try {
+    await connectDB();
+    const grades = await Grade.find({ userId: req.user.googleId });
+    res.json(grades);
+  } catch (err) {
+    res.status(500).json([]);
+  }
 });
 
 export default app;
