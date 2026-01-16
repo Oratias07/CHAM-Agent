@@ -6,10 +6,10 @@ import ChatBot from './components/ChatBot';
 import Login from './components/Login';
 import { apiService } from './services/apiService';
 import { GradingInputs, GradingResult, TabOption, GradeBookState, Exercise, User } from './types';
+// Fixed: Removed GOOGLE_CLIENT_ID from import as it is not exported from constants.ts and not used in App.tsx
 import { 
   DEFAULT_STUDENT_CODE,
-  INITIAL_GRADEBOOK_STATE,
-  GOOGLE_CLIENT_ID
+  INITIAL_GRADEBOOK_STATE
 } from './constants';
 
 type ViewMode = 'SINGLE' | 'SHEETS';

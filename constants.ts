@@ -1,8 +1,5 @@
 import { GradeBookState } from "./types";
 
-// PROD NOTE: Updated with your provided Client ID
-export const GOOGLE_CLIENT_ID = "990002507324-plr6eu66n22qc21d0uff5note7lkkkl0.apps.googleusercontent.com";
-
 export const DEFAULT_QUESTION = ``;
 export const DEFAULT_SOLUTION = ``;
 export const DEFAULT_RUBRIC = ``;

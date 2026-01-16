@@ -10,7 +10,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const app = express();
-// CRITICAL: Vercel uses a proxy. Without this, Google OAuth might receive 'http' instead of 'https'
+// Vercel handles SSL/Proxy. Trusting proxy ensures the callback protocol is 'https'
 app.set('trust proxy', 1);
 app.use(express.json());
 
@@ -19,7 +19,11 @@ const MONGODB_URI = process.env.MONGODB_URI;
 const connectDB = async () => {
   if (mongoose.connection.readyState >= 1) return;
   if (!MONGODB_URI) return;
-  return mongoose.connect(MONGODB_URI);
+  try {
+    await mongoose.connect(MONGODB_URI);
+  } catch (err) {
+    console.error("MongoDB Connection Error:", err);
+  }
 };
 
 const UserSchema = new mongoose.Schema({
@@ -42,26 +46,27 @@ const User = mongoose.models.User || mongoose.model('User', UserSchema);
 const Grade = mongoose.models.Grade || mongoose.model('Grade', GradeSchema);
 
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'gradersaas-secret',
+  secret: process.env.SESSION_SECRET || 'gradersaas-secret-321',
   resave: false,
   saveUninitialized: false,
   store: MONGODB_URI ? MongoStore.create({ mongoUrl: MONGODB_URI }) : undefined,
   cookie: { 
-    maxAge: 1000 * 60 * 60 * 24 * 7,
-    secure: true, // Since we are on Vercel/HTTPS
-    sameSite: 'lax'
+    maxAge: 1000 * 60 * 60 * 24 * 7, // 1 week
+    secure: true, 
+    sameSite: 'none'
   }
 }));
 
 app.use(passport.initialize());
 app.use(passport.session());
 
-if (process.env.GOOGLE_CLIENT_ID) {
+// Initialize Google Strategy ONLY if credentials exist
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   passport.use(new GoogleStrategy({
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       callbackURL: "/api/auth/google/callback",
-      proxy: true // Tells Passport to trust the headers from Vercel
+      proxy: true 
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
@@ -81,6 +86,8 @@ if (process.env.GOOGLE_CLIENT_ID) {
       }
     }
   ));
+} else {
+  console.error("CRITICAL: GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET is missing from Environment Variables.");
 }
 
 passport.serializeUser((user, done) => done(null, user.id));
@@ -112,7 +119,12 @@ app.get('/api/auth/me', async (req, res) => {
   }
 });
 
-app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+app.get('/api/auth/google', (req, res, next) => {
+  if (!process.env.GOOGLE_CLIENT_ID) {
+    return res.status(500).send("Server Configuration Error: Google Client ID missing.");
+  }
+  passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
+});
 
 app.get('/api/auth/google/callback', 
   passport.authenticate('google', { failureRedirect: '/login' }),
@@ -120,7 +132,9 @@ app.get('/api/auth/google/callback',
 );
 
 app.get('/api/auth/logout', (req, res) => {
-  req.logout(() => res.redirect('/'));
+  req.logout((err) => {
+    res.redirect('/');
+  });
 });
 
 app.post('/api/chat', isAuthenticated, async (req, res) => {
@@ -143,7 +157,7 @@ app.post('/api/evaluate', isAuthenticated, async (req, res) => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview', 
-      contents: `Grade this code. Rubric: ${rubric}. Question: ${question}. Student: ${studentCode}. Feedback in Hebrew. Output JSON: {"score": number, "feedback": "string"}`,
+      contents: `Grade this code. Rubric: ${rubric}. Question: ${question}. Student: ${studentCode}. Feedback in Hebrew. Output JSON ONLY: {"score": number, "feedback": "string"}`,
       config: { responseMimeType: "application/json" }
     });
     res.json(JSON.parse(response.text));
