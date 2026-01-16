@@ -6,7 +6,12 @@
 ![Database](https://img.shields.io/badge/Database-MongoDB%20Atlas-emerald)
 ![AI](https://img.shields.io/badge/AI-Gemini%203%20Flash-blue)
 
-> **A professional-grade SaaS platform for automated code evaluation. Empowering educators with high-precision grading, Hebrew-localized feedback, and real-time class management.**
+<div align="center">
+  <img src="screenshots/hero.png" alt="AI Code Grader Hero" width="800" style="border-radius: 10px; margin: 20px 0; border: 1px solid #e2e8f0 shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
+  <p><em>The ultimate professional-grade SaaS platform for automated code evaluation.</em></p>
+</div>
+
+> **Empowering educators with high-precision grading, Hebrew-localized feedback, and real-time class management.**
 
 ---
 

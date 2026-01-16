@@ -8,6 +8,10 @@ This document provides a technical deep-dive into the AI Code Grader infrastruct
 
 The application utilizes a **Decoupled Full-Stack Architecture**:
 
+<div align="center">
+  <img src="screenshots/system_overview.png" alt="System Overview Diagram" width="700" style="border-radius: 10px; border: 1px solid #eee; margin: 20px 0;">
+</div>
+
 *   **Frontend Layer**: A specialized Single Page Application (SPA) built with **React 19** and **Vite**. It handles state management for the grading session and provides a real-time "Sheets" view for class management.
 *   **API Layer (Backend)**: An **Express.js** engine deployed as **Vercel Serverless Functions**. This layer acts as a secure gateway, managing authentication, database transactions, and AI orchestration.
 *   **Persistence Layer**: A distributed **MongoDB Atlas** cluster storing teacher profiles, encrypted session tokens, and the student gradebook.
