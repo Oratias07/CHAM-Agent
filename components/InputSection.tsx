@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
 import { TabOption, Student, Exercise } from '../types';
 
 interface InputSectionProps {
@@ -38,6 +38,56 @@ const InputSection: React.FC<InputSectionProps> = ({
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   
+  // Undo/Redo Logic for Student Code
+  const [codeHistory, setCodeHistory] = useState<string[]>([studentCode]);
+  const [historyIndex, setHistoryIndex] = useState(0);
+  const isUpdatingHistory = useRef(false);
+
+  // Sync initial student code into history if it changes from outside (e.g. student switch)
+  useEffect(() => {
+    if (!isUpdatingHistory.current) {
+      setCodeHistory([studentCode]);
+      setHistoryIndex(0);
+    }
+  }, [selectedStudentId, activeExercise.id]);
+
+  const handleCodeChange = (newCode: string) => {
+    setStudentCode(newCode);
+    
+    // Push to local history
+    isUpdatingHistory.current = true;
+    const newHistory = codeHistory.slice(0, historyIndex + 1);
+    newHistory.push(newCode);
+    // Limit history to 50 items
+    if (newHistory.length > 50) newHistory.shift();
+    
+    setCodeHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+    setTimeout(() => { isUpdatingHistory.current = false; }, 0);
+  };
+
+  const undoCode = () => {
+    if (historyIndex > 0) {
+      const prevIndex = historyIndex - 1;
+      const prevCode = codeHistory[prevIndex];
+      isUpdatingHistory.current = true;
+      setStudentCode(prevCode);
+      setHistoryIndex(prevIndex);
+      setTimeout(() => { isUpdatingHistory.current = false; }, 0);
+    }
+  };
+
+  const redoCode = () => {
+    if (historyIndex < codeHistory.length - 1) {
+      const nextIndex = historyIndex + 1;
+      const nextCode = codeHistory[nextIndex];
+      isUpdatingHistory.current = true;
+      setStudentCode(nextCode);
+      setHistoryIndex(nextIndex);
+      setTimeout(() => { isUpdatingHistory.current = false; }, 0);
+    }
+  };
+
   const getActiveValue = () => {
     switch (activeTab) {
       case TabOption.QUESTION: return activeExercise.question;
@@ -54,7 +104,7 @@ const InputSection: React.FC<InputSectionProps> = ({
       case TabOption.QUESTION: onUpdateExerciseData('question', value); break;
       case TabOption.SOLUTION: onUpdateExerciseData('masterSolution', value); break;
       case TabOption.RUBRIC: onUpdateExerciseData('rubric', value); break;
-      case TabOption.STUDENT_ANSWER: setStudentCode(value); break;
+      case TabOption.STUDENT_ANSWER: handleCodeChange(value); break;
       case TabOption.CUSTOM: onUpdateExerciseData('customInstructions', value); break;
     }
   };
@@ -131,7 +181,6 @@ const InputSection: React.FC<InputSectionProps> = ({
               <select value={activeExercise.id} onChange={(e) => setActiveExerciseId(e.target.value)} className="bg-transparent text-slate-800 dark:text-slate-100 text-sm font-black border-none p-0 focus:ring-0 cursor-pointer">
                 {exercises.map(ex => <option key={ex.id} value={ex.id} className="dark:bg-slate-900">{ex.name}</option>)}
               </select>
-              {/* Real-time renaming input */}
               <input 
                 type="text" 
                 value={activeExercise.name} 
@@ -175,6 +224,28 @@ const InputSection: React.FC<InputSectionProps> = ({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
       >
+        {/* Undo/Redo Toolbar specifically for Student Answer */}
+        {activeTab === TabOption.STUDENT_ANSWER && (
+          <div className="absolute top-8 right-8 flex items-center space-x-1 z-20">
+            <button 
+              onClick={undoCode} 
+              disabled={historyIndex === 0}
+              className="p-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-500 hover:text-brand-500 disabled:opacity-30 shadow-sm transition-all" 
+              title="Undo (Code)"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
+            </button>
+            <button 
+              onClick={redoCode} 
+              disabled={historyIndex === codeHistory.length - 1}
+              className="p-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-500 hover:text-brand-500 disabled:opacity-30 shadow-sm transition-all" 
+              title="Redo (Code)"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" /></svg>
+            </button>
+          </div>
+        )}
+
         <textarea 
           className={`w-full h-full p-8 text-sm font-mono text-slate-700 dark:text-slate-200 bg-slate-50/50 dark:bg-slate-800/30 border border-slate-200 dark:border-slate-800 rounded-3xl focus:ring-4 focus:ring-brand-500/10 dark:focus:ring-brand-400/10 focus:border-brand-300 dark:focus:border-brand-700 outline-none resize-none custom-scrollbar transition-all shadow-inner ${isDragging ? 'ring-2 ring-brand-500' : ''}`} 
           value={getActiveValue()} 

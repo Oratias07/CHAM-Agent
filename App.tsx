@@ -21,10 +21,8 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isResetting, setIsResetting] = useState(false);
   
-  // Set dark mode as default
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('theme');
-    // If no saved preference, default to dark (true)
     return saved === null ? true : saved === 'dark';
   });
 
@@ -39,7 +37,6 @@ const App: React.FC = () => {
   const [activeExerciseId, setActiveExerciseId] = useState<string>(INITIAL_GRADEBOOK_STATE.exercises[0].id);
   const [studentCode, setStudentCode] = useState('');
 
-  // Sync theme with document class
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark');
@@ -57,7 +54,6 @@ const App: React.FC = () => {
     });
   }, [gradeBookState]);
 
-  // Load user data and archives on start
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -167,12 +163,9 @@ const App: React.FC = () => {
     if (window.confirm("⚠️ RESTART SYSTEM: This will ARCHIVE your current session and COMPLETELY DELETE all current exercises and grades. You will start fresh at Exercise 1. Proceed?")) {
       try {
         setIsResetting(true);
-        // 1. Archive current session before clearing
         await apiService.archiveSession(gradeBookState);
-        // 2. Clear backend database
         await apiService.clearAllData();
         
-        // 3. Reset local state to initial (1 clean exercise)
         const freshState = JSON.parse(JSON.stringify(INITIAL_GRADEBOOK_STATE));
         setGradeBookState(freshState);
         setStudentCode('');
@@ -184,11 +177,10 @@ const App: React.FC = () => {
         setViewMode('SINGLE');
         setActiveTab(TabOption.QUESTION);
         
-        // 4. Update archives list to show the newly saved session
         const arch = await apiService.getArchives();
         setArchives(arch.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
         
-        alert("System Restarted. Your work has been archived in history.");
+        alert("System Restarted. All data cleared and workspace reset.");
       } catch (e) {
         console.error("Restart failed", e);
         alert("System restart failed. Please check your connection.");
@@ -253,11 +245,34 @@ const App: React.FC = () => {
     }));
   };
 
-  const restoreArchive = (session: ArchiveSession) => {
-    if (window.confirm("Restore this snapshot? Current session data will be replaced.")) {
-      setGradeBookState(session.state);
-      setViewMode('SINGLE');
-      alert("Archive restored.");
+  const restoreArchive = async (session: ArchiveSession) => {
+    if (window.confirm("Restore this snapshot? Current session data will be overwritten and this state will become the live session.")) {
+      try {
+        setIsEvaluating(true);
+        // Wipe current live data
+        await apiService.clearAllData();
+        
+        // Restore exercises and grades to DB
+        for (const exercise of session.state.exercises) {
+          for (const studentId of Object.keys(exercise.entries)) {
+            const entry = exercise.entries[studentId];
+            await apiService.saveGrade(exercise.id, studentId, {
+              score: entry.score,
+              feedback: entry.feedback
+            });
+          }
+        }
+        
+        setGradeBookState(session.state);
+        setActiveExerciseId(session.state.exercises[0].id);
+        setSelectedStudentId(session.state.students[0].id);
+        setViewMode('SINGLE');
+        alert("Archive restored and synced to cloud.");
+      } catch (e) {
+        alert("Restore failed during sync.");
+      } finally {
+        setIsEvaluating(false);
+      }
     }
   };
 
@@ -312,14 +327,10 @@ const App: React.FC = () => {
 
       <main className="flex-grow p-4 sm:p-6 w-full z-10 overflow-hidden">
         {viewMode === 'SINGLE' ? (
-          /* SINGLE VIEW: 30/70 Split Layout */
           <div className="grid grid-cols-1 xl:grid-cols-10 gap-6 h-[calc(100vh-10rem)] min-h-[650px] w-full">
-            {/* Left 30%: Insight / ResultSection */}
             <section className="xl:col-span-3 h-full overflow-hidden order-2 xl:order-1">
               <ResultSection result={result} error={error} isEvaluating={isEvaluating} darkMode={darkMode} />
             </section>
-            
-            {/* Right 70%: Focus Space / InputSection */}
             <section className="xl:col-span-7 h-full overflow-hidden order-1 xl:order-2">
               <InputSection 
                 activeExercise={currentExercise}
