@@ -147,7 +147,7 @@ router.post('/evaluate', async (req, res) => {
     const { question, rubric, studentCode, masterSolution, customInstructions } = req.body;
     const ai = new GoogleGenAI({ apiKey });
     
-    // Inject variables into prompt template
+    // Exact prompt injection as per user request
     const fullPrompt = AGENT_SYSTEM_PROMPT_TEMPLATE
       .replace('{QUESTION_TEXT}', question || 'N/A')
       .replace('{MASTER_SOLUTION}', masterSolution || 'N/A')
@@ -155,13 +155,12 @@ router.post('/evaluate', async (req, res) => {
       .replace('{STUDENT_CODE}', studentCode || 'N/A')
       .replace('{AGENT_CUSTOM_INSTRUCTIONS}', customInstructions || 'N/A');
 
-    // Optimization: Flash with low thinking budget for maximum speed
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview', 
       contents: fullPrompt,
       config: { 
         responseMimeType: "application/json", 
-        thinkingConfig: { thinkingBudget: 1000 } // Minimal thinking for quick grading
+        thinkingConfig: { thinkingBudget: 1000 } 
       }
     });
     res.json(JSON.parse(response.text));

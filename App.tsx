@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import InputSection from './components/InputSection';
 import ResultSection from './components/ResultSection';
 import GradeBook from './components/GradeBook';
@@ -27,7 +27,7 @@ const App: React.FC = () => {
   });
 
   const [archives, setArchives] = useState<ArchiveSession[]>([]);
-  const [gradeBookState, setGradeBookState] = useState<GradeBookState>(INITIAL_GRADEBOOK_STATE);
+  const [gradeBookState, setGradeBookState] = useState<GradeBookState>(() => JSON.parse(JSON.stringify(INITIAL_GRADEBOOK_STATE)));
   const [historyStack, setHistoryStack] = useState<GradeBookState[]>([]);
   
   const [selectedStudentId, setSelectedStudentId] = useState<string>(
@@ -48,22 +48,30 @@ const App: React.FC = () => {
   }, [darkMode]);
 
   const validateState = (state: any): GradeBookState => {
-    if (!state) return INITIAL_GRADEBOOK_STATE;
+    const defaultState = JSON.parse(JSON.stringify(INITIAL_GRADEBOOK_STATE));
+    if (!state) return defaultState;
+    
     const s = { ...state };
-    if (!Array.isArray(s.exercises)) s.exercises = JSON.parse(JSON.stringify(INITIAL_GRADEBOOK_STATE.exercises));
-    if (!Array.isArray(s.students)) s.students = JSON.parse(JSON.stringify(INITIAL_GRADEBOOK_STATE.students));
+    if (!Array.isArray(s.exercises) || s.exercises.length === 0) s.exercises = defaultState.exercises;
+    if (!Array.isArray(s.students) || s.students.length === 0) s.students = defaultState.students;
+    
     s.exercises = s.exercises.map((ex: any) => ({
       ...ex,
-      entries: ex.entries || {}
+      entries: ex.entries || {},
+      question: ex.question || '',
+      masterSolution: ex.masterSolution || '',
+      rubric: ex.rubric || '',
+      customInstructions: ex.customInstructions || '',
+      name: ex.name || 'Untitled Exercise'
     }));
+    
     return s as GradeBookState;
   };
 
   const pushToHistory = useCallback((newState: GradeBookState) => {
     setHistoryStack(prev => {
       const stateToSave = JSON.parse(JSON.stringify(newState));
-      const newStack = [stateToSave, ...prev].slice(0, 15);
-      return newStack;
+      return [stateToSave, ...prev].slice(0, 15);
     });
   }, []);
 
@@ -108,10 +116,10 @@ const App: React.FC = () => {
     window.location.href = "/api/auth/logout";
   };
 
-  const getCurrentExercise = () => {
+  const currentExercise = useMemo(() => {
     const found = gradeBookState.exercises.find(ex => ex.id === activeExerciseId);
-    return found || gradeBookState.exercises[0];
-  };
+    return found || gradeBookState.exercises[0] || INITIAL_GRADEBOOK_STATE.exercises[0];
+  }, [gradeBookState.exercises, activeExerciseId]);
 
   const handleUpdateExerciseData = (field: keyof Exercise, value: any) => {
     setGradeBookState(prev => ({
@@ -128,12 +136,11 @@ const App: React.FC = () => {
     setError(null);
     setResult(null);
 
-    const exercise = getCurrentExercise();
     const inputs: GradingInputs = {
-      question: exercise.question,
-      masterSolution: exercise.masterSolution,
-      rubric: exercise.rubric,
-      customInstructions: exercise.customInstructions,
+      question: currentExercise.question,
+      masterSolution: currentExercise.masterSolution,
+      rubric: currentExercise.rubric,
+      customInstructions: currentExercise.customInstructions,
       studentCode: studentCode
     };
 
@@ -188,9 +195,12 @@ const App: React.FC = () => {
     if (window.confirm("⚠️ RESTART SYSTEM: This will ARCHIVE your current session and COMPLETELY DELETE all current exercises and grades. You will start fresh at Exercise 1. Proceed?")) {
       try {
         setIsResetting(true);
+        // Step 1: Archive current state
         await apiService.archiveSession(gradeBookState);
+        // Step 2: Wipe remote database
         await apiService.clearAllData();
         
+        // Step 3: Hard reset of all local state to initial defaults
         const freshState = JSON.parse(JSON.stringify(INITIAL_GRADEBOOK_STATE));
         setGradeBookState(freshState);
         setStudentCode('');
@@ -202,11 +212,13 @@ const App: React.FC = () => {
         setViewMode('SINGLE');
         setActiveTab(TabOption.QUESTION);
         
+        // Step 4: Refresh archives list
         const arch = await apiService.getArchives();
         setArchives(arch.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
         
-        alert("System Restarted Successfully.");
+        alert("System Cleaned and Reset to Defaults.");
       } catch (e) {
+        console.error("Restart failed", e);
         alert("Restart failed.");
       } finally {
         setIsResetting(false);
@@ -271,7 +283,7 @@ const App: React.FC = () => {
 
   const restoreArchive = async (session: ArchiveSession) => {
     if (!session || !session.state) return;
-    if (window.confirm("Restore this snapshot? This replaces current live data.")) {
+    if (window.confirm("Restore this snapshot? This replaces current live session.")) {
       try {
         setIsEvaluating(true);
         const restoredState = validateState(JSON.parse(JSON.stringify(session.state)));
@@ -285,9 +297,12 @@ const App: React.FC = () => {
           setSelectedStudentId(restoredState.students[0].id);
         }
         
+        setStudentCode('');
+        setResult(null);
+        setError(null);
         setViewMode('SINGLE');
+        setActiveTab(TabOption.QUESTION);
         
-        // Sync to cloud
         apiService.clearAllData().then(() => {
           restoredState.exercises.forEach((ex: Exercise) => {
             Object.keys(ex.entries || {}).forEach(sId => {
@@ -298,8 +313,8 @@ const App: React.FC = () => {
 
         alert("Restored successfully.");
       } catch (e) {
-        console.error("Restore failed", e);
-        alert("Restore failed - invalid data.");
+        console.error("Restore crashed", e);
+        alert("Restore failed - corrupted data.");
       } finally {
         setIsEvaluating(false);
       }
@@ -307,8 +322,6 @@ const App: React.FC = () => {
   };
 
   if (!user) return <Login onLogin={handleLogin} onDevLogin={handleDevLogin} />;
-
-  const currentExercise = getCurrentExercise();
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col font-sans transition-colors duration-500 overflow-x-hidden">

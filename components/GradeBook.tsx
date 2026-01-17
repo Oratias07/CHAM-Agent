@@ -22,7 +22,7 @@ const GradeBook: React.FC<GradeBookProps> = ({
   onResetSystem,
   isResetting
 }) => {
-  const { students, exercises } = state;
+  const { students = [], exercises = [] } = state || {};
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const handleScroll = (direction: 'left' | 'right') => {
@@ -55,7 +55,7 @@ const GradeBook: React.FC<GradeBookProps> = ({
     const rows = students.map(student => {
       const rowData: (string | number)[] = [student.name];
       exercises.forEach(ex => {
-        const entry = ex.entries[student.id] || { score: 0, feedback: "" };
+        const entry = ex.entries ? (ex.entries[student.id] || { score: 0, feedback: "" }) : { score: 0, feedback: "" };
         rowData.push(entry.score);
         rowData.push(entry.feedback);
       });
@@ -123,8 +123,9 @@ const GradeBook: React.FC<GradeBookProps> = ({
                     <div className="flex items-center space-x-2"><span>Score /</span><input type="number" value={exercise.maxScore} onChange={(e) => onUpdateMaxScore(exercise.id, Number(e.target.value))} className="w-12 bg-white dark:bg-slate-800 border border-brand-200 dark:border-brand-900/50 rounded-lg px-2 py-1 text-center font-black focus:ring-2 focus:ring-brand-500 outline-none shadow-sm" /></div>
                   </td>
                   {students.map((student) => {
-                    const entry = exercise.entries[student.id] || { score: 0, feedback: '' };
-                    const percentage = (entry.score / exercise.maxScore) * 100;
+                    const entries = exercise.entries || {};
+                    const entry = entries[student.id] || { score: 0, feedback: '' };
+                    const percentage = (entry.score / (exercise.maxScore || 10)) * 100;
                     let scoreClass = 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/20 border-rose-100 dark:border-rose-900/30';
                     if (percentage >= 90) scoreClass = 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border-emerald-100 dark:border-emerald-900/30';
                     else if (percentage >= 70) scoreClass = 'text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-950/20 border-brand-100 dark:border-brand-900/40';
@@ -140,7 +141,8 @@ const GradeBook: React.FC<GradeBookProps> = ({
                 <tr className="bg-slate-50/20 dark:bg-slate-800/10">
                   <td className="px-4 py-4 whitespace-nowrap text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase border-r border-slate-200 dark:border-slate-700 sticky left-[180px] z-10 bg-slate-50/80 dark:bg-slate-800/80 backdrop-blur-md transition-colors">Hebrew Feedback</td>
                   {students.map((student) => {
-                    const entry = exercise.entries[student.id] || { score: 0, feedback: '' };
+                    const entries = exercise.entries || {};
+                    const entry = entries[student.id] || { score: 0, feedback: '' };
                     return (
                       <td key={`${exercise.id}-${student.id}-feedback`} className="px-3 py-3 text-right text-xs border-r border-slate-200 dark:border-slate-800 align-top" dir="rtl">
                         <textarea value={entry.feedback} onChange={(e) => onUpdateEntry(exercise.id, student.id, 'feedback', e.target.value)} className="w-full h-24 p-4 text-sm font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl resize-none focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-400 outline-none custom-scrollbar shadow-inner text-slate-700 dark:text-slate-300 transition-all" placeholder="סיכום הערכה..." />
