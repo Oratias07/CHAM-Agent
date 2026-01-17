@@ -59,7 +59,6 @@ const InputSection: React.FC<InputSectionProps> = ({
     }
   };
 
-  // 1. Question, 2. Solution, 3. Rubric, 4. Student Answer, 5. Custom
   const tabs = [
     { id: TabOption.QUESTION, label: 'Question', icon: '❓' },
     { id: TabOption.SOLUTION, label: 'Master Solution', icon: '🔑' },
@@ -83,7 +82,6 @@ const InputSection: React.FC<InputSectionProps> = ({
     e.preventDefault();
     setIsDragging(false);
     
-    // Only Student Answer and Solution tabs support drag & drop
     if (activeTab !== TabOption.STUDENT_ANSWER && activeTab !== TabOption.SOLUTION) {
       return;
     }
@@ -121,7 +119,7 @@ const InputSection: React.FC<InputSectionProps> = ({
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-xl flex flex-col h-full border border-slate-200 dark:border-slate-800 overflow-hidden transition-all duration-300">
-      {/* Exercise Config */}
+      {/* Exercise Config Header */}
       <div className="bg-slate-50 dark:bg-slate-800/60 px-6 py-5 flex flex-wrap items-center gap-4 border-b border-slate-200 dark:border-slate-800">
         <div className="flex items-center space-x-4 flex-grow min-w-[250px]">
           <div className="bg-brand-100 dark:bg-brand-900/40 p-2.5 rounded-2xl text-brand-600 dark:text-brand-400 shadow-sm border border-brand-200 dark:border-brand-800">
@@ -133,7 +131,14 @@ const InputSection: React.FC<InputSectionProps> = ({
               <select value={activeExercise.id} onChange={(e) => setActiveExerciseId(e.target.value)} className="bg-transparent text-slate-800 dark:text-slate-100 text-sm font-black border-none p-0 focus:ring-0 cursor-pointer">
                 {exercises.map(ex => <option key={ex.id} value={ex.id} className="dark:bg-slate-900">{ex.name}</option>)}
               </select>
-              <input type="text" value={activeExercise.name} onChange={(e) => onUpdateExerciseData('name', e.target.value)} className="bg-brand-50/50 dark:bg-slate-950/40 text-brand-700 dark:text-brand-400 text-xs font-black border border-transparent hover:border-brand-200 dark:hover:border-slate-700 rounded-lg px-2.5 py-1 outline-none transition-all" />
+              {/* Real-time renaming input */}
+              <input 
+                type="text" 
+                value={activeExercise.name} 
+                onChange={(e) => onUpdateExerciseData('name', e.target.value)} 
+                className="bg-brand-50/50 dark:bg-slate-950/40 text-brand-700 dark:text-brand-400 text-xs font-black border border-transparent hover:border-brand-200 dark:hover:border-slate-700 rounded-lg px-2.5 py-1 outline-none transition-all focus:bg-white dark:focus:bg-slate-900" 
+                placeholder="Rename Exercise"
+              />
             </div>
           </div>
         </div>
@@ -177,7 +182,6 @@ const InputSection: React.FC<InputSectionProps> = ({
           placeholder={getPlaceholder()} 
         />
         
-        {/* Drag Overlay */}
         {isDragging && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-brand-500/5 backdrop-blur-[2px] rounded-3xl z-10 transition-opacity">
              <div className="bg-white dark:bg-slate-800 px-10 py-8 rounded-[2.5rem] shadow-2xl border-4 border-brand-500 border-dashed flex flex-col items-center animate-pulse">

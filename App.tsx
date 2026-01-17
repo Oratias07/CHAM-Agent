@@ -24,6 +24,7 @@ const App: React.FC = () => {
   // Set dark mode as default
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('theme');
+    // If no saved preference, default to dark (true)
     return saved === null ? true : saved === 'dark';
   });
 
@@ -163,15 +164,15 @@ const App: React.FC = () => {
   };
 
   const handleReset = async () => {
-    if (window.confirm("⚠️ SYSTEM RESTART: This will ARCHIVE your current session and COMPLETELY CLEAR all data for a fresh start at Exercise 1. Proceed?")) {
+    if (window.confirm("⚠️ RESTART SYSTEM: This will ARCHIVE your current session and COMPLETELY DELETE all current exercises and grades. You will start fresh at Exercise 1. Proceed?")) {
       try {
         setIsResetting(true);
-        // 1. Archive before clearing
+        // 1. Archive current session before clearing
         await apiService.archiveSession(gradeBookState);
-        // 2. Clear backend
+        // 2. Clear backend database
         await apiService.clearAllData();
         
-        // 3. Reset local state to the initial blank state
+        // 3. Reset local state to initial (1 clean exercise)
         const freshState = JSON.parse(JSON.stringify(INITIAL_GRADEBOOK_STATE));
         setGradeBookState(freshState);
         setStudentCode('');
@@ -183,13 +184,14 @@ const App: React.FC = () => {
         setViewMode('SINGLE');
         setActiveTab(TabOption.QUESTION);
         
-        // 4. Refresh archives list
+        // 4. Update archives list to show the newly saved session
         const arch = await apiService.getArchives();
         setArchives(arch.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
         
-        alert("System Restarted. Form cleared and previous data archived.");
+        alert("System Restarted. Your work has been archived in history.");
       } catch (e) {
-        alert("Reset failed. Check connection.");
+        console.error("Restart failed", e);
+        alert("System restart failed. Please check your connection.");
       } finally {
         setIsResetting(false);
       }
@@ -252,10 +254,10 @@ const App: React.FC = () => {
   };
 
   const restoreArchive = (session: ArchiveSession) => {
-    if (window.confirm("Restore this snapshot? Current session data will be overwritten.")) {
+    if (window.confirm("Restore this snapshot? Current session data will be replaced.")) {
       setGradeBookState(session.state);
       setViewMode('SINGLE');
-      alert("Archive Restored.");
+      alert("Archive restored.");
     }
   };
 
@@ -274,7 +276,7 @@ const App: React.FC = () => {
             <div className="w-9 h-9 bg-gradient-to-br from-brand-500 to-indigo-700 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-brand-500/20">AI</div>
             <div className="flex flex-col">
               <h1 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-brand-600 to-indigo-600 dark:from-brand-400 dark:to-indigo-400 hidden sm:block">CodeGrader Pro</h1>
-              <span className="text-[10px] uppercase tracking-tighter text-slate-400 dark:text-slate-500 font-bold leading-none hidden sm:block">Enhanced Reasoning Core</span>
+              <span className="text-[10px] uppercase tracking-tighter text-slate-400 dark:text-slate-500 font-bold leading-none hidden sm:block">Enterprise Assessment Core</span>
             </div>
           </div>
           
@@ -283,7 +285,7 @@ const App: React.FC = () => {
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
              </button>
 
-             <button onClick={() => setViewMode(viewMode === 'HISTORY' ? 'SINGLE' : 'HISTORY')} className={`p-2 rounded-lg transition-all ${viewMode === 'HISTORY' ? 'text-brand-600 bg-brand-50 dark:bg-brand-900/30' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`} title="Archive Timeline">
+             <button onClick={() => setViewMode(viewMode === 'HISTORY' ? 'SINGLE' : 'HISTORY')} className={`p-2 rounded-lg transition-all ${viewMode === 'HISTORY' ? 'text-brand-600 bg-brand-50 dark:bg-brand-900/30' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`} title="History Timeline">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
              </button>
 
@@ -310,11 +312,14 @@ const App: React.FC = () => {
 
       <main className="flex-grow p-4 sm:p-6 w-full z-10 overflow-hidden">
         {viewMode === 'SINGLE' ? (
-          /* Re-organized Grid: Insight (30%) on LEFT, Focus Space (70%) on RIGHT */
+          /* SINGLE VIEW: 30/70 Split Layout */
           <div className="grid grid-cols-1 xl:grid-cols-10 gap-6 h-[calc(100vh-10rem)] min-h-[650px] w-full">
+            {/* Left 30%: Insight / ResultSection */}
             <section className="xl:col-span-3 h-full overflow-hidden order-2 xl:order-1">
               <ResultSection result={result} error={error} isEvaluating={isEvaluating} darkMode={darkMode} />
             </section>
+            
+            {/* Right 70%: Focus Space / InputSection */}
             <section className="xl:col-span-7 h-full overflow-hidden order-1 xl:order-2">
               <InputSection 
                 activeExercise={currentExercise}
@@ -352,17 +357,17 @@ const App: React.FC = () => {
           <div className="h-[calc(100vh-10rem)] bg-white dark:bg-slate-900 rounded-3xl shadow-xl p-8 border border-slate-200 dark:border-slate-800 flex flex-col transition-all duration-300 w-full">
              <div className="flex justify-between items-center mb-8">
                <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 flex items-center uppercase tracking-tighter">
-                 <span className="mr-4 text-3xl">🕒</span> Archive Snapshot Timeline
+                 <span className="mr-4 text-3xl">🕒</span> Session Archive Timeline
                </h2>
-               <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{archives.length} archives saved</span>
+               <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{archives.length} snapshots total</span>
              </div>
              <div className="flex-grow overflow-y-auto custom-scrollbar pr-2">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                    {archives.length === 0 ? (
                      <div className="col-span-full py-32 text-center">
                         <div className="text-6xl mb-6 opacity-20">📂</div>
-                        <div className="text-slate-400 dark:text-slate-500 font-bold text-lg">No archives yet.</div>
-                        <p className="text-slate-500 dark:text-slate-600 text-sm mt-2">Data is archived automatically when you 'Restart System'.</p>
+                        <div className="text-slate-400 dark:text-slate-500 font-bold text-lg">No sessions archived yet.</div>
+                        <p className="text-slate-500 dark:text-slate-600 text-sm mt-2">Previous sessions appear here after a system restart.</p>
                      </div>
                    ) : (
                      archives.map(arch => (
@@ -374,10 +379,10 @@ const App: React.FC = () => {
                              </div>
                              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-xl flex flex-col items-center">
                                 <span className="text-lg font-black text-brand-500">{arch.state.exercises.length}</span>
-                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Tasks</span>
+                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Ex</span>
                              </div>
                           </div>
-                          <button onClick={() => restoreArchive(arch)} className="w-full py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-950 dark:hover:text-brand-400 transition-all shadow-sm mt-auto">Restore This Snapshot</button>
+                          <button onClick={() => restoreArchive(arch)} className="w-full py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-950 dark:hover:text-brand-400 transition-all shadow-sm">Restore Snapshot</button>
                        </div>
                      ))
                    )}

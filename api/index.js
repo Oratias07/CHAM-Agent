@@ -115,26 +115,29 @@ router.post('/evaluate', async (req, res) => {
     const { question, rubric, studentCode, masterSolution, customInstructions } = req.body;
     const ai = new GoogleGenAI({ apiKey });
     
-    // Increased thinking mode for deeper reasoning
+    // Using gemini-3-flash-preview to avoid RESOURCE_EXHAUSTED errors on free tier.
+    // Flash still supports thinkingBudget for high-quality reasoning.
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview', 
-      contents: `Deep Reasoning Analysis for C Programming Submission.
-      Examine logic vs Master Solution. Apply Rubric precisely.
-      
-      CONTEXT:
-      - QUESTION: ${question}
-      - MASTER: ${masterSolution}
-      - RUBRIC: ${rubric}
-      - RULES: ${customInstructions}
-      - STUDENT CODE: ${studentCode}`,
+      model: 'gemini-3-flash-preview', 
+      contents: `Perform a deep reasoning analysis on this student code submission. 
+      Compare its logic meticulously with the Master Solution.
+      Apply the Rubric strictly. 
+      Identify critical C flaws (like input buffer leaks or forbidden syntax).
+
+      CONTEXTUAL DATA:
+      - QUESTION: ${question} 
+      - MASTER SOLUTION REFERENCE: ${masterSolution} 
+      - TARGET RUBRIC: ${rubric} 
+      - EXTRA PEDAGOGICAL RULES: ${customInstructions} 
+      - STUDENT SUBMISSION FOR GRADING: ${studentCode}`,
       config: { 
         responseMimeType: "application/json", 
-        thinkingConfig: { thinkingBudget: 32768 },
-        systemInstruction: "Evaluate as a professional C instructor. Provide a score (0-10) and 2-3 sentences of feedback in professional HEBREW. Focus strictly on the student's implementation. DO NOT use hyphens. Return JSON: {\"score\": number, \"feedback\": \"string\"}." 
+        thinkingConfig: { thinkingBudget: 24576 }, // High budget for Flash
+        systemInstruction: "You are an elite C programming evaluator. You provide hyper-accurate scores (0-10) and brief (2-3 sentences), professional Hebrew feedback. Focus on identifying logical flaws, C-specific risks, and adherence to instructions. NEVER use hyphens. Return JSON ONLY: {\"score\": number, \"feedback\": \"string\"}." 
       }
     });
     res.json(JSON.parse(response.text));
-  } catch (err) { res.status(500).json({ message: err.message || "Engine failure" }); }
+  } catch (err) { res.status(500).json({ message: err.message || "Evaluation engine failure" }); }
 });
 
 router.post('/grades/save', async (req, res) => {
