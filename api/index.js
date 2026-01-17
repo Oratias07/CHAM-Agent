@@ -115,29 +115,24 @@ router.post('/evaluate', async (req, res) => {
     const { question, rubric, studentCode, masterSolution, customInstructions } = req.body;
     const ai = new GoogleGenAI({ apiKey });
     
-    // Using gemini-3-flash-preview to avoid RESOURCE_EXHAUSTED errors on free tier.
-    // Flash still supports thinkingBudget for high-quality reasoning.
+    // Performance Optimization: Reduced thinking budget for faster response while keeping critical reasoning
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview', 
-      contents: `Perform a deep reasoning analysis on this student code submission. 
-      Compare its logic meticulously with the Master Solution.
-      Apply the Rubric strictly. 
-      Identify critical C flaws (like input buffer leaks or forbidden syntax).
-
-      CONTEXTUAL DATA:
-      - QUESTION: ${question} 
-      - MASTER SOLUTION REFERENCE: ${masterSolution} 
-      - TARGET RUBRIC: ${rubric} 
-      - EXTRA PEDAGOGICAL RULES: ${customInstructions} 
-      - STUDENT SUBMISSION FOR GRADING: ${studentCode}`,
+      contents: `Evaluate code submission.
+      Compare with Master Solution logic.
+      Apply Rubric.
+      Rules: ${customInstructions}
+      Question: ${question}
+      Master: ${masterSolution}
+      Student: ${studentCode}`,
       config: { 
         responseMimeType: "application/json", 
-        thinkingConfig: { thinkingBudget: 24576 }, // High budget for Flash
-        systemInstruction: "You are an elite C programming evaluator. You provide hyper-accurate scores (0-10) and brief (2-3 sentences), professional Hebrew feedback. Focus on identifying logical flaws, C-specific risks, and adherence to instructions. NEVER use hyphens. Return JSON ONLY: {\"score\": number, \"feedback\": \"string\"}." 
+        thinkingConfig: { thinkingBudget: 4000 }, // Lower budget = Faster response
+        systemInstruction: "Expert C evaluator. Provide score (0-10) and 2 sentences of feedback in Hebrew. NO hyphens. JSON ONLY: {\"score\": number, \"feedback\": \"string\"}." 
       }
     });
     res.json(JSON.parse(response.text));
-  } catch (err) { res.status(500).json({ message: err.message || "Evaluation engine failure" }); }
+  } catch (err) { res.status(500).json({ message: err.message || "Evaluation error" }); }
 });
 
 router.post('/grades/save', async (req, res) => {

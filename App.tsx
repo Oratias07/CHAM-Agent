@@ -49,10 +49,11 @@ const App: React.FC = () => {
 
   const pushToHistory = useCallback((newState: GradeBookState) => {
     setHistoryStack(prev => {
-      const newStack = [JSON.parse(JSON.stringify(gradeBookState)), ...prev].slice(0, 10);
+      const stateToSave = JSON.parse(JSON.stringify(newState));
+      const newStack = [stateToSave, ...prev].slice(0, 10);
       return newStack;
     });
-  }, [gradeBookState]);
+  }, []);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -61,7 +62,11 @@ const App: React.FC = () => {
         if (currentUser) {
           setUser(currentUser);
           const history = await apiService.getGradebook();
-          if (history) setGradeBookState(history);
+          if (history) {
+            setGradeBookState(history);
+            if (history.exercises.length > 0) setActiveExerciseId(history.exercises[0].id);
+            if (history.students.length > 0) setSelectedStudentId(history.students[0].id);
+          }
           const arch = await apiService.getArchives();
           setArchives(arch.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
         }
@@ -143,10 +148,11 @@ const App: React.FC = () => {
       ...prev,
       exercises: prev.exercises.map(ex => {
         if (ex.id !== exerciseId) return ex;
-        const currentEntry = ex.entries[studentId] || { score: 0, feedback: '' };
+        const currentEntries = ex.entries || {};
+        const currentEntry = currentEntries[studentId] || { score: 0, feedback: '' };
         return {
           ...ex,
-          entries: { ...ex.entries, [studentId]: { ...currentEntry, [field]: value } }
+          entries: { ...currentEntries, [studentId]: { ...currentEntry, [field]: value } }
         };
       })
     }));
@@ -155,8 +161,10 @@ const App: React.FC = () => {
   const handleUndo = () => {
     if (historyStack.length === 0) return;
     const [lastVersion, ...remaining] = historyStack;
-    setGradeBookState(lastVersion);
-    setHistoryStack(remaining);
+    if (lastVersion) {
+      setGradeBookState(lastVersion);
+      setHistoryStack(remaining);
+    }
   };
 
   const handleReset = async () => {
@@ -183,7 +191,7 @@ const App: React.FC = () => {
         alert("System Restarted. All data cleared and workspace reset.");
       } catch (e) {
         console.error("Restart failed", e);
-        alert("System restart failed. Please check your connection.");
+        alert("System restart failed.");
       } finally {
         setIsResetting(false);
       }
@@ -246,30 +254,40 @@ const App: React.FC = () => {
   };
 
   const restoreArchive = async (session: ArchiveSession) => {
-    if (window.confirm("Restore this snapshot? Current session data will be overwritten and this state will become the live session.")) {
+    if (!session || !session.state) return;
+    if (window.confirm("Restore this snapshot? This will replace your current live session.")) {
       try {
         setIsEvaluating(true);
-        // Wipe current live data
-        await apiService.clearAllData();
+        const restoredState = JSON.parse(JSON.stringify(session.state));
         
-        // Restore exercises and grades to DB
-        for (const exercise of session.state.exercises) {
-          for (const studentId of Object.keys(exercise.entries)) {
-            const entry = exercise.entries[studentId];
-            await apiService.saveGrade(exercise.id, studentId, {
-              score: entry.score,
-              feedback: entry.feedback
-            });
-          }
+        // Safety checks for restored state
+        if (!restoredState.exercises) restoredState.exercises = [];
+        if (!restoredState.students) restoredState.students = [];
+        
+        setGradeBookState(restoredState);
+        
+        if (restoredState.exercises.length > 0) {
+          setActiveExerciseId(restoredState.exercises[0].id);
+        }
+        if (restoredState.students.length > 0) {
+          setSelectedStudentId(restoredState.students[0].id);
         }
         
-        setGradeBookState(session.state);
-        setActiveExerciseId(session.state.exercises[0].id);
-        setSelectedStudentId(session.state.students[0].id);
         setViewMode('SINGLE');
-        alert("Archive restored and synced to cloud.");
+        
+        // Background sync to DB (don't wait for UI update)
+        apiService.clearAllData().then(() => {
+          restoredState.exercises.forEach((ex: Exercise) => {
+            Object.keys(ex.entries || {}).forEach(sId => {
+              apiService.saveGrade(ex.id, sId, ex.entries[sId]);
+            });
+          });
+        });
+
+        alert("Restored successfully.");
       } catch (e) {
-        alert("Restore failed during sync.");
+        console.error("Restore crashed", e);
+        alert("Restore failed - corrupted data.");
       } finally {
         setIsEvaluating(false);
       }
