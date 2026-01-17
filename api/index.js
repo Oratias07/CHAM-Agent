@@ -170,7 +170,6 @@ router.post('/evaluate', async (req, res) => {
     const { question, rubric, studentCode, masterSolution, customInstructions } = req.body;
     
     const ai = new GoogleGenAI({ apiKey });
-    // Switched to 'gemini-3-flash-preview' for better stability and free-tier compatibility
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview', 
       contents: `Grade this code. 
@@ -194,7 +193,6 @@ router.post('/evaluate', async (req, res) => {
     console.error("AI Error Detail:", err);
     let userMessage = "AI Evaluation failed";
     
-    // Improved specific error messaging
     if (err.message.includes("429")) {
       userMessage = "Quota Exceeded: Too many requests. Wait 60 seconds.";
     } else if (err.message.includes("403")) {
@@ -202,7 +200,6 @@ router.post('/evaluate', async (req, res) => {
     } else if (err.message.includes("400")) {
       userMessage = "Bad Request: Check your inputs or API key permissions.";
     } else {
-      // Return the specific technical error if it's not a standard one
       userMessage = `AI Error: ${err.message}`;
     }
     
@@ -231,6 +228,15 @@ router.get('/grades', async (req, res) => {
     const grades = await Grade.find({ userId: req.user.googleId });
     res.json(grades);
   } catch (err) { res.status(500).json([]); }
+});
+
+router.delete('/grades/clear', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ message: "Login required" });
+  try {
+    await connectDB();
+    await Grade.deleteMany({ userId: req.user.googleId });
+    res.json({ success: true, message: "All grades cleared." });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
 app.use('/api', router);

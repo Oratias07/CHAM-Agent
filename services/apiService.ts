@@ -78,6 +78,18 @@ export const apiService = {
     }
   },
 
+  async clearAllData(): Promise<void> {
+    try {
+      const res = await fetch(`/api/grades/clear`, {
+        method: 'DELETE'
+      });
+      if (!res.ok) throw new Error("Failed to clear data on server");
+    } catch (e) {
+      console.error("Error clearing data:", e);
+      throw e;
+    }
+  },
+
   async evaluate(inputs: GradingInputs): Promise<GradingResult> {
     const res = await fetch(`/api/evaluate`, {
       method: 'POST',

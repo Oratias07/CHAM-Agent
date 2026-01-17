@@ -6,7 +6,6 @@ import ChatBot from './components/ChatBot';
 import Login from './components/Login';
 import { apiService } from './services/apiService';
 import { GradingInputs, GradingResult, TabOption, GradeBookState, Exercise, User } from './types';
-// Fixed: Removed GOOGLE_CLIENT_ID from import as it is not exported from constants.ts and not used in App.tsx
 import { 
   DEFAULT_STUDENT_CODE,
   INITIAL_GRADEBOOK_STATE
@@ -21,6 +20,7 @@ const App: React.FC = () => {
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [result, setResult] = useState<GradingResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isResetting, setIsResetting] = useState(false);
 
   const [gradeBookState, setGradeBookState] = useState<GradeBookState>(INITIAL_GRADEBOOK_STATE);
   const [selectedStudentId, setSelectedStudentId] = useState<string>(
@@ -48,8 +48,6 @@ const App: React.FC = () => {
   }, []);
 
   const handleLogin = () => {
-    // Redirect to the backend OAuth route
-    // This is the "True SaaS" way to handle secrets
     window.location.href = "/api/auth/google";
   };
 
@@ -88,11 +86,9 @@ const App: React.FC = () => {
       setResult(evaluation);
 
       if (selectedStudentId) {
-        // Update Local State
         handleUpdateEntry(activeExerciseId, selectedStudentId, 'score', evaluation.score);
         handleUpdateEntry(activeExerciseId, selectedStudentId, 'feedback', evaluation.feedback);
 
-        // PERSIST TO MONGODB (SaaS Logic)
         await apiService.saveGrade(activeExerciseId, selectedStudentId, evaluation);
 
         setStudentCode('');
@@ -128,15 +124,29 @@ const App: React.FC = () => {
     }));
   };
 
-  const handleReset = () => {
-    if (window.confirm("⚠️ Clear current session data?")) {
-      setGradeBookState(INITIAL_GRADEBOOK_STATE);
-      setStudentCode(DEFAULT_STUDENT_CODE);
-      setResult(null);
-      setError(null);
-      setSelectedStudentId(INITIAL_GRADEBOOK_STATE.students.length > 0 ? INITIAL_GRADEBOOK_STATE.students[0].id : '');
-      setActiveExerciseId(INITIAL_GRADEBOOK_STATE.exercises[0].id);
-      setViewMode('SINGLE');
+  const handleReset = async () => {
+    if (window.confirm("⚠️ ATTENTION: This will PERMANENTLY delete all current scores and reset all exercise rubrics. Are you sure you want to start a completely new homework check?")) {
+      try {
+        setIsResetting(true);
+        // Wipe server-side data
+        await apiService.clearAllData();
+        
+        // Reset local state
+        setGradeBookState(INITIAL_GRADEBOOK_STATE);
+        setStudentCode(DEFAULT_STUDENT_CODE);
+        setResult(null);
+        setError(null);
+        setSelectedStudentId(INITIAL_GRADEBOOK_STATE.students.length > 0 ? INITIAL_GRADEBOOK_STATE.students[0].id : '');
+        setActiveExerciseId(INITIAL_GRADEBOOK_STATE.exercises[0].id);
+        setViewMode('SINGLE');
+        setActiveTab(TabOption.QUESTION);
+        
+        alert("System restarted successfully. You are ready for a new homework check.");
+      } catch (e) {
+        alert("Failed to reset system data. Please check your connection.");
+      } finally {
+        setIsResetting(false);
+      }
     }
   };
 
@@ -214,6 +224,19 @@ const App: React.FC = () => {
           </div>
           
           <div className="flex items-center space-x-4">
+             {/* Restart Button */}
+             <button 
+                onClick={handleReset}
+                disabled={isResetting}
+                className="group flex items-center space-x-2 px-3 py-1.5 rounded-md text-xs font-bold text-red-600 border border-red-100 hover:bg-red-50 transition-all disabled:opacity-50"
+                title="Restart System & Clear All Data"
+             >
+                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${isResetting ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span className="hidden md:inline">{isResetting ? 'Resetting...' : 'Restart System'}</span>
+             </button>
+
              <div className="bg-gray-100 p-1 rounded-lg flex items-center">
                 <button 
                   onClick={() => setViewMode('SINGLE')}
