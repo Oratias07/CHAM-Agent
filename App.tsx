@@ -47,10 +47,22 @@ const App: React.FC = () => {
     }
   }, [darkMode]);
 
+  const validateState = (state: any): GradeBookState => {
+    if (!state) return INITIAL_GRADEBOOK_STATE;
+    const s = { ...state };
+    if (!Array.isArray(s.exercises)) s.exercises = JSON.parse(JSON.stringify(INITIAL_GRADEBOOK_STATE.exercises));
+    if (!Array.isArray(s.students)) s.students = JSON.parse(JSON.stringify(INITIAL_GRADEBOOK_STATE.students));
+    s.exercises = s.exercises.map((ex: any) => ({
+      ...ex,
+      entries: ex.entries || {}
+    }));
+    return s as GradeBookState;
+  };
+
   const pushToHistory = useCallback((newState: GradeBookState) => {
     setHistoryStack(prev => {
       const stateToSave = JSON.parse(JSON.stringify(newState));
-      const newStack = [stateToSave, ...prev].slice(0, 10);
+      const newStack = [stateToSave, ...prev].slice(0, 15);
       return newStack;
     });
   }, []);
@@ -63,9 +75,10 @@ const App: React.FC = () => {
           setUser(currentUser);
           const history = await apiService.getGradebook();
           if (history) {
-            setGradeBookState(history);
-            if (history.exercises.length > 0) setActiveExerciseId(history.exercises[0].id);
-            if (history.students.length > 0) setSelectedStudentId(history.students[0].id);
+            const valid = validateState(history);
+            setGradeBookState(valid);
+            if (valid.exercises.length > 0) setActiveExerciseId(valid.exercises[0].id);
+            if (valid.students.length > 0) setSelectedStudentId(valid.students[0].id);
           }
           const arch = await apiService.getArchives();
           setArchives(arch.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
@@ -86,7 +99,7 @@ const App: React.FC = () => {
     const mockUser = await apiService.getCurrentUser();
     setUser(mockUser);
     const history = await apiService.getGradebook();
-    if (history) setGradeBookState(history);
+    if (history) setGradeBookState(validateState(history));
   };
 
   const handleLogout = () => {
@@ -95,7 +108,10 @@ const App: React.FC = () => {
     window.location.href = "/api/auth/logout";
   };
 
-  const currentExercise = gradeBookState.exercises.find(ex => ex.id === activeExerciseId) || gradeBookState.exercises[0];
+  const getCurrentExercise = () => {
+    const found = gradeBookState.exercises.find(ex => ex.id === activeExerciseId);
+    return found || gradeBookState.exercises[0];
+  };
 
   const handleUpdateExerciseData = (field: keyof Exercise, value: any) => {
     setGradeBookState(prev => ({
@@ -112,11 +128,12 @@ const App: React.FC = () => {
     setError(null);
     setResult(null);
 
+    const exercise = getCurrentExercise();
     const inputs: GradingInputs = {
-      question: currentExercise.question,
-      masterSolution: currentExercise.masterSolution,
-      rubric: currentExercise.rubric,
-      customInstructions: currentExercise.customInstructions,
+      question: exercise.question,
+      masterSolution: exercise.masterSolution,
+      rubric: exercise.rubric,
+      customInstructions: exercise.customInstructions,
       studentCode: studentCode
     };
 
@@ -162,7 +179,7 @@ const App: React.FC = () => {
     if (historyStack.length === 0) return;
     const [lastVersion, ...remaining] = historyStack;
     if (lastVersion) {
-      setGradeBookState(lastVersion);
+      setGradeBookState(validateState(lastVersion));
       setHistoryStack(remaining);
     }
   };
@@ -188,10 +205,9 @@ const App: React.FC = () => {
         const arch = await apiService.getArchives();
         setArchives(arch.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
         
-        alert("System Restarted. All data cleared and workspace reset.");
+        alert("System Restarted Successfully.");
       } catch (e) {
-        console.error("Restart failed", e);
-        alert("System restart failed.");
+        alert("Restart failed.");
       } finally {
         setIsResetting(false);
       }
@@ -255,14 +271,10 @@ const App: React.FC = () => {
 
   const restoreArchive = async (session: ArchiveSession) => {
     if (!session || !session.state) return;
-    if (window.confirm("Restore this snapshot? This will replace your current live session.")) {
+    if (window.confirm("Restore this snapshot? This replaces current live data.")) {
       try {
         setIsEvaluating(true);
-        const restoredState = JSON.parse(JSON.stringify(session.state));
-        
-        // Safety checks for restored state
-        if (!restoredState.exercises) restoredState.exercises = [];
-        if (!restoredState.students) restoredState.students = [];
+        const restoredState = validateState(JSON.parse(JSON.stringify(session.state)));
         
         setGradeBookState(restoredState);
         
@@ -275,7 +287,7 @@ const App: React.FC = () => {
         
         setViewMode('SINGLE');
         
-        // Background sync to DB (don't wait for UI update)
+        // Sync to cloud
         apiService.clearAllData().then(() => {
           restoredState.exercises.forEach((ex: Exercise) => {
             Object.keys(ex.entries || {}).forEach(sId => {
@@ -286,8 +298,8 @@ const App: React.FC = () => {
 
         alert("Restored successfully.");
       } catch (e) {
-        console.error("Restore crashed", e);
-        alert("Restore failed - corrupted data.");
+        console.error("Restore failed", e);
+        alert("Restore failed - invalid data.");
       } finally {
         setIsEvaluating(false);
       }
@@ -295,6 +307,8 @@ const App: React.FC = () => {
   };
 
   if (!user) return <Login onLogin={handleLogin} onDevLogin={handleDevLogin} />;
+
+  const currentExercise = getCurrentExercise();
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col font-sans transition-colors duration-500 overflow-x-hidden">
@@ -309,7 +323,7 @@ const App: React.FC = () => {
             <div className="w-9 h-9 bg-gradient-to-br from-brand-500 to-indigo-700 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-brand-500/20">AI</div>
             <div className="flex flex-col">
               <h1 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-brand-600 to-indigo-600 dark:from-brand-400 dark:to-indigo-400 hidden sm:block">CodeGrader Pro</h1>
-              <span className="text-[10px] uppercase tracking-tighter text-slate-400 dark:text-slate-500 font-bold leading-none hidden sm:block">Enterprise Assessment Core</span>
+              <span className="text-[10px] uppercase tracking-tighter text-slate-400 dark:text-slate-500 font-bold leading-none hidden sm:block">Academic Logic Core</span>
             </div>
           </div>
           
@@ -318,7 +332,7 @@ const App: React.FC = () => {
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
              </button>
 
-             <button onClick={() => setViewMode(viewMode === 'HISTORY' ? 'SINGLE' : 'HISTORY')} className={`p-2 rounded-lg transition-all ${viewMode === 'HISTORY' ? 'text-brand-600 bg-brand-50 dark:bg-brand-900/30' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`} title="History Timeline">
+             <button onClick={() => setViewMode(viewMode === 'HISTORY' ? 'SINGLE' : 'HISTORY')} className={`p-2 rounded-lg transition-all ${viewMode === 'HISTORY' ? 'text-brand-600 bg-brand-50 dark:bg-brand-900/30' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`} title="Snapshots">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
              </button>
 
@@ -383,35 +397,28 @@ const App: React.FC = () => {
             />
           </div>
         ) : (
-          <div className="h-[calc(100vh-10rem)] bg-white dark:bg-slate-900 rounded-3xl shadow-xl p-8 border border-slate-200 dark:border-slate-800 flex flex-col transition-all duration-300 w-full">
+          <div className="h-[calc(100vh-10rem)] bg-white dark:bg-slate-900 rounded-3xl shadow-xl p-8 border border-slate-200 dark:border-slate-800 flex flex-col transition-all duration-300 w-full overflow-hidden">
              <div className="flex justify-between items-center mb-8">
                <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 flex items-center uppercase tracking-tighter">
-                 <span className="mr-4 text-3xl">🕒</span> Session Archive Timeline
+                 <span className="mr-4 text-3xl">🕒</span> Archive History
                </h2>
-               <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{archives.length} snapshots total</span>
+               <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{archives.length} points</span>
              </div>
              <div className="flex-grow overflow-y-auto custom-scrollbar pr-2">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                    {archives.length === 0 ? (
                      <div className="col-span-full py-32 text-center">
                         <div className="text-6xl mb-6 opacity-20">📂</div>
-                        <div className="text-slate-400 dark:text-slate-500 font-bold text-lg">No sessions archived yet.</div>
-                        <p className="text-slate-500 dark:text-slate-600 text-sm mt-2">Previous sessions appear here after a system restart.</p>
+                        <p className="text-slate-500 font-bold text-lg">No archives yet.</p>
                      </div>
                    ) : (
                      archives.map(arch => (
-                       <div key={arch._id} className="p-6 border border-slate-100 dark:border-slate-800 rounded-3xl bg-slate-50 dark:bg-slate-800/40 hover:border-brand-300 dark:hover:border-brand-900 transition-all group flex flex-col shadow-sm hover:shadow-md">
-                          <div className="flex justify-between items-start mb-6">
-                             <div className="flex flex-col">
-                               <span className="text-xs font-black text-brand-600 dark:text-brand-400 uppercase tracking-widest mb-1">{new Date(arch.timestamp).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
-                               <span className="text-xl font-bold text-slate-800 dark:text-slate-100">{new Date(arch.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                             </div>
-                             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-xl flex flex-col items-center">
-                                <span className="text-lg font-black text-brand-500">{arch.state.exercises.length}</span>
-                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Ex</span>
-                             </div>
+                       <div key={arch._id} className="p-6 border border-slate-100 dark:border-slate-800 rounded-3xl bg-slate-50 dark:bg-slate-800/40 hover:border-brand-300 dark:hover:border-brand-900 transition-all flex flex-col shadow-sm">
+                          <div className="mb-6">
+                             <span className="text-xs font-black text-brand-600 dark:text-brand-400 uppercase tracking-widest block mb-1">{new Date(arch.timestamp).toLocaleDateString()}</span>
+                             <span className="text-xl font-bold text-slate-800 dark:text-slate-100">{new Date(arch.timestamp).toLocaleTimeString()}</span>
                           </div>
-                          <button onClick={() => restoreArchive(arch)} className="w-full py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-950 dark:hover:text-brand-400 transition-all shadow-sm">Restore Snapshot</button>
+                          <button onClick={() => restoreArchive(arch)} className="w-full py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:bg-brand-50 hover:text-brand-600 transition-all">Restore Snapshot</button>
                        </div>
                      ))
                    )}

@@ -15,6 +15,38 @@ app.use(express.json());
 
 let cachedDb = null;
 
+const AGENT_SYSTEM_PROMPT_TEMPLATE = `[INSTRUCTIONS]
+Evaluate student C code against a question and master solution.
+
+[GOAL]
+Return score (0-10) and Hebrew feedback.
+Feedback must be 2-3 sentences MAX.
+Focus ONLY on problems, errors, and requirement violations.
+
+[C REQUIREMENTS]
+1. Buffer Cleaning: Mandatory check for "while(getchar() != '\\n');" or equivalent after scanf. If missing, penalize and mention it.
+2. Logic: Ensure range checks and conditions are correct.
+3. Style: Check for forbidden commands (break/continue) if noted in custom instructions.
+
+[CONSTRAINTS]
+- NO hyphens (-) or dashes (–) in feedback.
+- Hebrew ONLY.
+- Output ONLY valid JSON.
+
+[OUTPUT]
+{
+  "score": number,
+  "feedback": "string"
+}
+
+---
+Q: {QUESTION_TEXT}
+Solution: {MASTER_SOLUTION}
+Rubric: {RUBRIC}
+Student: {STUDENT_CODE}
+Instructions: {AGENT_CUSTOM_INSTRUCTIONS}
+`;
+
 const getSafeUri = () => {
   let uri = process.env.MONGODB_URI ? process.env.MONGODB_URI.trim() : null;
   if (!uri) return null;
@@ -115,20 +147,21 @@ router.post('/evaluate', async (req, res) => {
     const { question, rubric, studentCode, masterSolution, customInstructions } = req.body;
     const ai = new GoogleGenAI({ apiKey });
     
-    // Performance Optimization: Reduced thinking budget for faster response while keeping critical reasoning
+    // Inject variables into prompt template
+    const fullPrompt = AGENT_SYSTEM_PROMPT_TEMPLATE
+      .replace('{QUESTION_TEXT}', question || 'N/A')
+      .replace('{MASTER_SOLUTION}', masterSolution || 'N/A')
+      .replace('{RUBRIC}', rubric || 'N/A')
+      .replace('{STUDENT_CODE}', studentCode || 'N/A')
+      .replace('{AGENT_CUSTOM_INSTRUCTIONS}', customInstructions || 'N/A');
+
+    // Optimization: Flash with low thinking budget for maximum speed
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview', 
-      contents: `Evaluate code submission.
-      Compare with Master Solution logic.
-      Apply Rubric.
-      Rules: ${customInstructions}
-      Question: ${question}
-      Master: ${masterSolution}
-      Student: ${studentCode}`,
+      contents: fullPrompt,
       config: { 
         responseMimeType: "application/json", 
-        thinkingConfig: { thinkingBudget: 4000 }, // Lower budget = Faster response
-        systemInstruction: "Expert C evaluator. Provide score (0-10) and 2 sentences of feedback in Hebrew. NO hyphens. JSON ONLY: {\"score\": number, \"feedback\": \"string\"}." 
+        thinkingConfig: { thinkingBudget: 1000 } // Minimal thinking for quick grading
       }
     });
     res.json(JSON.parse(response.text));
