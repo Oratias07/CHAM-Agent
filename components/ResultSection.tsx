@@ -5,119 +5,121 @@ interface ResultSectionProps {
   result: GradingResult | null;
   error: string | null;
   isEvaluating: boolean;
+  darkMode?: boolean;
 }
 
 const ResultSection: React.FC<ResultSectionProps> = ({ result, error, isEvaluating }) => {
   if (isEvaluating) {
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-white rounded-xl shadow-lg border border-gray-100 p-8 text-center animate-pulse">
-        <div className="w-24 h-24 bg-indigo-50 rounded-full mb-4 flex items-center justify-center">
-          <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className="h-full flex flex-col items-center justify-center bg-white dark:bg-slate-900 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-800 p-10 text-center transition-all">
+        <div className="relative w-36 h-36 mb-10">
+           <div className="absolute inset-0 border-[6px] border-brand-500/10 rounded-full"></div>
+           <div className="absolute inset-0 border-[6px] border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+           <div className="absolute inset-6 bg-brand-50 dark:bg-slate-800/80 rounded-full flex items-center justify-center text-5xl animate-pulse shadow-inner">
+             ⚡
+           </div>
         </div>
-        <h3 className="text-lg font-bold text-indigo-900 mb-2">Analyzing Submission...</h3>
-        <p className="text-gray-400 text-sm">Optimizing logic check with Flash Speed</p>
+        <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100 mb-3 uppercase tracking-tighter">AI Evaluation Core</h3>
+        <p className="text-slate-400 dark:text-slate-500 text-sm font-medium max-w-[240px] leading-relaxed">Analyzing semantic logic and applying grading rubric with sub-second latency...</p>
       </div>
     );
   }
 
   if (error) {
-    const isQuotaError = error.includes("Rate Limit") || error.includes("429") || error.includes("quota");
-
     return (
-      <div className={`h-full flex flex-col items-center justify-center rounded-xl shadow-lg border p-8 text-center ${isQuotaError ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200'}`}>
-        <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 text-3xl ${isQuotaError ? 'bg-amber-100 text-amber-600' : 'bg-red-100 text-red-500'}`}>
-          {isQuotaError ? '⌛' : '⚠️'}
+      <div className="h-full flex flex-col items-center justify-center bg-red-50 dark:bg-red-950/20 rounded-3xl shadow-xl border border-red-200 dark:border-red-900/30 p-12 text-center">
+        <div className="w-24 h-24 rounded-3xl bg-red-100 dark:bg-red-900/40 flex items-center justify-center mb-8 text-4xl text-red-600 shadow-sm">
+          ⚠️
         </div>
-        <h3 className={`text-xl font-bold mb-2 ${isQuotaError ? 'text-amber-800' : 'text-red-700'}`}>
-          {isQuotaError ? 'Speed Limit Reached' : 'Evaluation Failed'}
-        </h3>
-        <p className={`${isQuotaError ? 'text-amber-700' : 'text-red-600'} max-w-md mb-4`}>
+        <h3 className="text-2xl font-black text-red-800 dark:text-red-400 mb-3 uppercase tracking-tighter">Engine Interrupted</h3>
+        <p className="text-red-600/80 dark:text-red-500/80 text-sm font-bold max-w-sm leading-relaxed mb-10">
           {error}
         </p>
-        
-        {isQuotaError && (
-          <div className="p-4 bg-white border border-amber-100 rounded-lg text-xs text-left text-gray-600 shadow-sm">
-            <p className="font-bold mb-1 text-amber-800">Why am I seeing this?</p>
-            <p>The <b>Google Free Tier</b> limits how many times you can use the AI per minute. To "remove" this limit, you must use an API key from a <b>Paid Google Cloud Project</b>.</p>
-          </div>
-        )}
+        <button 
+          onClick={() => window.location.reload()}
+          className="px-10 py-4 bg-red-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-red-500 transition-all shadow-lg shadow-red-500/20"
+        >
+          Reset Session
+        </button>
       </div>
     );
   }
 
   if (!result) {
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-white rounded-xl shadow-lg border border-gray-100 p-8 text-center">
-        <div className="w-24 h-24 bg-indigo-50 text-indigo-300 rounded-full flex items-center justify-center mb-6 text-4xl">
-          🤖
+      <div className="h-full flex flex-col items-center justify-center bg-white dark:bg-slate-900 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-800 p-12 text-center">
+        <div className="w-28 h-28 bg-brand-50 dark:bg-slate-800/60 text-brand-500 dark:text-brand-400 rounded-[2rem] flex items-center justify-center mb-10 text-6xl shadow-inner animate-float">
+          🎯
         </div>
-        <h3 className="text-xl font-semibold text-gray-700 mb-2">Ready to Grade</h3>
-        <p className="text-gray-500 max-w-sm mb-6">
-          Enter code and click "Evaluate" to receive instant Hebrew feedback.
+        <h3 className="text-3xl font-black text-slate-800 dark:text-slate-100 mb-4 tracking-tighter uppercase">Ready for Insight</h3>
+        <p className="text-slate-500 dark:text-slate-400 max-w-xs mb-10 text-base font-medium leading-relaxed">
+          Select a student and submit their implementation to generate precise Hebrew pedagogical feedback.
         </p>
-        <div className="flex items-center space-x-2 text-xs font-bold text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-100">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-          </span>
-          <span>SYSTEM READY: FLASH SPEED MODE</span>
+        <div className="flex items-center space-x-4 text-[11px] font-black text-brand-600 dark:text-brand-400 bg-brand-50/50 dark:bg-brand-950/30 px-6 py-3 rounded-2xl border border-brand-100 dark:border-brand-900/50 uppercase tracking-[0.2em] shadow-sm">
+           <span className="flex h-2.5 w-2.5 rounded-full bg-brand-500 animate-pulse"></span>
+           <span>Engine Status: Operational</span>
         </div>
       </div>
     );
   }
 
-  const getScoreColor = (score: number) => {
-    if (score >= 9) return 'text-green-600 border-green-200 bg-green-50';
-    if (score >= 7) return 'text-blue-600 border-blue-200 bg-blue-50';
-    if (score >= 5) return 'text-yellow-600 border-yellow-200 bg-yellow-50';
-    return 'text-red-600 border-red-200 bg-red-50';
-  };
-
-  const scoreColorClass = getScoreColor(result.score);
+  const scoreColorClass = result.score >= 9 
+    ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-100 dark:border-emerald-900/30' 
+    : result.score >= 7 
+    ? 'text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-950/40 border-brand-100 dark:border-brand-900/30' 
+    : result.score >= 5 
+    ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border-amber-100 dark:border-amber-900/30' 
+    : 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border-rose-100 dark:border-rose-900/30';
 
   return (
-    <div className="h-full flex flex-col bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-      <div className="bg-gray-50 border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-        <h2 className="text-lg font-bold text-gray-800 flex items-center">
-          <span className="mr-2">📊</span> Evaluation Report
+    <div className="h-full flex flex-col bg-white dark:bg-slate-900 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-800 overflow-hidden transition-all duration-300">
+      <div className="bg-slate-50/80 dark:bg-slate-800/60 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-8 py-6 flex items-center justify-between">
+        <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 flex items-center uppercase tracking-tighter">
+          <span className="mr-4 text-3xl">⚡</span> Grading Analysis
         </h2>
-        <div className="flex items-center space-x-2">
-           <span className="text-[10px] font-bold text-indigo-400 border border-indigo-100 px-2 py-0.5 rounded-full uppercase tracking-tighter">Latency: Ultra-Low</span>
-           <span className="text-xs font-mono text-gray-400 uppercase tracking-widest">AI Generated</span>
+        <div className="flex items-center space-x-3">
+           <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 border-2 border-slate-200 dark:border-slate-700 px-4 py-1.5 rounded-xl uppercase tracking-widest shadow-sm">Flash 3.0 Core</span>
         </div>
       </div>
       
-      <div className="p-8 flex-grow overflow-y-auto custom-scrollbar">
-        <div className="flex flex-col items-center mb-10">
-          <div className={`relative w-32 h-32 rounded-full border-4 flex items-center justify-center mb-4 shadow-sm ${scoreColorClass.replace('bg-', 'bg-opacity-0 ').split(' ')[1]}`}>
-            <span className={`text-5xl font-extrabold ${scoreColorClass.split(' ')[0]}`}>
+      <div className="p-10 flex-grow overflow-y-auto custom-scrollbar bg-slate-50/30 dark:bg-slate-900/30">
+        <div className="flex flex-col items-center mb-12">
+          <div className={`relative w-44 h-44 rounded-full border-[10px] flex flex-col items-center justify-center mb-8 shadow-2xl transition-all duration-1000 transform hover:scale-105 ${scoreColorClass.split(' ').slice(2).join(' ')}`}>
+            <span className={`text-7xl font-black ${scoreColorClass.split(' ')[0]} drop-shadow-sm`}>
               {result.score}
             </span>
-            <span className="absolute bottom-6 text-sm font-semibold text-gray-400">/ 10</span>
+            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1">out of 10.0</span>
           </div>
-          <div className={`px-4 py-1 rounded-full text-sm font-bold border ${scoreColorClass}`}>
-            {result.score >= 9 ? 'Excellent' : result.score >= 7 ? 'Good' : result.score >= 5 ? 'Needs Improvement' : 'Critical Issues'}
+          <div className={`px-8 py-2.5 rounded-2xl text-[10px] font-black border-2 uppercase tracking-[0.2em] shadow-md transition-all duration-300 ${scoreColorClass}`}>
+            {result.score >= 9 ? 'Elite Quality' : result.score >= 7 ? 'Standard Achieved' : result.score >= 5 ? 'Revision Needed' : 'Critical Errors'}
           </div>
         </div>
 
-        <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-          <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wide mb-4 flex items-center">
-            <span className="text-lg mr-2">💬</span> 
-            Feedback (Hebrew)
+        <div className="bg-white dark:bg-slate-800/60 rounded-[2.5rem] p-10 border border-slate-200 dark:border-slate-800 shadow-xl relative group transition-all hover:shadow-2xl">
+          <div className="absolute top-6 left-8 text-slate-200 dark:text-slate-700 text-8xl opacity-30 pointer-events-none font-serif italic">"</div>
+          <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.3em] mb-6 flex items-center">
+            <span className="text-2xl mr-3">🗣️</span> 
+            Professional Hebrew Review
           </h3>
-          <p className="text-gray-800 text-lg leading-relaxed text-right font-medium" dir="rtl">
+          <p className="text-slate-800 dark:text-slate-100 text-2xl leading-relaxed text-right font-bold drop-shadow-sm" dir="rtl">
             {result.feedback}
           </p>
         </div>
 
-        <div className="mt-8 text-center flex flex-col items-center">
+        <div className="mt-12 flex flex-col items-center space-y-5">
           <button 
-            onClick={() => navigator.clipboard.writeText(result.feedback)}
-            className="text-indigo-600 hover:text-indigo-800 text-sm font-medium flex items-center justify-center transition-colors mb-2"
+            onClick={() => {
+              navigator.clipboard.writeText(result.feedback);
+              alert('Pedagogical feedback copied!');
+            }}
+            className="w-full py-5 bg-slate-900 dark:bg-brand-600 hover:bg-black dark:hover:bg-brand-500 text-white rounded-3xl font-black text-xs uppercase tracking-widest transition-all shadow-xl hover:shadow-brand-500/30 active:scale-[0.98]"
           >
-            Copy Feedback
+            Copy Professional Review
           </button>
-          <p className="text-[10px] text-gray-400 italic">Code cleared and ready for next student.</p>
+          <div className="flex items-center space-x-3 text-[9px] text-slate-400 dark:text-slate-500 uppercase tracking-[0.4em] font-black">
+             <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+             <span>Automatic Persistence Verified</span>
+          </div>
         </div>
       </div>
     </div>

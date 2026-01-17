@@ -2,61 +2,70 @@ import React from 'react';
 
 interface LoginProps {
   onLogin: () => void;
+  onDevLogin?: () => void;
 }
 
-const Login: React.FC<LoginProps> = ({ onLogin }) => {
+const Login: React.FC<LoginProps> = ({ onLogin, onDevLogin }) => {
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-6 overflow-hidden relative">
       {/* Decorative Background Elements */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/20 blur-[120px] rounded-full"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/20 blur-[120px] rounded-full"></div>
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-600/10 blur-[150px] rounded-full"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-600/10 blur-[150px] rounded-full"></div>
       </div>
 
-      <div className="z-10 w-full max-w-md bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-10 shadow-2xl text-center">
-        <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center text-white font-bold text-3xl mx-auto mb-8 shadow-lg shadow-indigo-500/20">
+      <div className="z-10 w-full max-w-md bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-12 shadow-2xl text-center">
+        <div className="w-24 h-24 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl flex items-center justify-center text-white font-bold text-4xl mx-auto mb-10 shadow-2xl shadow-indigo-500/20 ring-4 ring-white/5">
           AI
         </div>
         
-        <h1 className="text-3xl font-extrabold text-white mb-3 tracking-tight">
-          CodeGrader SaaS
+        <h1 className="text-4xl font-black text-white mb-4 tracking-tighter uppercase">
+          Grader SaaS
         </h1>
-        <p className="text-slate-400 mb-10 text-lg">
-          Enterprise-grade AI evaluation for programming instructors.
+        <p className="text-slate-400 mb-12 text-lg font-medium leading-relaxed">
+          High-performance academic evaluation powered by Gemini.
         </p>
 
         <div className="space-y-4">
           <button 
             onClick={onLogin}
-            className="w-full flex items-center justify-center space-x-3 bg-white hover:bg-slate-100 text-slate-900 font-bold py-4 px-6 rounded-xl transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-xl"
+            className="w-full flex items-center justify-center space-x-4 bg-white hover:bg-slate-50 text-slate-900 font-black py-5 px-8 rounded-2xl transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-2xl uppercase tracking-widest text-xs"
           >
             <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
             <span>Continue with Google</span>
           </button>
           
-          <p className="text-slate-500 text-xs">
-            By signing in, you agree to our Terms of Service and Privacy Policy.
-          </p>
+          {onDevLogin && (
+            <button 
+              onClick={onDevLogin}
+              className="w-full flex items-center justify-center space-x-3 bg-slate-800/50 hover:bg-slate-800 text-slate-300 font-bold py-4 px-8 rounded-2xl border border-slate-700/50 transition-all text-xs uppercase tracking-widest"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+              </svg>
+              <span>Developer Bypass</span>
+            </button>
+          )}
         </div>
 
-        <div className="mt-12 pt-8 border-t border-white/5 grid grid-cols-3 gap-4">
+        <div className="mt-16 pt-10 border-t border-white/10 grid grid-cols-3 gap-6">
           <div className="text-center">
-            <div className="text-indigo-400 font-bold text-xl">100%</div>
-            <div className="text-slate-500 text-[10px] uppercase tracking-widest">Accuracy</div>
+            <div className="text-indigo-400 font-black text-2xl tracking-tighter">1.5s</div>
+            <div className="text-slate-500 text-[9px] font-black uppercase tracking-widest mt-1">Latent</div>
           </div>
           <div className="text-center">
-            <div className="text-purple-400 font-bold text-xl">Secured</div>
-            <div className="text-slate-500 text-[10px] uppercase tracking-widest">MongoDB</div>
+            <div className="text-purple-400 font-black text-2xl tracking-tighter">TLS</div>
+            <div className="text-slate-500 text-[9px] font-black uppercase tracking-widest mt-1">Security</div>
           </div>
           <div className="text-center">
-            <div className="text-emerald-400 font-bold text-xl">Flash</div>
-            <div className="text-slate-500 text-[10px] uppercase tracking-widest">Speed</div>
+            <div className="text-emerald-400 font-black text-2xl tracking-tighter">AUTO</div>
+            <div className="text-slate-500 text-[9px] font-black uppercase tracking-widest mt-1">Sync</div>
           </div>
         </div>
       </div>
 
-      <div className="mt-8 text-slate-500 text-sm font-medium z-10">
-        Trusted by top Computer Science faculties globally.
+      <div className="mt-10 text-slate-600 dark:text-slate-500 text-xs font-black uppercase tracking-[0.2em] z-10 opacity-50">
+        Academic Integrity Core (v2.0)
       </div>
     </div>
   );

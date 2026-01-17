@@ -22,7 +22,7 @@ export enum TabOption {
   QUESTION = 'QUESTION',
   SOLUTION = 'SOLUTION',
   RUBRIC = 'RUBRIC',
-  STUDENT_CODE = 'STUDENT_CODE',
+  STUDENT_ANSWER = 'STUDENT_ANSWER',
   CUSTOM = 'CUSTOM'
 }
 
@@ -50,4 +50,11 @@ export interface Exercise {
 export interface GradeBookState {
   students: Student[];
   exercises: Exercise[];
+}
+
+export interface ArchiveSession {
+  _id?: string;
+  userId: string;
+  timestamp: Date;
+  state: GradeBookState;
 }

@@ -1,36 +1,62 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import InputSection from './components/InputSection';
 import ResultSection from './components/ResultSection';
 import GradeBook from './components/GradeBook';
 import ChatBot from './components/ChatBot';
 import Login from './components/Login';
 import { apiService } from './services/apiService';
-import { GradingInputs, GradingResult, TabOption, GradeBookState, Exercise, User } from './types';
+import { GradingInputs, GradingResult, TabOption, GradeBookState, Exercise, User, ArchiveSession } from './types';
 import { 
-  DEFAULT_STUDENT_CODE,
   INITIAL_GRADEBOOK_STATE
 } from './constants';
 
-type ViewMode = 'SINGLE' | 'SHEETS';
+type ViewMode = 'SINGLE' | 'SHEETS' | 'HISTORY';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('SINGLE');
-  const [activeTab, setActiveTab] = useState<TabOption>(TabOption.STUDENT_CODE);
+  const [activeTab, setActiveTab] = useState<TabOption>(TabOption.QUESTION);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [result, setResult] = useState<GradingResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isResetting, setIsResetting] = useState(false);
+  
+  // Set dark mode as default
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('theme');
+    return saved === null ? true : saved === 'dark';
+  });
 
+  const [archives, setArchives] = useState<ArchiveSession[]>([]);
   const [gradeBookState, setGradeBookState] = useState<GradeBookState>(INITIAL_GRADEBOOK_STATE);
+  const [historyStack, setHistoryStack] = useState<GradeBookState[]>([]);
+  
   const [selectedStudentId, setSelectedStudentId] = useState<string>(
     INITIAL_GRADEBOOK_STATE.students.length > 0 ? INITIAL_GRADEBOOK_STATE.students[0].id : ''
   );
   
   const [activeExerciseId, setActiveExerciseId] = useState<string>(INITIAL_GRADEBOOK_STATE.exercises[0].id);
-  const [studentCode, setStudentCode] = useState(DEFAULT_STUDENT_CODE);
+  const [studentCode, setStudentCode] = useState('');
 
-  // SaaS SYNC: Load user and their data on mount
+  // Sync theme with document class
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [darkMode]);
+
+  const pushToHistory = useCallback((newState: GradeBookState) => {
+    setHistoryStack(prev => {
+      const newStack = [JSON.parse(JSON.stringify(gradeBookState)), ...prev].slice(0, 10);
+      return newStack;
+    });
+  }, [gradeBookState]);
+
+  // Load user data and archives on start
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -39,6 +65,8 @@ const App: React.FC = () => {
           setUser(currentUser);
           const history = await apiService.getGradebook();
           if (history) setGradeBookState(history);
+          const arch = await apiService.getArchives();
+          setArchives(arch.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
         }
       } catch (e) {
         console.error("Session check failed", e);
@@ -51,7 +79,17 @@ const App: React.FC = () => {
     window.location.href = "/api/auth/google";
   };
 
+  const handleDevLogin = async () => {
+    localStorage.setItem('ST_DEV_MODE', 'true');
+    const mockUser = await apiService.getCurrentUser();
+    setUser(mockUser);
+    const history = await apiService.getGradebook();
+    if (history) setGradeBookState(history);
+  };
+
   const handleLogout = () => {
+    localStorage.removeItem('ST_DEV_MODE');
+    localStorage.removeItem('ST_MOCK_GRADES');
     window.location.href = "/api/auth/logout";
   };
 
@@ -68,7 +106,6 @@ const App: React.FC = () => {
 
   const handleEvaluate = async () => {
     if (!user) return;
-    
     setIsEvaluating(true);
     setError(null);
     setResult(null);
@@ -82,24 +119,21 @@ const App: React.FC = () => {
     };
 
     try {
+      pushToHistory(gradeBookState);
       const evaluation = await apiService.evaluate(inputs);
       setResult(evaluation);
 
       if (selectedStudentId) {
         handleUpdateEntry(activeExerciseId, selectedStudentId, 'score', evaluation.score);
         handleUpdateEntry(activeExerciseId, selectedStudentId, 'feedback', evaluation.feedback);
-
         await apiService.saveGrade(activeExerciseId, selectedStudentId, evaluation);
-
         setStudentCode('');
 
         const currentIndex = gradeBookState.students.findIndex(s => s.id === selectedStudentId);
         if (currentIndex !== -1 && currentIndex < gradeBookState.students.length - 1) {
-          const nextStudent = gradeBookState.students[currentIndex + 1];
-          setSelectedStudentId(nextStudent.id);
+          setSelectedStudentId(gradeBookState.students[currentIndex + 1].id);
         }
       }
-
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred.');
     } finally {
@@ -115,35 +149,47 @@ const App: React.FC = () => {
         const currentEntry = ex.entries[studentId] || { score: 0, feedback: '' };
         return {
           ...ex,
-          entries: {
-            ...ex.entries,
-            [studentId]: { ...currentEntry, [field]: value }
-          }
+          entries: { ...ex.entries, [studentId]: { ...currentEntry, [field]: value } }
         };
       })
     }));
   };
 
+  const handleUndo = () => {
+    if (historyStack.length === 0) return;
+    const [lastVersion, ...remaining] = historyStack;
+    setGradeBookState(lastVersion);
+    setHistoryStack(remaining);
+  };
+
   const handleReset = async () => {
-    if (window.confirm("⚠️ ATTENTION: This will PERMANENTLY delete all current scores and reset all exercise rubrics. Are you sure you want to start a completely new homework check?")) {
+    if (window.confirm("⚠️ SYSTEM RESTART: This will ARCHIVE your current session and COMPLETELY CLEAR all data for a fresh start at Exercise 1. Proceed?")) {
       try {
         setIsResetting(true);
-        // Wipe server-side data
+        // 1. Archive before clearing
+        await apiService.archiveSession(gradeBookState);
+        // 2. Clear backend
         await apiService.clearAllData();
         
-        // Reset local state
-        setGradeBookState(INITIAL_GRADEBOOK_STATE);
-        setStudentCode(DEFAULT_STUDENT_CODE);
+        // 3. Reset local state to the initial blank state
+        const freshState = JSON.parse(JSON.stringify(INITIAL_GRADEBOOK_STATE));
+        setGradeBookState(freshState);
+        setStudentCode('');
         setResult(null);
         setError(null);
-        setSelectedStudentId(INITIAL_GRADEBOOK_STATE.students.length > 0 ? INITIAL_GRADEBOOK_STATE.students[0].id : '');
-        setActiveExerciseId(INITIAL_GRADEBOOK_STATE.exercises[0].id);
+        setHistoryStack([]);
+        setSelectedStudentId(freshState.students[0].id);
+        setActiveExerciseId(freshState.exercises[0].id);
         setViewMode('SINGLE');
         setActiveTab(TabOption.QUESTION);
         
-        alert("System restarted successfully. You are ready for a new homework check.");
+        // 4. Refresh archives list
+        const arch = await apiService.getArchives();
+        setArchives(arch.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
+        
+        alert("System Restarted. Form cleared and previous data archived.");
       } catch (e) {
-        alert("Failed to reset system data. Please check your connection.");
+        alert("Reset failed. Check connection.");
       } finally {
         setIsResetting(false);
       }
@@ -165,6 +211,7 @@ const App: React.FC = () => {
   };
 
   const handleAddExercise = () => {
+    pushToHistory(gradeBookState);
     const nextNum = gradeBookState.exercises.length + 1;
     const newId = `ex-${nextNum}-${Date.now()}`;
     const lastEx = gradeBookState.exercises[gradeBookState.exercises.length - 1];
@@ -194,84 +241,81 @@ const App: React.FC = () => {
   };
 
   const handleAddStudent = () => {
-    setGradeBookState(prev => {
-      const nextNum = prev.students.length + 1;
-      return {
-        ...prev,
-        students: [
-          ...prev.students,
-          { id: `student-${nextNum}-${Date.now()}`, name: `Student ${nextNum}` }
-        ]
-      }
-    });
+    pushToHistory(gradeBookState);
+    setGradeBookState(prev => ({
+      ...prev,
+      students: [
+        ...prev.students,
+        { id: `student-${prev.students.length + 1}-${Date.now()}`, name: `Student ${prev.students.length + 1}` }
+      ]
+    }));
   };
 
-  if (!user) {
-    return <Login onLogin={handleLogin} />;
-  }
+  const restoreArchive = (session: ArchiveSession) => {
+    if (window.confirm("Restore this snapshot? Current session data will be overwritten.")) {
+      setGradeBookState(session.state);
+      setViewMode('SINGLE');
+      alert("Archive Restored.");
+    }
+  };
+
+  if (!user) return <Login onLogin={handleLogin} onDevLogin={handleDevLogin} />;
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col font-sans text-slate-900">
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-20 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col font-sans transition-colors duration-500 overflow-x-hidden">
+      <div className="fixed inset-0 pointer-events-none opacity-20 dark:opacity-40 z-0 overflow-hidden">
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-500/20 blur-[150px] rounded-full animate-float"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-500/20 blur-[150px] rounded-full animate-float" style={{ animationDelay: '2s' }}></div>
+      </div>
+
+      <header className="glass border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 shadow-sm transition-all duration-300">
+        <div className="max-w-full mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">
-              AI
+            <div className="w-9 h-9 bg-gradient-to-br from-brand-500 to-indigo-700 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-brand-500/20">AI</div>
+            <div className="flex flex-col">
+              <h1 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-brand-600 to-indigo-600 dark:from-brand-400 dark:to-indigo-400 hidden sm:block">CodeGrader Pro</h1>
+              <span className="text-[10px] uppercase tracking-tighter text-slate-400 dark:text-slate-500 font-bold leading-none hidden sm:block">Enhanced Reasoning Core</span>
             </div>
-            <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 hidden sm:block">
-              CodeGrader SaaS
-            </h1>
           </div>
           
-          <div className="flex items-center space-x-4">
-             {/* Restart Button */}
-             <button 
-                onClick={handleReset}
-                disabled={isResetting}
-                className="group flex items-center space-x-2 px-3 py-1.5 rounded-md text-xs font-bold text-red-600 border border-red-100 hover:bg-red-50 transition-all disabled:opacity-50"
-                title="Restart System & Clear All Data"
-             >
-                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${isResetting ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                <span className="hidden md:inline">{isResetting ? 'Resetting...' : 'Restart System'}</span>
+          <div className="flex items-center space-x-2 sm:space-x-4">
+             <button onClick={handleUndo} disabled={historyStack.length === 0} className="p-2 rounded-lg text-slate-500 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all disabled:opacity-30" title="Undo Last Change">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
              </button>
 
-             <div className="bg-gray-100 p-1 rounded-lg flex items-center">
-                <button 
-                  onClick={() => setViewMode('SINGLE')}
-                  className={`px-3 sm:px-4 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'SINGLE' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                >
-                  Grader
-                </button>
-                <button 
-                  onClick={() => setViewMode('SHEETS')}
-                  className={`px-3 sm:px-4 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'SHEETS' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                >
-                  Sheets
-                </button>
+             <button onClick={() => setViewMode(viewMode === 'HISTORY' ? 'SINGLE' : 'HISTORY')} className={`p-2 rounded-lg transition-all ${viewMode === 'HISTORY' ? 'text-brand-600 bg-brand-50 dark:bg-brand-900/30' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`} title="Archive Timeline">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+             </button>
+
+             <button onClick={() => setDarkMode(!darkMode)} className="p-2 rounded-lg text-slate-500 hover:text-amber-500 dark:hover:text-amber-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+                {darkMode ? <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg> : <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>}
+             </button>
+
+             <div className="h-6 w-px bg-slate-200 dark:bg-slate-800 hidden sm:block"></div>
+
+             <div className="bg-slate-100 dark:bg-slate-900 p-1 rounded-xl flex items-center">
+                <button onClick={() => setViewMode('SINGLE')} className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${viewMode === 'SINGLE' ? 'bg-white dark:bg-slate-800 text-brand-600 dark:text-brand-400 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>Grader</button>
+                <button onClick={() => setViewMode('SHEETS')} className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${viewMode === 'SHEETS' ? 'bg-white dark:bg-slate-800 text-brand-600 dark:text-brand-400 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>Sheets</button>
              </div>
-             
-             <div className="flex items-center space-x-2 pl-4 border-l border-gray-200">
-                <div className="text-right hidden sm:block">
-                  <div className="text-xs font-bold text-gray-900">{user.name}</div>
-                  <div className="text-[10px] text-gray-500">{user.email}</div>
-                </div>
-                <button onClick={handleLogout} className="group relative">
-                  <img src={user.picture} className="w-8 h-8 rounded-full border-2 border-indigo-100 group-hover:border-red-200 transition-all" alt="Avatar" />
-                  <div className="absolute inset-0 bg-red-500/80 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px] font-bold transition-opacity">
-                    EXIT
-                  </div>
+
+             <div className="flex items-center space-x-2 pl-2 sm:pl-4">
+                <button onClick={handleLogout} className="group relative flex items-center">
+                  <img src={user.picture} className="w-8 h-8 rounded-full border-2 border-brand-100 dark:border-slate-800 group-hover:border-red-400 transition-all shadow-sm" alt="Avatar" />
+                  <div className="absolute inset-0 bg-red-500/90 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[8px] font-bold transition-opacity">OFF</div>
                 </button>
              </div>
           </div>
         </div>
       </header>
 
-      <main className="flex-grow p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full">
+      <main className="flex-grow p-4 sm:p-6 w-full z-10 overflow-hidden">
         {viewMode === 'SINGLE' ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-8rem)] min-h-[600px]">
-            <section className="h-full">
+          /* Re-organized Grid: Insight (30%) on LEFT, Focus Space (70%) on RIGHT */
+          <div className="grid grid-cols-1 xl:grid-cols-10 gap-6 h-[calc(100vh-10rem)] min-h-[650px] w-full">
+            <section className="xl:col-span-3 h-full overflow-hidden order-2 xl:order-1">
+              <ResultSection result={result} error={error} isEvaluating={isEvaluating} darkMode={darkMode} />
+            </section>
+            <section className="xl:col-span-7 h-full overflow-hidden order-1 xl:order-2">
               <InputSection 
                 activeExercise={currentExercise}
                 onUpdateExerciseData={handleUpdateExerciseData}
@@ -287,19 +331,12 @@ const App: React.FC = () => {
                 exercises={gradeBookState.exercises}
                 setActiveExerciseId={setActiveExerciseId}
                 onAddExercise={handleAddExercise}
-              />
-            </section>
-
-            <section className="h-full">
-              <ResultSection 
-                result={result}
-                error={error}
-                isEvaluating={isEvaluating}
+                darkMode={darkMode}
               />
             </section>
           </div>
-        ) : (
-          <div className="h-[calc(100vh-8rem)] min-h-[600px]">
+        ) : viewMode === 'SHEETS' ? (
+          <div className="h-[calc(100vh-10rem)] min-h-[650px] w-full">
             <GradeBook 
               state={gradeBookState}
               onUpdateStudentName={handleUpdateStudentName}
@@ -307,12 +344,49 @@ const App: React.FC = () => {
               onUpdateEntry={handleUpdateEntry}
               onAddExercise={handleAddExercise}
               onAddStudent={handleAddStudent}
+              onResetSystem={handleReset}
+              isResetting={isResetting}
             />
+          </div>
+        ) : (
+          <div className="h-[calc(100vh-10rem)] bg-white dark:bg-slate-900 rounded-3xl shadow-xl p-8 border border-slate-200 dark:border-slate-800 flex flex-col transition-all duration-300 w-full">
+             <div className="flex justify-between items-center mb-8">
+               <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 flex items-center uppercase tracking-tighter">
+                 <span className="mr-4 text-3xl">🕒</span> Archive Snapshot Timeline
+               </h2>
+               <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{archives.length} archives saved</span>
+             </div>
+             <div className="flex-grow overflow-y-auto custom-scrollbar pr-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                   {archives.length === 0 ? (
+                     <div className="col-span-full py-32 text-center">
+                        <div className="text-6xl mb-6 opacity-20">📂</div>
+                        <div className="text-slate-400 dark:text-slate-500 font-bold text-lg">No archives yet.</div>
+                        <p className="text-slate-500 dark:text-slate-600 text-sm mt-2">Data is archived automatically when you 'Restart System'.</p>
+                     </div>
+                   ) : (
+                     archives.map(arch => (
+                       <div key={arch._id} className="p-6 border border-slate-100 dark:border-slate-800 rounded-3xl bg-slate-50 dark:bg-slate-800/40 hover:border-brand-300 dark:hover:border-brand-900 transition-all group flex flex-col shadow-sm hover:shadow-md">
+                          <div className="flex justify-between items-start mb-6">
+                             <div className="flex flex-col">
+                               <span className="text-xs font-black text-brand-600 dark:text-brand-400 uppercase tracking-widest mb-1">{new Date(arch.timestamp).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                               <span className="text-xl font-bold text-slate-800 dark:text-slate-100">{new Date(arch.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                             </div>
+                             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-xl flex flex-col items-center">
+                                <span className="text-lg font-black text-brand-500">{arch.state.exercises.length}</span>
+                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Tasks</span>
+                             </div>
+                          </div>
+                          <button onClick={() => restoreArchive(arch)} className="w-full py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-950 dark:hover:text-brand-400 transition-all shadow-sm mt-auto">Restore This Snapshot</button>
+                       </div>
+                     ))
+                   )}
+                </div>
+             </div>
           </div>
         )}
       </main>
-
-      <ChatBot />
+      <ChatBot darkMode={darkMode} />
     </div>
   );
 };

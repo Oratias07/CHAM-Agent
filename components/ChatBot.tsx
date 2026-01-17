@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { sendChatMessage } from '../services/geminiService';
 
@@ -6,7 +7,12 @@ interface Message {
   text: string;
 }
 
-const ChatBot: React.FC = () => {
+// Added interface to fix TypeScript error where darkMode was being passed but not accepted
+interface ChatBotProps {
+  darkMode?: boolean;
+}
+
+const ChatBot: React.FC<ChatBotProps> = ({ darkMode }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     { role: 'model', text: 'Hello! I am your grading assistant. How can I help you with the code today?' }
@@ -78,7 +84,7 @@ const ChatBot: React.FC = () => {
 
       {/* Chat Window */}
       {isOpen && (
-        <div className="fixed bottom-24 right-6 z-40 w-96 max-w-[calc(100vw-3rem)] h-[500px] max-h-[calc(100vh-10rem)] bg-white rounded-xl shadow-2xl flex flex-col border border-gray-200 overflow-hidden animate-fade-in-up">
+        <div className="fixed bottom-24 right-6 z-40 w-96 max-w-[calc(100vw-3rem)] h-[500px] max-h-[calc(100vh-10rem)] bg-white dark:bg-slate-900 rounded-xl shadow-2xl flex flex-col border border-gray-200 dark:border-slate-800 overflow-hidden animate-fade-in-up">
           {/* Header */}
           <div className="bg-indigo-600 p-4 flex justify-between items-center">
             <h3 className="text-white font-bold flex items-center">
@@ -88,7 +94,7 @@ const ChatBot: React.FC = () => {
           </div>
 
           {/* Messages */}
-          <div className="flex-grow overflow-y-auto p-4 bg-gray-50 custom-scrollbar space-y-4">
+          <div className="flex-grow overflow-y-auto p-4 bg-gray-50 dark:bg-slate-800/50 custom-scrollbar space-y-4">
             {messages.map((msg, idx) => (
               <div
                 key={idx}
@@ -98,7 +104,7 @@ const ChatBot: React.FC = () => {
                   className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm shadow-sm ${
                     msg.role === 'user'
                       ? 'bg-indigo-600 text-white rounded-tr-none'
-                      : 'bg-white text-gray-800 border border-gray-100 rounded-tl-none'
+                      : 'bg-white dark:bg-slate-800 text-gray-800 dark:text-slate-200 border border-gray-100 dark:border-slate-700 rounded-tl-none'
                   }`}
                 >
                   {msg.text}
@@ -107,7 +113,7 @@ const ChatBot: React.FC = () => {
             ))}
             {isLoading && (
               <div className="flex justify-start">
-                <div className="bg-white text-gray-500 border border-gray-100 rounded-2xl rounded-tl-none px-4 py-2 text-sm shadow-sm flex items-center space-x-2">
+                <div className="bg-white dark:bg-slate-800 text-gray-500 dark:text-gray-400 border border-gray-100 dark:border-slate-700 rounded-2xl rounded-tl-none px-4 py-2 text-sm shadow-sm flex items-center space-x-2">
                   <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
                   <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
                   <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
@@ -118,15 +124,15 @@ const ChatBot: React.FC = () => {
           </div>
 
           {/* Input Area */}
-          <div className="p-3 bg-white border-t border-gray-100">
-            <div className="flex items-center space-x-2 bg-gray-50 rounded-full px-4 py-2 border border-gray-200 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500">
+          <div className="p-3 bg-white dark:bg-slate-900 border-t border-gray-100 dark:border-slate-800">
+            <div className="flex items-center space-x-2 bg-gray-50 dark:bg-slate-800 rounded-full px-4 py-2 border border-gray-200 dark:border-slate-700 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500">
               <input
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyPress}
                 placeholder="Ask about code or grading..."
-                className="flex-grow bg-transparent outline-none text-sm text-gray-700"
+                className="flex-grow bg-transparent outline-none text-sm text-gray-700 dark:text-slate-300"
                 disabled={isLoading}
               />
               <button
