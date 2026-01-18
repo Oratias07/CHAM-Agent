@@ -41,9 +41,17 @@ const InputSection: React.FC<InputSectionProps> = ({
   const gutterRef = useRef<HTMLDivElement>(null);
   
   // Undo/Redo Logic for Student Code
-  const [codeHistory, setCodeHistory] = useState<string[]>([studentCode]);
-  const [historyIndex, setHistoryIndex] = useState(0);
-  const isUpdatingHistory = useRef(false);
+  const [codeHistory, setCodeHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const isInternalUpdate = useRef(false);
+
+  // Initialize history when student or exercise changes
+  useEffect(() => {
+    isInternalUpdate.current = true;
+    setCodeHistory([studentCode]);
+    setHistoryIndex(0);
+    setTimeout(() => { isInternalUpdate.current = false; }, 0);
+  }, [selectedStudentId, activeExercise.id]);
 
   // Sync scroll between textarea and gutter
   const handleScroll = () => {
@@ -52,32 +60,29 @@ const InputSection: React.FC<InputSectionProps> = ({
     }
   };
 
-  useEffect(() => {
-    if (!isUpdatingHistory.current) {
-      setCodeHistory([studentCode]);
-      setHistoryIndex(0);
-    }
-  }, [selectedStudentId, activeExercise.id]);
-
   const handleCodeChange = (newCode: string) => {
     setStudentCode(newCode);
-    isUpdatingHistory.current = true;
-    const newHistory = codeHistory.slice(0, historyIndex + 1);
-    newHistory.push(newCode);
-    if (newHistory.length > 50) newHistory.shift();
-    setCodeHistory(newHistory);
-    setHistoryIndex(newHistory.length - 1);
-    setTimeout(() => { isUpdatingHistory.current = false; }, 0);
+    
+    if (!isInternalUpdate.current) {
+      const newHistory = codeHistory.slice(0, historyIndex + 1);
+      newHistory.push(newCode);
+      
+      // Limit history to 100 entries
+      const finalHistory = newHistory.length > 100 ? newHistory.slice(1) : newHistory;
+      
+      setCodeHistory(finalHistory);
+      setHistoryIndex(finalHistory.length - 1);
+    }
   };
 
   const undoCode = () => {
     if (historyIndex > 0) {
       const prevIndex = historyIndex - 1;
       const prevCode = codeHistory[prevIndex];
-      isUpdatingHistory.current = true;
+      isInternalUpdate.current = true;
       setStudentCode(prevCode);
       setHistoryIndex(prevIndex);
-      setTimeout(() => { isUpdatingHistory.current = false; }, 0);
+      setTimeout(() => { isInternalUpdate.current = false; }, 0);
     }
   };
 
@@ -85,12 +90,30 @@ const InputSection: React.FC<InputSectionProps> = ({
     if (historyIndex < codeHistory.length - 1) {
       const nextIndex = historyIndex + 1;
       const nextCode = codeHistory[nextIndex];
-      isUpdatingHistory.current = true;
+      isInternalUpdate.current = true;
       setStudentCode(nextCode);
       setHistoryIndex(nextIndex);
-      setTimeout(() => { isUpdatingHistory.current = false; }, 0);
+      setTimeout(() => { isInternalUpdate.current = false; }, 0);
     }
   };
+
+  // Shortcut support for Undo/Redo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (activeTab === TabOption.STUDENT_ANSWER && (e.metaKey || e.ctrlKey)) {
+        if (e.key === 'z') {
+          e.preventDefault();
+          if (e.shiftKey) redoCode();
+          else undoCode();
+        } else if (e.key === 'y') {
+          e.preventDefault();
+          redoCode();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [historyIndex, codeHistory, activeTab]);
 
   const getActiveValue = () => {
     switch (activeTab) {
@@ -190,11 +213,29 @@ const InputSection: React.FC<InputSectionProps> = ({
       </div>
 
       <div className={`flex-grow relative group flex overflow-hidden ${isDragging ? 'bg-brand-50/10' : ''}`} onDrop={handleDrop} onDragOver={(e) => {e.preventDefault(); setIsDragging(true);}} onDragLeave={() => setIsDragging(false)}>
-        {/* Undo/Redo */}
+        {/* Undo/Redo Controls */}
         {activeTab === TabOption.STUDENT_ANSWER && (
           <div className="absolute top-4 right-8 flex items-center space-x-1 z-20">
-            <button onClick={undoCode} disabled={historyIndex === 0} className="p-1.5 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg text-slate-500 hover:text-brand-500 disabled:opacity-30"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg></button>
-            <button onClick={redoCode} disabled={historyIndex === codeHistory.length - 1} className="p-1.5 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg text-slate-500 hover:text-brand-500 disabled:opacity-30"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" /></svg></button>
+            <button 
+              onClick={undoCode} 
+              disabled={historyIndex <= 0} 
+              className="p-1.5 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg text-slate-500 hover:text-brand-500 disabled:opacity-30 disabled:hover:text-slate-500 transition-colors shadow-sm"
+              title="Undo (Ctrl+Z)"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+              </svg>
+            </button>
+            <button 
+              onClick={redoCode} 
+              disabled={historyIndex >= codeHistory.length - 1} 
+              className="p-1.5 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg text-slate-500 hover:text-brand-500 disabled:opacity-30 disabled:hover:text-slate-500 transition-colors shadow-sm"
+              title="Redo (Ctrl+Y / Ctrl+Shift+Z)"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" />
+              </svg>
+            </button>
           </div>
         )}
 
@@ -204,7 +245,7 @@ const InputSection: React.FC<InputSectionProps> = ({
           className="w-12 bg-slate-50 dark:bg-slate-800/40 border-r border-slate-200 dark:border-slate-800 text-[11px] font-mono text-slate-400 dark:text-slate-500 py-8 px-2 text-right select-none overflow-hidden"
           style={{ lineHeight: '1.625rem' }}
         >
-          {Array.from({ length: lineCount }).map((_, i) => (
+          {Array.from({ length: Math.max(lineCount, 1) }).map((_, i) => (
             <div key={i}>{i + 1}</div>
           ))}
         </div>

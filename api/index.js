@@ -1,4 +1,3 @@
-
 import express from 'express';
 import mongoose from 'mongoose';
 import passport from 'passport';
@@ -19,10 +18,13 @@ let cachedDb = null;
 const NOTEBOOK_SYSTEM_PROMPT = `You are a high-level academic study assistant (NotebookLM style). 
 You have access to a variety of "Sources" including lecture materials, exercises, and student notes.
 Your goal is to help students understand the material deeply.
-[RULES]
-1. ALWAYS ground your answers in the provided Sources. 
-2. Use citations like [Source Name] when quoting or referencing.
-3. Feedback must be in Hebrew unless requested otherwise.
+
+[GROUNDING RULES]
+1. ALWAYS prioritize information found in the provided Sources.
+2. If the information is in a source, cite it using [Source Title].
+3. If the answer is NOT in the sources, you may use your general knowledge but clearly state that the information is outside the provided materials.
+4. Maintain a helpful, academic, and encouraging tone.
+5. Respond in Hebrew unless the user asks a technical coding question where English might be clearer for syntax.
 `;
 
 const AGENT_SYSTEM_PROMPT_TEMPLATE = `[INSTRUCTIONS]
@@ -38,12 +40,12 @@ const connectDB = async () => {
   if (cachedDb && mongoose.connection.readyState === 1) return cachedDb;
   const uri = process.env.MONGODB_URI;
   if (!uri) {
-    console.error("MONGODB_URI is not defined in environment variables.");
+    console.error("MONGODB_URI is not defined.");
     return null;
   }
   try {
     const db = await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 5000, // 5 second timeout
+      serverSelectionTimeoutMS: 5000,
     });
     cachedDb = db;
     return db;
@@ -106,7 +108,7 @@ const sessionConfig = {
 if (process.env.MONGODB_URI) {
   sessionConfig.store = MongoStore.create({ 
     mongoUrl: process.env.MONGODB_URI,
-    ttl: 24 * 60 * 60 // 1 day
+    ttl: 24 * 60 * 60
   });
 }
 
@@ -141,9 +143,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   ));
 }
 
-passport.serializeUser((user, done) => {
-  done(null, user.id);
-});
+passport.serializeUser((user, done) => done(null, user.id));
 
 passport.deserializeUser(async (id, done) => {
   try {
@@ -152,7 +152,6 @@ passport.deserializeUser(async (id, done) => {
     const user = await User.findById(id);
     done(null, user);
   } catch (err) {
-    console.error("Deserialization error:", err);
     done(err, null);
   }
 });
@@ -178,13 +177,22 @@ router.post('/auth/dev', async (req, res) => {
   try {
     const { passcode } = req.body;
     let assignedRole = null;
-    
-    if (passcode === '12345') assignedRole = 'lecturer';
-    else if (passcode === '1234') assignedRole = 'student';
-    else return res.status(403).json({ message: "Invalid development passcode" });
+    let devId = null;
+    let devName = null;
+
+    if (passcode === '12345') {
+      assignedRole = 'lecturer';
+      devId = 'dev-lecturer-12345';
+      devName = 'Dev Lecturer';
+    } else if (passcode === '1234') {
+      assignedRole = 'student';
+      devId = 'dev-student-1234';
+      devName = 'Dev Student';
+    } else {
+      return res.status(403).json({ message: "Invalid development passcode" });
+    }
 
     const db = await connectDB();
-    const devId = `dev-${assignedRole}-bypass`;
     let user = null;
 
     if (db) {
@@ -192,24 +200,15 @@ router.post('/auth/dev', async (req, res) => {
       if (!user) {
         user = await User.create({
           googleId: devId,
-          name: assignedRole === 'lecturer' ? 'Dev Lecturer' : 'Dev Student',
+          name: devName,
           email: `${assignedRole}@stsystem.local`,
-          picture: `https://api.dicebear.com/7.x/bottts/svg?seed=${assignedRole}`,
+          picture: `https://api.dicebear.com/7.x/bottts/svg?seed=${devId}`,
           role: assignedRole,
-          enrolledLecturerId: assignedRole === 'student' ? 'dev-lecturer-bypass' : null
+          enrolledLecturerId: assignedRole === 'student' ? 'dev-lecturer-12345' : null
         });
-      } else if (user.role !== assignedRole) {
-        user.role = assignedRole;
-        await user.save();
       }
     } else {
-      user = {
-        id: 'mock-id',
-        googleId: devId,
-        name: `Dev ${assignedRole} (Mock)`,
-        role: assignedRole,
-        enrolledLecturerId: assignedRole === 'student' ? 'dev-lecturer-bypass' : null
-      };
+      user = { id: 'mock-id', googleId: devId, name: devName, role: assignedRole };
     }
 
     req.login(user, (err) => {
@@ -224,7 +223,7 @@ router.post('/auth/dev', async (req, res) => {
       });
     });
   } catch (err) {
-    res.status(500).json({ message: "Dev login encountered a critical error" });
+    res.status(500).json({ message: "Critical dev login error" });
   }
 });
 
@@ -236,14 +235,39 @@ router.post('/user/update-role', async (req, res) => {
   res.json(user);
 });
 
-router.post('/student/join', async (req, res) => {
+router.post('/student/chat', async (req, res) => {
   if (!req.user) return res.status(401).send();
-  const { lecturerId } = req.body;
-  await connectDB();
-  const lecturer = await User.findOne({ googleId: lecturerId, role: 'lecturer' });
-  if (!lecturer) return res.status(404).json({ message: "Lecturer ID not found" });
-  const user = await User.findOneAndUpdate({ googleId: req.user.googleId }, { enrolledLecturerId: lecturerId }, { new: true });
-  res.json(user);
+  try {
+    const { message, sources } = req.body;
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
+    const contextText = (sources || []).map(s => `--- SOURCE: ${s.title} ---\n${s.content}`).join('\n\n');
+    
+    const prompt = `
+      ${NOTEBOOK_SYSTEM_PROMPT}
+      
+      CONTEXT FROM SOURCES:
+      ${contextText}
+      
+      USER QUESTION:
+      ${message}
+    `;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-pro-preview',
+      contents: prompt,
+      config: {
+        temperature: 0.3,
+        topP: 0.8,
+        topK: 40
+      }
+    });
+    
+    res.json({ text: response.text });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "AI chat failed" });
+  }
 });
 
 router.post('/evaluate', async (req, res) => {
@@ -259,7 +283,7 @@ router.post('/evaluate', async (req, res) => {
     });
     res.json(JSON.parse(response.text));
   } catch (err) { 
-    res.status(500).json({ message: err.message }); 
+    res.status(500).json({ message: "Evaluation failed" }); 
   }
 });
 
@@ -300,16 +324,6 @@ router.get('/archives', async (req, res) => {
   res.json(archives);
 });
 
-router.post('/student/chat', async (req, res) => {
-  if (!req.user) return res.status(401).send();
-  const { message, sources } = req.body;
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const context = sources.map(s => `SOURCE [${s.title}]:\n${s.content}`).join('\n\n');
-  const prompt = `${NOTEBOOK_SYSTEM_PROMPT}\n\nCONTEXT:\n${context}\n\nQ: ${message}`;
-  const response = await ai.models.generateContent({ model: 'gemini-3-pro-preview', contents: prompt });
-  res.json({ text: response.text });
-});
-
 router.get('/student/workspace', async (req, res) => {
   if (!req.user) return res.status(401).send();
   await connectDB();
@@ -319,9 +333,6 @@ router.get('/student/workspace', async (req, res) => {
 });
 
 app.use('/api', router);
-
-app.use('/api/*', (req, res) => {
-  res.status(404).json({ message: "API endpoint not found" });
-});
+app.use('/api/*', (req, res) => res.status(404).json({ message: "Not found" }));
 
 export default app;

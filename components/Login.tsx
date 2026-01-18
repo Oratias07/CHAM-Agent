@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 
 interface LoginProps {
@@ -34,7 +33,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onDevLogin }) => {
           Grader SaaS
         </h1>
         <p className="text-slate-400 mb-12 text-lg font-medium leading-relaxed">
-          {showDevInput ? 'Enter development passcode to proceed.' : 'High-performance academic evaluation powered by Gemini.'}
+          {showDevInput ? 'Enter development passcode to bypass OAuth.' : 'High-performance academic evaluation powered by Gemini.'}
         </p>
 
         {!showDevInput ? (
@@ -59,30 +58,41 @@ const Login: React.FC<LoginProps> = ({ onLogin, onDevLogin }) => {
           </div>
         ) : (
           <form onSubmit={handleDevSubmit} className="space-y-4">
-            <input 
-              type="password"
-              placeholder="Passcode"
-              value={passcode}
-              onChange={(e) => setPasscode(e.target.value)}
-              className="w-full bg-slate-800/50 border border-slate-700/50 rounded-2xl p-5 text-white text-center font-black tracking-[0.5em] outline-none focus:border-brand-500 transition-all"
-              autoFocus
-              required
-            />
+            <div className="space-y-2">
+              <input 
+                type="password"
+                placeholder="Passcode"
+                value={passcode}
+                onChange={(e) => setPasscode(e.target.value)}
+                className="w-full bg-slate-800/50 border border-slate-700/50 rounded-2xl p-5 text-white text-center font-black tracking-[0.5em] outline-none focus:border-brand-500 transition-all"
+                autoFocus
+                required
+              />
+              <div className="flex justify-center space-x-4 text-[9px] font-black text-slate-500 uppercase tracking-widest">
+                <span>12345: Lecturer</span>
+                <span>1234: Student</span>
+              </div>
+            </div>
+            
             <button 
               type="submit"
               className="w-full bg-brand-500 hover:bg-brand-400 text-white font-black py-5 px-8 rounded-2xl transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-2xl uppercase tracking-widest text-xs"
             >
               Verify & Enter
             </button>
+            
             <button 
               type="button"
               onClick={() => {
                 setShowDevInput(false);
                 setPasscode('');
               }}
-              className="w-full text-slate-500 hover:text-slate-300 font-bold py-2 text-[10px] uppercase tracking-widest transition-colors"
+              className="w-full flex items-center justify-center space-x-2 text-slate-500 hover:text-slate-300 font-bold py-2 text-[10px] uppercase tracking-widest transition-colors"
             >
-              Return to Login
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              <span>Back to Login</span>
             </button>
           </form>
         )}
