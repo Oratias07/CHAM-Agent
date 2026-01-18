@@ -50,10 +50,19 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user }) => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const history = await apiService.getGradebook();
-        if (history) {
-          setGradeBookState(history);
-          if (history.exercises.length > 0) setActiveExerciseId(history.exercises[0].id);
+        const gradesFromDb = await apiService.getGradebook();
+        if (gradesFromDb && Array.isArray(gradesFromDb)) {
+          setGradeBookState(prev => {
+            const newState = { ...prev };
+            gradesFromDb.forEach((grade: any) => {
+              const exercise = newState.exercises.find(ex => ex.id === grade.exerciseId);
+              if (exercise) {
+                if (!exercise.entries) exercise.entries = {};
+                exercise.entries[grade.studentId] = { score: grade.score, feedback: grade.feedback };
+              }
+            });
+            return { ...newState };
+          });
         }
         const arch = await apiService.getArchives();
         setArchives(arch);
@@ -112,8 +121,9 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user }) => {
       ...prev,
       exercises: prev.exercises.map(ex => {
         if (ex.id !== exerciseId) return ex;
-        const currentEntry = ex.entries[studentId] || { score: 0, feedback: '' };
-        return { ...ex, entries: { ...ex.entries, [studentId]: { ...currentEntry, [field]: value } } };
+        const currentEntries = ex.entries || {};
+        const currentEntry = currentEntries[studentId] || { score: 0, feedback: '' };
+        return { ...ex, entries: { ...currentEntries, [studentId]: { ...currentEntry, [field]: value } } };
       })
     }));
   };
@@ -199,7 +209,7 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user }) => {
         {/* User Profile / Logout Section */}
         <div className="p-3 border-t border-slate-100 dark:border-slate-800">
           <div className="flex items-center p-2 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
-            <img src={user.picture} className="w-10 h-10 rounded-xl border-2 border-brand-500 shrink-0" alt="Avatar" />
+            <img src={user.picture || `https://ui-avatars.com/api/?name=${user.name}`} className="w-10 h-10 rounded-xl border-2 border-brand-500 shrink-0" alt="Avatar" />
             <div className="ml-3 overflow-hidden opacity-0 group-hover:opacity-100 transition-opacity duration-300">
               <p className="text-xs font-black text-slate-800 dark:text-white truncate">{user.name}</p>
               <button 

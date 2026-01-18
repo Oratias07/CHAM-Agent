@@ -36,6 +36,7 @@ const connectDB = async () => {
     cachedDb = db;
     return db;
   } catch (err) {
+    console.error("MongoDB Connection Error:", err);
     return null;
   }
 };
@@ -164,7 +165,10 @@ router.post('/auth/dev', async (req, res) => {
       picture: `https://ui-avatars.com/api/?name=Dev+${role}&background=random`
     });
   }
-  req.login(user, () => res.json(user));
+  req.login(user, (err) => {
+    if (err) return res.status(500).json({ message: "Login failed" });
+    res.json(user);
+  });
 });
 
 router.post('/user/update-role', async (req, res) => {
@@ -238,7 +242,6 @@ router.post('/student/chat', async (req, res) => {
   }
 });
 
-// Lecturer Endpoints
 router.post('/evaluate', async (req, res) => {
   if (!req.isAuthenticated()) return res.status(401).send();
   try {

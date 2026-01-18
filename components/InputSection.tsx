@@ -20,6 +20,11 @@ interface InputSectionProps {
   darkMode?: boolean;
 }
 
+interface HistoryState {
+  stack: string[];
+  pointer: number;
+}
+
 const InputSection: React.FC<InputSectionProps> = ({
   activeExercise,
   onUpdateExerciseData,
@@ -37,83 +42,26 @@ const InputSection: React.FC<InputSectionProps> = ({
   onAddExercise,
   darkMode
 }) => {
-  const [isDragging, setIsDragging] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const gutterRef = useRef<HTMLDivElement>(null);
   
-  // History stack for Undo/Redo
-  const [history, setHistory] = useState<string[]>([studentCode]);
-  const [historyPointer, setHistoryPointer] = useState(0);
-  const skipHistoryRef = useRef(false);
-  // Fix: Replaced NodeJS.Timeout with ReturnType<typeof setTimeout> to resolve "Cannot find namespace 'NodeJS'" error in frontend environment.
-  const historyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // History per tab
+  const [tabHistories, setTabHistories] = useState<Record<TabOption, HistoryState>>({
+    [TabOption.QUESTION]: { stack: [activeExercise.question], pointer: 0 },
+    [TabOption.SOLUTION]: { stack: [activeExercise.masterSolution], pointer: 0 },
+    [TabOption.RUBRIC]: { stack: [activeExercise.rubric], pointer: 0 },
+    [TabOption.STUDENT_ANSWER]: { stack: [studentCode], pointer: 0 },
+    [TabOption.CUSTOM]: { stack: [activeExercise.customInstructions], pointer: 0 },
+  });
 
-  // Initialize history when the context (exercise or student) changes
-  useEffect(() => {
-    setHistory([studentCode]);
-    setHistoryPointer(0);
-  }, [activeExercise.id, selectedStudentId]);
+  const skipHistoryRef = useRef(false);
+  const historyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleScroll = () => {
     if (textareaRef.current && gutterRef.current) {
       gutterRef.current.scrollTop = textareaRef.current.scrollTop;
     }
   };
-
-  const updateStudentCodeWithHistory = (newCode: string) => {
-    setStudentCode(newCode);
-    
-    if (!skipHistoryRef.current) {
-      if (historyTimeoutRef.current) clearTimeout(historyTimeoutRef.current);
-      
-      // Debounce history saving to avoid saving every character
-      historyTimeoutRef.current = setTimeout(() => {
-        setHistory(prev => {
-          const newHistory = prev.slice(0, historyPointer + 1);
-          newHistory.push(newCode);
-          if (newHistory.length > 100) newHistory.shift();
-          setHistoryPointer(newHistory.length - 1);
-          return newHistory;
-        });
-      }, 500);
-    }
-  };
-
-  const undo = () => {
-    if (historyPointer > 0) {
-      skipHistoryRef.current = true;
-      const prevCode = history[historyPointer - 1];
-      setStudentCode(prevCode);
-      setHistoryPointer(historyPointer - 1);
-      setTimeout(() => { skipHistoryRef.current = false; }, 50);
-    }
-  };
-
-  const redo = () => {
-    if (historyPointer < history.length - 1) {
-      skipHistoryRef.current = true;
-      const nextCode = history[historyPointer + 1];
-      setStudentCode(nextCode);
-      setHistoryPointer(historyPointer + 1);
-      setTimeout(() => { skipHistoryRef.current = false; }, 50);
-    }
-  };
-
-  useEffect(() => {
-    const handleKeys = (e: KeyboardEvent) => {
-      if (activeTab === TabOption.STUDENT_ANSWER && (e.ctrlKey || e.metaKey)) {
-        if (e.key.toLowerCase() === 'z') {
-          e.preventDefault();
-          if (e.shiftKey) redo(); else undo();
-        } else if (e.key.toLowerCase() === 'y') {
-          e.preventDefault();
-          redo();
-        }
-      }
-    };
-    window.addEventListener('keydown', handleKeys);
-    return () => window.removeEventListener('keydown', handleKeys);
-  }, [historyPointer, history, activeTab]);
 
   const getActiveValue = () => {
     switch (activeTab) {
@@ -126,15 +74,91 @@ const InputSection: React.FC<InputSectionProps> = ({
     }
   };
 
-  const setActiveValue = (value: string) => {
-    switch (activeTab) {
-      case TabOption.QUESTION: onUpdateExerciseData('question', value); break;
-      case TabOption.SOLUTION: onUpdateExerciseData('masterSolution', value); break;
-      case TabOption.RUBRIC: onUpdateExerciseData('rubric', value); break;
-      case TabOption.STUDENT_ANSWER: updateStudentCodeWithHistory(value); break;
-      case TabOption.CUSTOM: onUpdateExerciseData('customInstructions', value); break;
+  const pushToHistory = (tab: TabOption, newVal: string) => {
+    if (skipHistoryRef.current) return;
+    
+    if (historyTimeoutRef.current) clearTimeout(historyTimeoutRef.current);
+    
+    historyTimeoutRef.current = setTimeout(() => {
+      setTabHistories(prev => {
+        const current = prev[tab];
+        const newStack = current.stack.slice(0, current.pointer + 1);
+        newStack.push(newVal);
+        if (newStack.length > 50) newStack.shift();
+        return {
+          ...prev,
+          [tab]: { stack: newStack, pointer: newStack.length - 1 }
+        };
+      });
+    }, 400);
+  };
+
+  const undo = () => {
+    const hist = tabHistories[activeTab];
+    if (hist.pointer > 0) {
+      skipHistoryRef.current = true;
+      const prevVal = hist.stack[hist.pointer - 1];
+      
+      setTabHistories(prev => ({
+        ...prev,
+        [activeTab]: { ...prev[activeTab], pointer: hist.pointer - 1 }
+      }));
+
+      // Apply to actual state
+      applyValue(prevVal);
+      
+      setTimeout(() => { skipHistoryRef.current = false; }, 50);
     }
   };
+
+  const redo = () => {
+    const hist = tabHistories[activeTab];
+    if (hist.pointer < hist.stack.length - 1) {
+      skipHistoryRef.current = true;
+      const nextVal = hist.stack[hist.pointer + 1];
+      
+      setTabHistories(prev => ({
+        ...prev,
+        [activeTab]: { ...prev[activeTab], pointer: hist.pointer + 1 }
+      }));
+
+      applyValue(nextVal);
+      
+      setTimeout(() => { skipHistoryRef.current = false; }, 50);
+    }
+  };
+
+  const applyValue = (val: string) => {
+    switch (activeTab) {
+      case TabOption.QUESTION: onUpdateExerciseData('question', val); break;
+      case TabOption.SOLUTION: onUpdateExerciseData('masterSolution', val); break;
+      case TabOption.RUBRIC: onUpdateExerciseData('rubric', val); break;
+      case TabOption.STUDENT_ANSWER: setStudentCode(val); break;
+      case TabOption.CUSTOM: onUpdateExerciseData('customInstructions', val); break;
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newVal = e.target.value;
+    applyValue(newVal);
+    pushToHistory(activeTab, newVal);
+  };
+
+  useEffect(() => {
+    const handleKeys = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey)) {
+        if (e.key.toLowerCase() === 'z') {
+          e.preventDefault();
+          if (e.shiftKey) redo(); else undo();
+        } else if (e.key.toLowerCase() === 'y') {
+          e.preventDefault();
+          redo();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeys);
+    return () => window.removeEventListener('keydown', handleKeys);
+  }, [tabHistories, activeTab]);
 
   const currentVal = getActiveValue();
   const lineCount = currentVal.split('\n').length;
@@ -188,30 +212,32 @@ const InputSection: React.FC<InputSectionProps> = ({
         const file = e.dataTransfer.files[0];
         if (file) {
           const reader = new FileReader();
-          reader.onload = (ev) => setActiveValue(ev.target?.result as string);
+          reader.onload = (ev) => {
+            const val = ev.target?.result as string;
+            applyValue(val);
+            pushToHistory(activeTab, val);
+          };
           reader.readAsText(file);
         }
       }}>
-        {activeTab === TabOption.STUDENT_ANSWER && (
-          <div className="absolute top-4 right-8 flex space-x-2 z-20">
-            <button 
-              onClick={undo} 
-              disabled={historyPointer <= 0} 
-              title="Undo (Ctrl+Z)"
-              className="p-2 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-xl shadow-sm text-slate-400 hover:text-brand-500 disabled:opacity-30 transition-all active:scale-95"
-            >
-              ↩️
-            </button>
-            <button 
-              onClick={redo} 
-              disabled={historyPointer >= history.length - 1} 
-              title="Redo (Ctrl+Y)"
-              className="p-2 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-xl shadow-sm text-slate-400 hover:text-brand-500 disabled:opacity-30 transition-all active:scale-95"
-            >
-              ↪️
-            </button>
-          </div>
-        )}
+        <div className="absolute top-4 right-8 flex space-x-2 z-20">
+          <button 
+            onClick={undo} 
+            disabled={tabHistories[activeTab].pointer <= 0} 
+            title="Undo (Ctrl+Z)"
+            className="p-2 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-xl shadow-sm text-slate-400 hover:text-brand-500 disabled:opacity-30 transition-all active:scale-95"
+          >
+            ↩️
+          </button>
+          <button 
+            onClick={redo} 
+            disabled={tabHistories[activeTab].pointer >= tabHistories[activeTab].stack.length - 1} 
+            title="Redo (Ctrl+Y)"
+            className="p-2 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-xl shadow-sm text-slate-400 hover:text-brand-500 disabled:opacity-30 transition-all active:scale-95"
+          >
+            ↪️
+          </button>
+        </div>
 
         <div ref={gutterRef} className="w-12 bg-slate-50 dark:bg-slate-800/40 border-r border-slate-200 dark:border-slate-800 text-[11px] font-mono text-slate-400 dark:text-slate-500 py-8 px-2 text-right select-none overflow-hidden" style={{ lineHeight: '1.625rem' }}>
           {Array.from({ length: Math.max(lineCount, 1) }).map((_, i) => <div key={i}>{i + 1}</div>)}
@@ -223,7 +249,7 @@ const InputSection: React.FC<InputSectionProps> = ({
           className="flex-grow p-8 text-sm font-mono text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 border-none outline-none resize-none custom-scrollbar transition-all whitespace-pre overflow-y-auto" 
           style={{ lineHeight: '1.625rem' }}
           value={currentVal} 
-          onChange={(e) => setActiveValue(e.target.value)} 
+          onChange={handleInputChange} 
           placeholder="Paste content here..." 
         />
         
