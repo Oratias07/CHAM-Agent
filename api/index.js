@@ -1,3 +1,4 @@
+
 import express from 'express';
 import mongoose from 'mongoose';
 import passport from 'passport';
@@ -16,16 +17,16 @@ app.use(express.json());
 let cachedDb = null;
 
 const NOTEBOOK_SYSTEM_PROMPT = `You are a high-level academic study assistant (NotebookLM style). 
-You have access to a variety of "Sources" including lecture materials, exercises, and student notes.
-Your goal is to help students understand the material deeply.
-
-[GROUNDING RULES]
-1. ALWAYS prioritize information found in the provided Sources.
-2. If the information is in a source, cite it using [Source Title].
-3. If the answer is NOT in the sources, you may use your general knowledge but clearly state that the information is outside the provided materials.
-4. Maintain a helpful, academic, and encouraging tone.
-5. Respond in Hebrew unless the user asks a technical coding question where English might be clearer for syntax.
-`;
+You have access to the specific context of the current grading session.
+[GROUNDING SOURCES]
+You must prioritize the provided context (Question, Solution, Rubric, Student Code). 
+[RULES]
+1. Ground your answers ONLY in the provided sources if possible.
+2. Use citations like [Question], [Solution], or [Student Code] when referencing materials.
+3. If the user asks for help improving the rubric, suggest specific logic based on the Master Solution.
+4. Respond in Hebrew.
+5. Maintain a professional academic tone.
+6. If the answer is not in the sources, you may use your general knowledge but mention it is not in the specific session context.`;
 
 const AGENT_SYSTEM_PROMPT_TEMPLATE = `[INSTRUCTIONS]
 Evaluate student C code against a question and master solution.
@@ -33,24 +34,17 @@ Evaluate student C code against a question and master solution.
 Return score (0-10) and Hebrew feedback.
 Feedback must be 2-3 sentences MAX.
 [OUTPUT]
-{ "score": number, "feedback": "string" }
-`;
+{ "score": number, "feedback": "string" }`;
 
 const connectDB = async () => {
   if (cachedDb && mongoose.connection.readyState === 1) return cachedDb;
   const uri = process.env.MONGODB_URI;
-  if (!uri) {
-    console.error("MONGODB_URI is not defined.");
-    return null;
-  }
+  if (!uri) return null;
   try {
-    const db = await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 5000,
-    });
+    const db = await mongoose.connect(uri, { serverSelectionTimeoutMS: 5000 });
     cachedDb = db;
     return db;
   } catch (err) {
-    console.error("Failed to connect to MongoDB:", err);
     return null;
   }
 };
@@ -64,6 +58,15 @@ const UserSchema = new mongoose.Schema({
   enrolledLecturerId: String
 });
 
+const GradeSchema = new mongoose.Schema({
+  userId: String,
+  studentId: String,
+  exerciseId: String,
+  score: Number,
+  feedback: String,
+  timestamp: { type: Date, default: Date.now }
+});
+
 const MaterialSchema = new mongoose.Schema({
   userId: String,
   courseId: String,
@@ -74,25 +77,9 @@ const MaterialSchema = new mongoose.Schema({
   timestamp: { type: Date, default: Date.now }
 });
 
-const GradeSchema = new mongoose.Schema({
-  userId: String,
-  studentId: String,
-  exerciseId: String,
-  score: Number,
-  feedback: String,
-  timestamp: { type: Date, default: Date.now }
-});
-
-const ArchiveSchema = new mongoose.Schema({
-  userId: String,
-  timestamp: { type: Date, default: Date.now },
-  state: Object
-});
-
 const User = mongoose.models.User || mongoose.model('User', UserSchema);
-const Material = mongoose.models.Material || mongoose.model('Material', MaterialSchema);
 const Grade = mongoose.models.Grade || mongoose.model('Grade', GradeSchema);
-const Archive = mongoose.models.Archive || mongoose.model('Archive', ArchiveSchema);
+const Material = mongoose.models.Material || mongoose.model('Material', MaterialSchema);
 
 const sessionConfig = {
   secret: process.env.SESSION_SECRET || 'academic-integrity-secret-123',
@@ -106,10 +93,7 @@ const sessionConfig = {
 };
 
 if (process.env.MONGODB_URI) {
-  sessionConfig.store = MongoStore.create({ 
-    mongoUrl: process.env.MONGODB_URI,
-    ttl: 24 * 60 * 60
-  });
+  sessionConfig.store = MongoStore.create({ mongoUrl: process.env.MONGODB_URI });
 }
 
 app.use(session(sessionConfig));
@@ -124,36 +108,26 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
       proxy: true
     },
     async (accessToken, refreshToken, profile, done) => {
-      try {
-        await connectDB();
-        let user = await User.findOne({ googleId: profile.id });
-        if (!user) {
-          user = await User.create({ 
-            googleId: profile.id, 
-            name: profile.displayName, 
-            email: profile.emails[0].value, 
-            picture: profile.photos[0].value 
-          });
-        }
-        return done(null, user);
-      } catch (err) {
-        return done(err, null);
+      await connectDB();
+      let user = await User.findOne({ googleId: profile.id });
+      if (!user) {
+        user = await User.create({ 
+          googleId: profile.id, 
+          name: profile.displayName, 
+          email: profile.emails[0].value, 
+          picture: profile.photos[0].value 
+        });
       }
+      return done(null, user);
     }
   ));
 }
 
 passport.serializeUser((user, done) => done(null, user.id));
-
 passport.deserializeUser(async (id, done) => {
-  try {
-    const db = await connectDB();
-    if (!db) return done(null, null);
-    const user = await User.findById(id);
-    done(null, user);
-  } catch (err) {
-    done(err, null);
-  }
+  await connectDB();
+  const user = await User.findById(id);
+  done(null, user);
 });
 
 const router = express.Router();
@@ -169,109 +143,61 @@ router.get('/auth/me', (req, res) => {
       enrolledLecturerId: req.user.enrolledLecturerId 
     });
   } else {
-    res.status(401).json({ message: "Not authenticated" });
+    res.status(401).json(null);
   }
 });
 
 router.post('/auth/dev', async (req, res) => {
-  try {
-    const { passcode } = req.body;
-    let assignedRole = null;
-    let devId = null;
-    let devName = null;
+  const { passcode } = req.body;
+  let role = null;
+  if (passcode === '12345') role = 'lecturer';
+  else if (passcode === '1234') role = 'student';
+  else return res.status(403).json({ message: "Invalid passcode" });
 
-    if (passcode === '12345') {
-      assignedRole = 'lecturer';
-      devId = 'dev-lecturer-12345';
-      devName = 'Dev Lecturer';
-    } else if (passcode === '1234') {
-      assignedRole = 'student';
-      devId = 'dev-student-1234';
-      devName = 'Dev Student';
-    } else {
-      return res.status(403).json({ message: "Invalid development passcode" });
-    }
-
-    const db = await connectDB();
-    let user = null;
-
-    if (db) {
-      user = await User.findOne({ googleId: devId });
-      if (!user) {
-        user = await User.create({
-          googleId: devId,
-          name: devName,
-          email: `${assignedRole}@stsystem.local`,
-          picture: `https://api.dicebear.com/7.x/bottts/svg?seed=${devId}`,
-          role: assignedRole,
-          enrolledLecturerId: assignedRole === 'student' ? 'dev-lecturer-12345' : null
-        });
-      }
-    } else {
-      user = { id: 'mock-id', googleId: devId, name: devName, role: assignedRole };
-    }
-
-    req.login(user, (err) => {
-      if (err) return res.status(500).json({ message: "Dev login failed" });
-      res.json({ 
-        id: user.googleId, 
-        name: user.name, 
-        email: user.email || 'dev@local', 
-        picture: user.picture || '', 
-        role: user.role, 
-        enrolledLecturerId: user.enrolledLecturerId 
-      });
-    });
-  } catch (err) {
-    res.status(500).json({ message: "Critical dev login error" });
-  }
-});
-
-router.post('/user/update-role', async (req, res) => {
-  if (!req.user) return res.status(401).send();
-  const { role } = req.body;
   await connectDB();
-  const user = await User.findOneAndUpdate({ googleId: req.user.googleId }, { role }, { new: true });
-  res.json(user);
+  const devId = `dev-${role}-${passcode}`;
+  let user = await User.findOne({ googleId: devId });
+  if (!user) {
+    user = await User.create({
+      googleId: devId,
+      name: `Dev ${role}`,
+      email: `dev-${role}@stsystem.local`,
+      role
+    });
+  }
+  req.login(user, () => res.json(user));
 });
 
-router.post('/student/chat', async (req, res) => {
+router.post('/chat', async (req, res) => {
   if (!req.user) return res.status(401).send();
   try {
-    const { message, sources } = req.body;
+    const { message, context } = req.body;
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
-    const contextText = (sources || []).map(s => `--- SOURCE: ${s.title} ---\n${s.content}`).join('\n\n');
-    
-    const prompt = `
-      ${NOTEBOOK_SYSTEM_PROMPT}
-      
-      CONTEXT FROM SOURCES:
-      ${contextText}
-      
-      USER QUESTION:
-      ${message}
-    `;
+    let grounding = "";
+    if (context) {
+      grounding = `
+CURRENT EXERCISE CONTEXT (Grounded Sources):
+- Question: ${context.question || 'Not provided'}
+- Master Solution: ${context.masterSolution || 'Not provided'}
+- Rubric: ${context.rubric || 'Not provided'}
+- Current Student Code being evaluated: ${context.studentCode || 'Not provided'}
+      `;
+    }
 
+    const prompt = `${NOTEBOOK_SYSTEM_PROMPT}\n${grounding}\n\nUSER QUESTION: ${message}`;
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
-      contents: prompt,
-      config: {
-        temperature: 0.3,
-        topP: 0.8,
-        topK: 40
-      }
+      model: 'gemini-3-flash-preview',
+      contents: prompt
     });
-    
     res.json({ text: response.text });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "AI chat failed" });
+    res.status(500).json({ text: "I encountered an error processing your request." });
   }
 });
 
 router.post('/evaluate', async (req, res) => {
-  if (!req.isAuthenticated()) return res.status(401).json({ message: "Login required" });
+  if (!req.isAuthenticated()) return res.status(401).send();
   try {
     const { question, rubric, studentCode, masterSolution, customInstructions } = req.body;
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -282,8 +208,8 @@ router.post('/evaluate', async (req, res) => {
       config: { responseMimeType: "application/json" }
     });
     res.json(JSON.parse(response.text));
-  } catch (err) { 
-    res.status(500).json({ message: "Evaluation failed" }); 
+  } catch (err) {
+    res.status(500).json({ message: "AI evaluation failed" });
   }
 });
 
@@ -296,32 +222,14 @@ router.get('/grades', async (req, res) => {
 
 router.post('/grades/save', async (req, res) => {
   if (!req.user) return res.status(401).send();
+  await connectDB();
   const { exerciseId, studentId, score, feedback } = req.body;
-  await connectDB();
-  await Grade.findOneAndUpdate({ userId: req.user.googleId, exerciseId, studentId }, { score, feedback, timestamp: Date.now() }, { upsert: true });
+  await Grade.findOneAndUpdate(
+    { userId: req.user.googleId, exerciseId, studentId },
+    { score, feedback, timestamp: Date.now() },
+    { upsert: true }
+  );
   res.json({ success: true });
-});
-
-router.post('/grades/clear', async (req, res) => {
-  if (!req.user) return res.status(401).send();
-  await connectDB();
-  await Grade.deleteMany({ userId: req.user.googleId });
-  res.json({ success: true });
-});
-
-router.post('/archives/save', async (req, res) => {
-  if (!req.user) return res.status(401).send();
-  const { state } = req.body;
-  await connectDB();
-  await Archive.create({ userId: req.user.googleId, state });
-  res.json({ success: true });
-});
-
-router.get('/archives', async (req, res) => {
-  if (!req.user) return res.status(401).send();
-  await connectDB();
-  const archives = await Archive.find({ userId: req.user.googleId }).sort({ timestamp: -1 });
-  res.json(archives);
 });
 
 router.get('/student/workspace', async (req, res) => {
@@ -332,7 +240,8 @@ router.get('/student/workspace', async (req, res) => {
   res.json({ shared, privateNotes });
 });
 
+// IMPORTANT: Support both /api prefix (for rewrites) and root (for function direct access)
 app.use('/api', router);
-app.use('/api/*', (req, res) => res.status(404).json({ message: "Not found" }));
+app.use('/', router);
 
 export default app;

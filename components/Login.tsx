@@ -26,11 +26,11 @@ const Login: React.FC<LoginProps> = ({ onLogin, onDevLogin }) => {
 
       <div className="z-10 w-full max-w-md bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-12 shadow-2xl text-center transition-all duration-500">
         <div className="w-24 h-24 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl flex items-center justify-center text-white font-bold text-4xl mx-auto mb-10 shadow-2xl shadow-indigo-500/20 ring-4 ring-white/5">
-          AI
+          ST
         </div>
         
         <h1 className="text-4xl font-black text-white mb-4 tracking-tighter uppercase">
-          Grader SaaS
+          ST System
         </h1>
         <p className="text-slate-400 mb-12 text-lg font-medium leading-relaxed">
           {showDevInput ? 'Enter development passcode to bypass OAuth.' : 'High-performance academic evaluation powered by Gemini.'}
@@ -68,7 +68,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onDevLogin }) => {
                 autoFocus
                 required
               />
-              <div className="flex justify-center space-x-4 text-[9px] font-black text-slate-500 uppercase tracking-widest">
+              <div className="flex justify-center space-x-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">
                 <span>12345: Lecturer</span>
                 <span>1234: Student</span>
               </div>
@@ -87,12 +87,12 @@ const Login: React.FC<LoginProps> = ({ onLogin, onDevLogin }) => {
                 setShowDevInput(false);
                 setPasscode('');
               }}
-              className="w-full flex items-center justify-center space-x-2 text-slate-500 hover:text-slate-300 font-bold py-2 text-[10px] uppercase tracking-widest transition-colors"
+              className="w-full flex items-center justify-center space-x-2 text-slate-500 hover:text-slate-300 font-bold py-3 text-[11px] uppercase tracking-widest transition-colors"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
-              <span>Back to Login</span>
+              <span>Regret and Return</span>
             </button>
           </form>
         )}
