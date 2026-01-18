@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 
 interface LoginProps {
@@ -6,7 +7,8 @@ interface LoginProps {
 }
 
 const Login: React.FC<LoginProps> = ({ onLogin, onDevLogin }) => {
-  const [showDevInput, setShowDevInput] = useState(false);
+  const [showDevOptions, setShowDevOptions] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<'lecturer' | 'student' | null>(null);
   const [passcode, setPasscode] = useState('');
 
   const handleDevSubmit = (e: React.FormEvent) => {
@@ -14,6 +16,12 @@ const Login: React.FC<LoginProps> = ({ onLogin, onDevLogin }) => {
     if (passcode.trim()) {
       onDevLogin(passcode);
     }
+  };
+
+  const resetDevFlow = () => {
+    setShowDevOptions(false);
+    setSelectedRole(null);
+    setPasscode('');
   };
 
   return (
@@ -32,32 +40,65 @@ const Login: React.FC<LoginProps> = ({ onLogin, onDevLogin }) => {
         <h1 className="text-4xl font-black text-white mb-4 tracking-tighter uppercase">
           ST System
         </h1>
-        <p className="text-slate-400 mb-12 text-lg font-medium leading-relaxed">
-          {showDevInput ? 'Enter development passcode to bypass OAuth.' : 'High-performance academic evaluation powered by Gemini.'}
-        </p>
-
-        {!showDevInput ? (
-          <div className="space-y-4">
-            <button 
-              onClick={onLogin}
-              className="w-full flex items-center justify-center space-x-4 bg-white hover:bg-slate-50 text-slate-900 font-black py-5 px-8 rounded-2xl transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-2xl uppercase tracking-widest text-xs"
-            >
-              <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
-              <span>Continue with Google</span>
-            </button>
-            
-            <button 
-              onClick={() => setShowDevInput(true)}
-              className="w-full flex items-center justify-center space-x-3 bg-slate-800/50 hover:bg-slate-800 text-slate-300 font-bold py-4 px-8 rounded-2xl border border-slate-700/50 transition-all text-xs uppercase tracking-widest"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-              </svg>
-              <span>Developer Bypass</span>
-            </button>
-          </div>
+        
+        {!showDevOptions ? (
+          <>
+            <p className="text-slate-400 mb-12 text-lg font-medium leading-relaxed">
+              High-performance academic evaluation powered by Gemini.
+            </p>
+            <div className="space-y-4">
+              <button 
+                onClick={onLogin}
+                className="w-full flex items-center justify-center space-x-4 bg-white hover:bg-slate-50 text-slate-900 font-black py-5 px-8 rounded-2xl transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-2xl uppercase tracking-widest text-xs"
+              >
+                <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
+                <span>Continue with Google</span>
+              </button>
+              
+              <button 
+                onClick={() => setShowDevOptions(true)}
+                className="w-full flex items-center justify-center space-x-3 bg-slate-800/50 hover:bg-slate-800 text-slate-300 font-bold py-4 px-8 rounded-2xl border border-slate-700/50 transition-all text-xs uppercase tracking-widest"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                </svg>
+                <span>Developer Bypass</span>
+              </button>
+            </div>
+          </>
+        ) : !selectedRole ? (
+          <>
+            <p className="text-slate-400 mb-12 text-lg font-medium leading-relaxed">
+              Choose your developer bypass role.
+            </p>
+            <div className="grid grid-cols-1 gap-4">
+              <button 
+                onClick={() => setSelectedRole('lecturer')}
+                className="w-full p-6 bg-slate-800/50 hover:bg-slate-800 border border-slate-700/50 rounded-2xl text-left transition-all"
+              >
+                <span className="text-2xl mb-2 block">👨‍🏫</span>
+                <p className="text-white font-black text-xs uppercase tracking-widest">Lecturer Bypass</p>
+              </button>
+              <button 
+                onClick={() => setSelectedRole('student')}
+                className="w-full p-6 bg-slate-800/50 hover:bg-slate-800 border border-slate-700/50 rounded-2xl text-left transition-all"
+              >
+                <span className="text-2xl mb-2 block">🧑‍🎓</span>
+                <p className="text-white font-black text-xs uppercase tracking-widest">Student Bypass</p>
+              </button>
+              <button 
+                onClick={resetDevFlow}
+                className="mt-4 text-slate-500 hover:text-white text-[10px] font-black uppercase tracking-widest"
+              >
+                Back to Main Login
+              </button>
+            </div>
+          </>
         ) : (
           <form onSubmit={handleDevSubmit} className="space-y-4">
+            <p className="text-slate-400 mb-8 text-lg font-medium leading-relaxed">
+              Enter passcode for <span className="text-brand-400 font-black uppercase">{selectedRole}</span>.
+            </p>
             <div className="space-y-2">
               <input 
                 type="password"
@@ -68,9 +109,8 @@ const Login: React.FC<LoginProps> = ({ onLogin, onDevLogin }) => {
                 autoFocus
                 required
               />
-              <div className="flex justify-center space-x-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                <span>12345: Lecturer</span>
-                <span>1234: Student</span>
+              <div className="flex justify-center text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                <span>Passcode hint: {selectedRole === 'lecturer' ? '12345' : '1234'}</span>
               </div>
             </div>
             
@@ -83,16 +123,10 @@ const Login: React.FC<LoginProps> = ({ onLogin, onDevLogin }) => {
             
             <button 
               type="button"
-              onClick={() => {
-                setShowDevInput(false);
-                setPasscode('');
-              }}
+              onClick={() => setSelectedRole(null)}
               className="w-full flex items-center justify-center space-x-2 text-slate-500 hover:text-slate-300 font-bold py-3 text-[11px] uppercase tracking-widest transition-colors"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-              <span>Regret and Return</span>
+              <span>Change Role</span>
             </button>
           </form>
         )}

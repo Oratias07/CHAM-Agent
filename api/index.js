@@ -77,9 +77,16 @@ const MaterialSchema = new mongoose.Schema({
   timestamp: { type: Date, default: Date.now }
 });
 
+const ArchiveSchema = new mongoose.Schema({
+  userId: String,
+  timestamp: { type: Date, default: Date.now },
+  state: mongoose.Schema.Types.Mixed
+});
+
 const User = mongoose.models.User || mongoose.model('User', UserSchema);
 const Grade = mongoose.models.Grade || mongoose.model('Grade', GradeSchema);
 const Material = mongoose.models.Material || mongoose.model('Material', MaterialSchema);
+const Archive = mongoose.models.Archive || mongoose.model('Archive', ArchiveSchema);
 
 const sessionConfig = {
   secret: process.env.SESSION_SECRET || 'academic-integrity-secret-123',
@@ -168,6 +175,30 @@ router.post('/auth/dev', async (req, res) => {
   req.login(user, () => res.json(user));
 });
 
+router.post('/user/update-role', async (req, res) => {
+  if (!req.user) return res.status(401).send();
+  const { role } = req.body;
+  await connectDB();
+  const user = await User.findOneAndUpdate(
+    { googleId: req.user.googleId },
+    { role },
+    { new: true }
+  );
+  res.json(user);
+});
+
+router.post('/student/join', async (req, res) => {
+  if (!req.user) return res.status(401).send();
+  const { lecturerId } = req.body;
+  await connectDB();
+  const user = await User.findOneAndUpdate(
+    { googleId: req.user.googleId },
+    { enrolledLecturerId: lecturerId },
+    { new: true }
+  );
+  res.json(user);
+});
+
 router.post('/chat', async (req, res) => {
   if (!req.user) return res.status(401).send();
   try {
@@ -232,12 +263,63 @@ router.post('/grades/save', async (req, res) => {
   res.json({ success: true });
 });
 
+router.post('/grades/clear', async (req, res) => {
+  if (!req.user) return res.status(401).send();
+  await connectDB();
+  await Grade.deleteMany({ userId: req.user.googleId });
+  res.json({ success: true });
+});
+
+router.get('/archives', async (req, res) => {
+  if (!req.user) return res.status(401).send();
+  await connectDB();
+  const archives = await Archive.find({ userId: req.user.googleId }).sort({ timestamp: -1 });
+  res.json(archives);
+});
+
+router.post('/archives/save', async (req, res) => {
+  if (!req.user) return res.status(401).send();
+  const { state } = req.body;
+  await connectDB();
+  const archive = await Archive.create({
+    userId: req.user.googleId,
+    state,
+    timestamp: new Date()
+  });
+  res.json(archive);
+});
+
 router.get('/student/workspace', async (req, res) => {
   if (!req.user) return res.status(401).send();
   await connectDB();
   const shared = await Material.find({ courseId: req.user.enrolledLecturerId, type: 'lecturer_shared' });
   const privateNotes = await Material.find({ userId: req.user.googleId, type: 'student_private' });
   res.json({ shared, privateNotes });
+});
+
+router.post('/student/chat', async (req, res) => {
+  if (!req.user) return res.status(401).send();
+  try {
+    const { message, sources } = req.body;
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
+    let grounding = "SOURCES FROM NOTEBOOK:\n";
+    sources.forEach(s => {
+      grounding += `[Title: ${s.title}]\n${s.content}\n---\n`;
+    });
+
+    const prompt = `You are a helpful student study assistant.
+${grounding}
+USER QUESTION: ${message}`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt
+    });
+    res.json({ text: response.text });
+  } catch (err) {
+    res.status(500).json({ text: "Assistant error." });
+  }
 });
 
 // IMPORTANT: Support both /api prefix (for rewrites) and root (for function direct access)

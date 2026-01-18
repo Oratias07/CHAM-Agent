@@ -65,6 +65,10 @@ const App: React.FC = () => {
     }
   };
 
+  const handleLogout = async () => {
+    window.location.href = "/api/auth/logout";
+  };
+
   if (loading) return (
     <div className="h-screen w-full bg-slate-950 flex flex-col items-center justify-center relative overflow-hidden font-sans">
       {/* Dynamic Background Glows */}
@@ -140,7 +144,15 @@ const App: React.FC = () => {
       return (
         <div className="h-screen flex flex-col items-center justify-center p-6 bg-slate-50 dark:bg-slate-950">
           <div className="w-full max-w-md bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] shadow-2xl border border-slate-200 dark:border-slate-800">
-            <h2 className="text-3xl font-black text-slate-800 dark:text-white mb-6 uppercase tracking-tighter">Enter Course</h2>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-3xl font-black text-slate-800 dark:text-white uppercase tracking-tighter">Enter Course</h2>
+              <button 
+                onClick={handleLogout}
+                className="text-[10px] font-black text-slate-400 hover:text-brand-500 uppercase tracking-widest transition-colors"
+              >
+                Sign Out / Change Role
+              </button>
+            </div>
             <p className="text-slate-500 text-sm mb-10 leading-relaxed font-medium">Enter the unique ID provided by your instructor to access learning materials and AI aids.</p>
             <form onSubmit={(e) => {
               e.preventDefault();
