@@ -12,8 +12,22 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user }) => {
   const [messages, setMessages] = useState<{ role: 'user' | 'model', text: string }[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('theme');
+    return saved === null ? true : saved === 'dark';
+  });
   const chatEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [darkMode]);
 
   useEffect(() => {
     fetchWorkspace();
@@ -140,7 +154,13 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user }) => {
              <div className="w-8 h-8 bg-brand-500 rounded-lg flex items-center justify-center text-white font-black text-xs">ST</div>
              <span className="text-sm font-black uppercase tracking-tight">Academic Assistant</span>
            </div>
-           <div className="flex items-center space-x-4">
+           <div className="flex items-center space-x-6">
+              <button
+                onClick={() => setDarkMode(!darkMode)}
+                className="p-2.5 bg-slate-50 dark:bg-slate-800 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 shadow-sm"
+              >
+                {darkMode ? '☀️' : '🌙'}
+              </button>
               <span className="text-[10px] font-black text-emerald-500 uppercase bg-emerald-50 dark:bg-emerald-900/20 px-3 py-1 rounded-full">Pro Model Active</span>
            </div>
         </header>

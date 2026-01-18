@@ -55,7 +55,7 @@ const MaterialSchema = new mongoose.Schema({
   courseId: String,
   title: String,
   content: String,
-  type: { type: String, enum: ['lecturer_shared', 'student_private'] },
+  type: { type: String, enum: ['lecturer_shared', 'student_private', 'student_specific'] },
   sourceType: String,
   timestamp: { type: Date, default: Date.now }
 });
@@ -131,6 +131,13 @@ passport.deserializeUser(async (id, done) => {
 
 const router = express.Router();
 
+// GOOGLE AUTH ROUTES
+router.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+router.get('/auth/google/callback', 
+  passport.authenticate('google', { failureRedirect: '/' }),
+  (req, res) => res.redirect('/')
+);
+
 router.get('/auth/me', (req, res) => {
   if (req.user) {
     res.json({ 
@@ -198,7 +205,13 @@ router.post('/student/join', async (req, res) => {
 router.get('/student/workspace', async (req, res) => {
   if (!req.user) return res.status(401).send();
   await connectDB();
-  const shared = await Material.find({ courseId: req.user.enrolledLecturerId, type: 'lecturer_shared' });
+  const shared = await Material.find({ 
+    courseId: req.user.enrolledLecturerId, 
+    $or: [
+      { type: 'lecturer_shared' },
+      { type: 'student_specific', userId: req.user.googleId }
+    ]
+  });
   const privateNotes = await Material.find({ userId: req.user.googleId, type: 'student_private' });
   res.json({ shared, privateNotes });
 });
@@ -310,6 +323,22 @@ router.post('/grades/clear', async (req, res) => {
 
 router.get('/auth/logout', (req, res) => {
   req.logout(() => res.redirect('/'));
+});
+
+// LECTURER STUDENT MANAGEMENT ENDPOINTS
+router.post('/lecturer/student-file', async (req, res) => {
+  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
+  const { studentId, title, content } = req.body;
+  await connectDB();
+  const material = await Material.create({
+    userId: studentId,
+    courseId: req.user.googleId,
+    title,
+    content,
+    type: 'student_specific',
+    sourceType: 'note'
+  });
+  res.json(material);
 });
 
 app.use('/api', router);

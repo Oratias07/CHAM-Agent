@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { GradingResult } from '../types';
 
@@ -51,9 +52,9 @@ const ResultSection: React.FC<ResultSectionProps> = ({ result, error, isEvaluati
         <div className="w-28 h-28 bg-brand-50 dark:bg-slate-800/60 text-brand-500 dark:text-brand-400 rounded-[2rem] flex items-center justify-center mb-10 text-6xl shadow-inner animate-float">
           🎯
         </div>
-        <h3 className="text-3xl font-black text-slate-800 dark:text-slate-100 mb-4 tracking-tighter uppercase">Ready for Insight</h3>
-        <p className="text-slate-500 dark:text-slate-400 max-w-xs mb-10 text-base font-medium leading-relaxed">
-          Select a student and submit their implementation to generate precise Hebrew pedagogical feedback.
+        <h3 className="text-3xl font-black text-slate-800 dark:text-slate-100 mb-4 tracking-tighter uppercase">ממתין להערכה</h3>
+        <p className="text-slate-500 dark:text-slate-400 max-w-xs mb-10 text-base font-bold leading-relaxed text-right" dir="rtl">
+          לא ניתן לבצע הערכה כיוון שלא הוזנו פרטי השאלה, פתרון המאסטר או קוד הסטודנט. אנא ספק את התוכן הנדרש כדי לקבל משוב והערכה.
         </p>
         <div className="flex items-center space-x-4 text-[11px] font-black text-brand-600 dark:text-brand-400 bg-brand-50/50 dark:bg-brand-950/30 px-6 py-3 rounded-2xl border border-brand-100 dark:border-brand-900/50 uppercase tracking-[0.2em] shadow-sm">
            <span className="flex h-2.5 w-2.5 rounded-full bg-brand-500 animate-pulse"></span>

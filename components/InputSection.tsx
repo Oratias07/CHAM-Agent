@@ -47,15 +47,26 @@ const InputSection: React.FC<InputSectionProps> = ({
   
   // History per tab
   const [tabHistories, setTabHistories] = useState<Record<TabOption, HistoryState>>({
-    [TabOption.QUESTION]: { stack: [activeExercise.question], pointer: 0 },
-    [TabOption.SOLUTION]: { stack: [activeExercise.masterSolution], pointer: 0 },
-    [TabOption.RUBRIC]: { stack: [activeExercise.rubric], pointer: 0 },
-    [TabOption.STUDENT_ANSWER]: { stack: [studentCode], pointer: 0 },
-    [TabOption.CUSTOM]: { stack: [activeExercise.customInstructions], pointer: 0 },
+    [TabOption.QUESTION]: { stack: [activeExercise.question || ''], pointer: 0 },
+    [TabOption.SOLUTION]: { stack: [activeExercise.masterSolution || ''], pointer: 0 },
+    [TabOption.RUBRIC]: { stack: [activeExercise.rubric || ''], pointer: 0 },
+    [TabOption.STUDENT_ANSWER]: { stack: [studentCode || ''], pointer: 0 },
+    [TabOption.CUSTOM]: { stack: [activeExercise.customInstructions || ''], pointer: 0 },
   });
 
   const skipHistoryRef = useRef(false);
   const historyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Synchronize history when external state changes (exercise/student switch)
+  useEffect(() => {
+    setTabHistories({
+      [TabOption.QUESTION]: { stack: [activeExercise.question || ''], pointer: 0 },
+      [TabOption.SOLUTION]: { stack: [activeExercise.masterSolution || ''], pointer: 0 },
+      [TabOption.RUBRIC]: { stack: [activeExercise.rubric || ''], pointer: 0 },
+      [TabOption.STUDENT_ANSWER]: { stack: [studentCode || ''], pointer: 0 },
+      [TabOption.CUSTOM]: { stack: [activeExercise.customInstructions || ''], pointer: 0 },
+    });
+  }, [activeExercise.id, selectedStudentId]);
 
   const handleScroll = () => {
     if (textareaRef.current && gutterRef.current) {
@@ -82,6 +93,8 @@ const InputSection: React.FC<InputSectionProps> = ({
     historyTimeoutRef.current = setTimeout(() => {
       setTabHistories(prev => {
         const current = prev[tab];
+        if (current.stack[current.pointer] === newVal) return prev;
+        
         const newStack = current.stack.slice(0, current.pointer + 1);
         newStack.push(newVal);
         if (newStack.length > 50) newStack.shift();
@@ -104,9 +117,7 @@ const InputSection: React.FC<InputSectionProps> = ({
         [activeTab]: { ...prev[activeTab], pointer: hist.pointer - 1 }
       }));
 
-      // Apply to actual state
       applyValue(prevVal);
-      
       setTimeout(() => { skipHistoryRef.current = false; }, 50);
     }
   };
@@ -123,7 +134,6 @@ const InputSection: React.FC<InputSectionProps> = ({
       }));
 
       applyValue(nextVal);
-      
       setTimeout(() => { skipHistoryRef.current = false; }, 50);
     }
   };

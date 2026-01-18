@@ -12,9 +12,11 @@ export interface User {
 
 export interface Material {
   id: string;
+  userId?: string;
+  courseId: string;
   title: string;
   content: string;
-  type: 'lecturer_shared' | 'student_private';
+  type: 'lecturer_shared' | 'student_private' | 'student_specific';
   sourceType: 'exercise' | 'note' | 'solution';
   timestamp: Date;
 }
@@ -43,6 +45,7 @@ export enum TabOption {
 export interface Student {
   id: string;
   name: string;
+  email?: string;
 }
 
 export interface GradeEntry {

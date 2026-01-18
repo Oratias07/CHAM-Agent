@@ -4,11 +4,12 @@ import InputSection from './components/InputSection';
 import ResultSection from './components/ResultSection';
 import GradeBook from './components/GradeBook';
 import ChatBot from './components/ChatBot';
+import StudentManagement from './components/StudentManagement';
 import { apiService } from './services/apiService';
 import { GradingInputs, GradingResult, TabOption, GradeBookState, Exercise, User, ArchiveSession } from './types';
 import { INITIAL_GRADEBOOK_STATE } from './constants';
 
-type ViewMode = 'SINGLE' | 'SHEETS' | 'HISTORY';
+type ViewMode = 'SINGLE' | 'SHEETS' | 'STUDENTS' | 'HISTORY';
 
 interface LecturerDashboardProps {
   user: User;
@@ -46,6 +47,12 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user }) => {
       localStorage.setItem('theme', 'light');
     }
   }, [darkMode]);
+
+  // Clear result when student or exercise changes to restore Hebrew startpoint message
+  useEffect(() => {
+    setResult(null);
+    setError(null);
+  }, [selectedStudentId, activeExerciseId]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -150,6 +157,9 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user }) => {
     { id: 'SHEETS' as ViewMode, label: 'Class Sheets', icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16m-7 6h7" /></svg>
     )},
+    { id: 'STUDENTS' as ViewMode, label: 'Student Management', icon: (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+    )},
     { id: 'HISTORY' as ViewMode, label: 'Archives', icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
     )}
@@ -158,10 +168,8 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user }) => {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex font-sans transition-colors duration-500 overflow-hidden">
       
-      {/* Google-Style Collapsible Sidebar */}
+      {/* Sidebar */}
       <nav className="group fixed left-0 top-0 h-full w-[72px] hover:w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transition-all duration-300 ease-in-out z-50 flex flex-col shadow-2xl overflow-hidden backdrop-blur-xl bg-opacity-80">
-        
-        {/* Sidebar Header / Logo */}
         <div className="h-16 flex items-center px-4 overflow-hidden shrink-0 border-b border-slate-100 dark:border-slate-800">
           <div className="w-10 h-10 bg-gradient-to-br from-brand-500 to-indigo-700 rounded-xl flex items-center justify-center text-white font-bold text-xl shrink-0 shadow-lg shadow-brand-500/20">
             ST
@@ -171,7 +179,6 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user }) => {
           </span>
         </div>
 
-        {/* Navigation Items */}
         <div className="flex-grow py-6 px-3 space-y-2 overflow-y-auto custom-scrollbar">
           {navItems.map((item) => (
             <button
@@ -187,26 +194,10 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user }) => {
               <span className="ml-4 font-bold text-sm whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                 {item.label}
               </span>
-              {viewMode === item.id && (
-                 <div className="absolute left-0 w-1 h-6 bg-brand-500 rounded-r-full group-hover:block hidden"></div>
-              )}
             </button>
           ))}
-          
-          <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-            <button
-              onClick={() => setDarkMode(!darkMode)}
-              className="w-full flex items-center p-3 rounded-2xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
-            >
-              <div className="shrink-0">{darkMode ? '☀️' : '🌙'}</div>
-              <span className="ml-4 font-bold text-sm whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                {darkMode ? 'Light Mode' : 'Dark Mode'}
-              </span>
-            </button>
-          </div>
         </div>
 
-        {/* User Profile / Logout Section */}
         <div className="p-3 border-t border-slate-100 dark:border-slate-800">
           <div className="flex items-center p-2 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
             <img src={user.picture || `https://ui-avatars.com/api/?name=${user.name}`} className="w-10 h-10 rounded-xl border-2 border-brand-500 shrink-0" alt="Avatar" />
@@ -232,11 +223,18 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user }) => {
             <span className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 dark:text-slate-500">Active Task</span>
             <div className="h-6 w-[2px] bg-slate-200 dark:border-slate-700"></div>
             <h2 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-wider">
-              {viewMode === 'SINGLE' ? `Evaluating: ${currentExercise.name}` : 'Class Overview'}
+              {viewMode === 'SINGLE' ? `Evaluating: ${currentExercise.name}` : viewMode === 'STUDENTS' ? 'Student Management' : viewMode === 'SHEETS' ? 'Class Overview' : 'Archives'}
             </h2>
           </div>
           
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-6">
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              className="p-2.5 bg-slate-50 dark:bg-slate-800 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 shadow-sm"
+              title="Toggle Theme"
+            >
+              {darkMode ? '☀️' : '🌙'}
+            </button>
             <div className="hidden md:flex items-center bg-emerald-50 dark:bg-emerald-900/20 px-4 py-1.5 rounded-full border border-emerald-100 dark:border-emerald-800/30">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse mr-3"></span>
               <span className="text-[10px] font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">System Online</span>
@@ -280,13 +278,19 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user }) => {
               onResetSystem={handleReset}
               isResetting={isResetting}
             />
+          ) : viewMode === 'STUDENTS' ? (
+            <StudentManagement 
+              students={gradeBookState.students} 
+              exercises={gradeBookState.exercises}
+              courseId={user.id} 
+            />
           ) : (
             <div className="h-full flex flex-col items-center justify-center text-center">
               <div className="w-24 h-24 bg-slate-100 dark:bg-slate-800 rounded-3xl flex items-center justify-center text-4xl mb-6">📦</div>
               <h3 className="text-2xl font-black uppercase tracking-tight mb-2">Archive Explorer</h3>
               <p className="text-slate-500 max-w-md">Browse previous grading sessions and snapshots. Select a date from the list to restore context.</p>
               <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-2xl">
-                {archives.length > 0 ? archives.map(arch => (
+                {archives.length > 0 ? archives.map((arch: any) => (
                    <div key={arch._id} className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl hover:border-brand-500 transition-all text-left">
                      <p className="font-bold text-sm">{new Date(arch.timestamp).toLocaleDateString()}</p>
                      <p className="text-xs text-slate-500">{arch.state.exercises.length} Exercises indexed</p>
