@@ -53,17 +53,27 @@ export const apiService = {
     return res.json();
   },
 
-  async studentChat(message: string, sources: Material[]): Promise<{ text: string }> {
+  async uploadMaterial(title: string, content: string): Promise<Material> {
+    const res = await fetch(`/api/student/upload`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, content })
+    });
+    if (!res.ok) throw new Error("Upload failed");
+    return res.json();
+  },
+
+  async studentChat(message: string, sources: Material[], task?: 'quiz' | 'summary' | 'concepts'): Promise<{ text: string }> {
     const res = await fetch(`/api/student/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, sources })
+      body: JSON.stringify({ message, sources, task })
     });
     if (!res.ok) throw new Error("Chat failed");
     return res.json();
   },
 
-  // Existing Lecturer Methods...
+  // Lecturer Methods
   async evaluate(inputs: GradingInputs): Promise<GradingResult> {
     const res = await fetch(`/api/evaluate`, {
       method: 'POST',
