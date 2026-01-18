@@ -15,7 +15,6 @@ const App: React.FC = () => {
     let isMounted = true;
     
     const fetchUser = async () => {
-      // Race a 5-second timeout against the actual fetch
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Timeout')), 5000)
       );
@@ -76,15 +75,18 @@ const App: React.FC = () => {
       <div className="absolute top-[20%] left-[20%] w-[300px] h-[300px] bg-indigo-500/5 blur-[100px] rounded-full animate-pulse"></div>
       
       <div className="relative flex flex-col items-center">
-        {/* Futuristic Loading Ring */}
+        {/* Futuristic Loading Ring - Centered Spin Fixes */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 border-[1px] border-white/5 rounded-full"></div>
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 border-[2px] border-brand-500/10 rounded-full"></div>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 border-[3px] border-transparent border-t-brand-500 border-r-brand-500 rounded-full animate-spin"></div>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 border-[1px] border-dashed border-white/10 rounded-full animate-[spin_10s_linear_infinite]"></div>
+        
+        {/* Primary Spinner Ring */}
+        <div className="absolute top-1/2 left-1/2 w-72 h-72 border-[3px] border-transparent border-t-brand-500 border-r-brand-500 rounded-full animate-[centered-spin_1s_linear_infinite]"></div>
+        
+        {/* Secondary Decorative Ring */}
+        <div className="absolute top-1/2 left-1/2 w-80 h-80 border-[1px] border-dashed border-white/10 rounded-full animate-[centered-spin_10s_linear_infinite]"></div>
         
         {/* Large Central ST System Logo */}
         <div className="relative w-56 h-56 bg-slate-900 rounded-[3.5rem] border border-white/10 flex flex-col items-center justify-center shadow-[0_0_50px_rgba(59,103,245,0.1)] z-10 transition-all duration-1000 overflow-hidden group">
-           {/* Glossy Overlay */}
            <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/5 to-transparent"></div>
            
            <div className="bg-gradient-to-br from-brand-400 via-brand-500 to-indigo-600 bg-clip-text text-transparent text-[7rem] font-black tracking-tighter drop-shadow-2xl">
@@ -94,7 +96,6 @@ const App: React.FC = () => {
              System
            </div>
            
-           {/* Internal Scanner Line */}
            <div className="absolute top-0 left-0 w-full h-[2px] bg-brand-400/30 animate-[scan_2s_infinite_ease-in-out]"></div>
         </div>
 
@@ -120,6 +121,10 @@ const App: React.FC = () => {
       </div>
 
       <style>{`
+        @keyframes centered-spin {
+          from { transform: translate(-50%, -50%) rotate(0deg); }
+          to { transform: translate(-50%, -50%) rotate(360deg); }
+        }
         @keyframes scan {
           0% { top: 0%; opacity: 0; }
           50% { opacity: 0.5; }
