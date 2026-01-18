@@ -15,7 +15,6 @@ const App: React.FC = () => {
     let isMounted = true;
     
     const fetchUser = async () => {
-      // Race a 5-second timeout against the actual fetch
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Timeout')), 5000)
       );
@@ -53,10 +52,10 @@ const App: React.FC = () => {
     }
   };
 
-  const handleDevLogin = async () => {
+  const handleDevLogin = async (passcode: string) => {
     try {
       setLoading(true);
-      const u = await apiService.devLogin();
+      const u = await apiService.devLogin(passcode);
       setUser(u);
     } catch (e) {
       alert("Developer bypass failed: " + (e instanceof Error ? e.message : 'Unknown error'));
@@ -75,12 +74,10 @@ const App: React.FC = () => {
 
   if (!user) return <Login onLogin={() => window.location.href = "/api/auth/google"} onDevLogin={handleDevLogin} />;
 
-  // 1. Role Selection (First time login or dev login)
   if (!user.role) {
     return <RoleSelector onSelect={handleRoleSelect} />;
   }
 
-  // 2. Student Flow
   if (user.role === 'student') {
     if (!user.enrolledLecturerId) {
       return (
@@ -110,7 +107,6 @@ const App: React.FC = () => {
     return <StudentPortal user={user} />;
   }
 
-  // 3. Lecturer Flow
   return <LecturerDashboard user={user} />;
 };
 

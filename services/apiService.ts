@@ -14,8 +14,12 @@ export const apiService = {
     }
   },
 
-  async devLogin(): Promise<User> {
-    const res = await fetch(`/api/auth/dev`, { method: 'POST' });
+  async devLogin(passcode: string): Promise<User> {
+    const res = await fetch(`/api/auth/dev`, { 
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ passcode })
+    });
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.message || "Dev login failed");

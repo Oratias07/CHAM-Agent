@@ -1,11 +1,22 @@
-import React from 'react';
+
+import React, { useState } from 'react';
 
 interface LoginProps {
   onLogin: () => void;
-  onDevLogin?: () => void;
+  onDevLogin: (passcode: string) => void;
 }
 
 const Login: React.FC<LoginProps> = ({ onLogin, onDevLogin }) => {
+  const [showDevInput, setShowDevInput] = useState(false);
+  const [passcode, setPasscode] = useState('');
+
+  const handleDevSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passcode.trim()) {
+      onDevLogin(passcode);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-6 overflow-hidden relative">
       {/* Decorative Background Elements */}
@@ -14,7 +25,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onDevLogin }) => {
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-600/10 blur-[150px] rounded-full"></div>
       </div>
 
-      <div className="z-10 w-full max-w-md bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-12 shadow-2xl text-center">
+      <div className="z-10 w-full max-w-md bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-12 shadow-2xl text-center transition-all duration-500">
         <div className="w-24 h-24 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl flex items-center justify-center text-white font-bold text-4xl mx-auto mb-10 shadow-2xl shadow-indigo-500/20 ring-4 ring-white/5">
           AI
         </div>
@@ -23,21 +34,21 @@ const Login: React.FC<LoginProps> = ({ onLogin, onDevLogin }) => {
           Grader SaaS
         </h1>
         <p className="text-slate-400 mb-12 text-lg font-medium leading-relaxed">
-          High-performance academic evaluation powered by Gemini.
+          {showDevInput ? 'Enter development passcode to proceed.' : 'High-performance academic evaluation powered by Gemini.'}
         </p>
 
-        <div className="space-y-4">
-          <button 
-            onClick={onLogin}
-            className="w-full flex items-center justify-center space-x-4 bg-white hover:bg-slate-50 text-slate-900 font-black py-5 px-8 rounded-2xl transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-2xl uppercase tracking-widest text-xs"
-          >
-            <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
-            <span>Continue with Google</span>
-          </button>
-          
-          {onDevLogin && (
+        {!showDevInput ? (
+          <div className="space-y-4">
             <button 
-              onClick={onDevLogin}
+              onClick={onLogin}
+              className="w-full flex items-center justify-center space-x-4 bg-white hover:bg-slate-50 text-slate-900 font-black py-5 px-8 rounded-2xl transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-2xl uppercase tracking-widest text-xs"
+            >
+              <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
+              <span>Continue with Google</span>
+            </button>
+            
+            <button 
+              onClick={() => setShowDevInput(true)}
               className="w-full flex items-center justify-center space-x-3 bg-slate-800/50 hover:bg-slate-800 text-slate-300 font-bold py-4 px-8 rounded-2xl border border-slate-700/50 transition-all text-xs uppercase tracking-widest"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -45,8 +56,36 @@ const Login: React.FC<LoginProps> = ({ onLogin, onDevLogin }) => {
               </svg>
               <span>Developer Bypass</span>
             </button>
-          )}
-        </div>
+          </div>
+        ) : (
+          <form onSubmit={handleDevSubmit} className="space-y-4">
+            <input 
+              type="password"
+              placeholder="Passcode"
+              value={passcode}
+              onChange={(e) => setPasscode(e.target.value)}
+              className="w-full bg-slate-800/50 border border-slate-700/50 rounded-2xl p-5 text-white text-center font-black tracking-[0.5em] outline-none focus:border-brand-500 transition-all"
+              autoFocus
+              required
+            />
+            <button 
+              type="submit"
+              className="w-full bg-brand-500 hover:bg-brand-400 text-white font-black py-5 px-8 rounded-2xl transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-2xl uppercase tracking-widest text-xs"
+            >
+              Verify & Enter
+            </button>
+            <button 
+              type="button"
+              onClick={() => {
+                setShowDevInput(false);
+                setPasscode('');
+              }}
+              className="w-full text-slate-500 hover:text-slate-300 font-bold py-2 text-[10px] uppercase tracking-widest transition-colors"
+            >
+              Return to Login
+            </button>
+          </form>
+        )}
 
         <div className="mt-16 pt-10 border-t border-white/10 grid grid-cols-3 gap-6">
           <div className="text-center">

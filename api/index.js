@@ -92,7 +92,6 @@ const Material = mongoose.models.Material || mongoose.model('Material', Material
 const Grade = mongoose.models.Grade || mongoose.model('Grade', GradeSchema);
 const Archive = mongoose.models.Archive || mongoose.model('Archive', ArchiveSchema);
 
-// Configure Session Store - Fallback to MemoryStore if MONGODB_URI is missing
 const sessionConfig = {
   secret: process.env.SESSION_SECRET || 'academic-integrity-secret-123',
   resave: false,
@@ -149,7 +148,7 @@ passport.serializeUser((user, done) => {
 passport.deserializeUser(async (id, done) => {
   try {
     const db = await connectDB();
-    if (!db) return done(null, null); // Skip if no DB
+    if (!db) return done(null, null);
     const user = await User.findById(id);
     done(null, user);
   } catch (err) {
@@ -177,8 +176,15 @@ router.get('/auth/me', (req, res) => {
 
 router.post('/auth/dev', async (req, res) => {
   try {
+    const { passcode } = req.body;
+    let assignedRole = null;
+    
+    if (passcode === '12345') assignedRole = 'lecturer';
+    else if (passcode === '1234') assignedRole = 'student';
+    else return res.status(403).json({ message: "Invalid development passcode" });
+
     const db = await connectDB();
-    const devId = 'dev-bypass-12345';
+    const devId = `dev-${assignedRole}-bypass`;
     let user = null;
 
     if (db) {
@@ -186,19 +192,23 @@ router.post('/auth/dev', async (req, res) => {
       if (!user) {
         user = await User.create({
           googleId: devId,
-          name: 'Developer Mode',
-          email: 'dev@stsystem.local',
-          picture: 'https://api.dicebear.com/7.x/bottts/svg?seed=dev',
-          role: null
+          name: assignedRole === 'lecturer' ? 'Dev Lecturer' : 'Dev Student',
+          email: `${assignedRole}@stsystem.local`,
+          picture: `https://api.dicebear.com/7.x/bottts/svg?seed=${assignedRole}`,
+          role: assignedRole,
+          enrolledLecturerId: assignedRole === 'student' ? 'dev-lecturer-bypass' : null
         });
+      } else if (user.role !== assignedRole) {
+        user.role = assignedRole;
+        await user.save();
       }
     } else {
-      // Memory fallback for dev roaming without DB
       user = {
         id: 'mock-id',
         googleId: devId,
-        name: 'Developer (Mock)',
-        role: null
+        name: `Dev ${assignedRole} (Mock)`,
+        role: assignedRole,
+        enrolledLecturerId: assignedRole === 'student' ? 'dev-lecturer-bypass' : null
       };
     }
 
@@ -310,7 +320,6 @@ router.get('/student/workspace', async (req, res) => {
 
 app.use('/api', router);
 
-// Explicit 404 handler for API routes
 app.use('/api/*', (req, res) => {
   res.status(404).json({ message: "API endpoint not found" });
 });
