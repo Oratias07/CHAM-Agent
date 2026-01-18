@@ -1,3 +1,4 @@
+
 import express from 'express';
 import mongoose from 'mongoose';
 import passport from 'passport';
@@ -15,204 +16,303 @@ app.use(express.json());
 
 let cachedDb = null;
 
+const NOTEBOOK_SYSTEM_PROMPT = `You are a high-level academic study assistant (NotebookLM style). 
+You have access to a variety of "Sources" including lecture materials, exercises, and student notes.
+Your goal is to help students understand the material deeply.
+[RULES]
+1. ALWAYS ground your answers in the provided Sources. 
+2. Use citations like [Source Name] when quoting or referencing.
+3. Feedback must be in Hebrew unless requested otherwise.
+`;
+
 const AGENT_SYSTEM_PROMPT_TEMPLATE = `[INSTRUCTIONS]
 Evaluate student C code against a question and master solution.
-
 [GOAL]
 Return score (0-10) and Hebrew feedback.
 Feedback must be 2-3 sentences MAX.
-Focus ONLY on problems, errors, and requirement violations.
-
-[C REQUIREMENTS]
-1. Buffer Cleaning: Mandatory check for "while(getchar() != '\\n');" or equivalent after scanf. If missing, penalize and mention it.
-2. Logic: Ensure range checks and conditions are correct.
-3. Style: Check for forbidden commands (break/continue) if noted in custom instructions.
-
-[CONSTRAINTS]
-- NO hyphens (-) or dashes (–) in feedback.
-- Hebrew ONLY.
-- Output ONLY valid JSON.
-
 [OUTPUT]
-{
-  "score": number,
-  "feedback": "string"
-}
-
----
-Q: {QUESTION_TEXT}
-Solution: {MASTER_SOLUTION}
-Rubric: {RUBRIC}
-Student: {STUDENT_CODE}
-Instructions: {AGENT_CUSTOM_INSTRUCTIONS}
+{ "score": number, "feedback": "string" }
 `;
 
-const getSafeUri = () => {
-  let uri = process.env.MONGODB_URI ? process.env.MONGODB_URI.trim() : null;
-  if (!uri) return null;
-  if (uri.includes('<db_password>') || uri.includes('<password>')) return { error: 'PLACEHOLDER_DETECTED', value: uri };
-  if (!uri.startsWith("mongodb://") && !uri.startsWith("mongodb+srv://")) return { error: 'INVALID_SCHEME', value: uri };
-  if (!uri.includes('@')) return { error: 'MISSING_ADDRESS', value: uri };
-  if (uri.includes('.net/?')) uri = uri.replace('.net/?', '.net/st_grader_db?');
-  else if (uri.includes('.net') && !uri.includes('.net/')) {
-    const parts = uri.split('?');
-    uri = parts[0] + '/st_grader_db' + (parts[1] ? '?' + parts[1] : '');
-  }
-  return uri;
-};
-
 const connectDB = async () => {
-  const uriResult = getSafeUri();
-  if (!uriResult || uriResult.error) throw new Error(uriResult?.error || "MONGODB_URI_MISSING");
   if (cachedDb && mongoose.connection.readyState === 1) return cachedDb;
+  const uri = process.env.MONGODB_URI;
+  if (!uri) {
+    console.error("MONGODB_URI is not defined in environment variables.");
+    return null;
+  }
   try {
-    if (mongoose.connection.readyState !== 0) await mongoose.disconnect();
-    const db = await mongoose.connect(uriResult, { serverSelectionTimeoutMS: 15000, connectTimeoutMS: 15000, appName: 'st-system-db' });
+    const db = await mongoose.connect(uri, {
+      serverSelectionTimeoutMS: 5000, // 5 second timeout
+    });
     cachedDb = db;
     return db;
   } catch (err) {
-    console.error("DB Error:", err.message);
-    throw err;
+    console.error("Failed to connect to MongoDB:", err);
+    return null;
   }
 };
 
-const UserSchema = new mongoose.Schema({ googleId: { type: String, required: true, unique: true }, name: String, email: String, picture: String });
-const GradeSchema = new mongoose.Schema({ userId: { type: String, required: true, index: true }, studentId: String, exerciseId: String, score: Number, feedback: String, timestamp: { type: Date, default: Date.now } });
-const ArchiveSchema = new mongoose.Schema({ userId: { type: String, required: true, index: true }, timestamp: { type: Date, default: Date.now }, state: Object });
+const UserSchema = new mongoose.Schema({
+  googleId: { type: String, required: true, unique: true },
+  name: String,
+  email: String,
+  picture: String,
+  role: { type: String, enum: ['lecturer', 'student'], default: null },
+  enrolledLecturerId: String
+});
+
+const MaterialSchema = new mongoose.Schema({
+  userId: String,
+  courseId: String,
+  title: String,
+  content: String,
+  type: { type: String, enum: ['lecturer_shared', 'student_private'] },
+  sourceType: String,
+  timestamp: { type: Date, default: Date.now }
+});
+
+const GradeSchema = new mongoose.Schema({
+  userId: String,
+  studentId: String,
+  exerciseId: String,
+  score: Number,
+  feedback: String,
+  timestamp: { type: Date, default: Date.now }
+});
+
+const ArchiveSchema = new mongoose.Schema({
+  userId: String,
+  timestamp: { type: Date, default: Date.now },
+  state: Object
+});
 
 const User = mongoose.models.User || mongoose.model('User', UserSchema);
+const Material = mongoose.models.Material || mongoose.model('Material', MaterialSchema);
 const Grade = mongoose.models.Grade || mongoose.model('Grade', GradeSchema);
 const Archive = mongoose.models.Archive || mongoose.model('Archive', ArchiveSchema);
 
-const uriResult = getSafeUri();
+// Configure Session Store - Fallback to MemoryStore if MONGODB_URI is missing
 const sessionConfig = {
-  secret: process.env.SESSION_SECRET || 'st-system-secret-9922',
-  resave: false, 
+  secret: process.env.SESSION_SECRET || 'academic-integrity-secret-123',
+  resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 1000 * 60 * 60 * 2, secure: true, sameSite: 'none' }
+  cookie: { 
+    maxAge: 1000 * 60 * 60 * 24, 
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax'
+  }
 };
-if (typeof uriResult === 'string') sessionConfig.store = MongoStore.create({ mongoUrl: uriResult, ttl: 60 * 60 * 2 });
+
+if (process.env.MONGODB_URI) {
+  sessionConfig.store = MongoStore.create({ 
+    mongoUrl: process.env.MONGODB_URI,
+    ttl: 24 * 60 * 60 // 1 day
+  });
+}
 
 app.use(session(sessionConfig));
 app.use(passport.initialize());
 app.use(passport.session());
 
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
-  passport.use(new GoogleStrategy({ clientID: process.env.GOOGLE_CLIENT_ID, clientSecret: process.env.GOOGLE_CLIENT_SECRET, callbackURL: "/api/auth/google/callback", proxy: true },
+  passport.use(new GoogleStrategy({
+      clientID: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackURL: "/api/auth/google/callback",
+      proxy: true
+    },
     async (accessToken, refreshToken, profile, done) => {
       try {
         await connectDB();
         let user = await User.findOne({ googleId: profile.id });
         if (!user) {
-          user = await User.create({ googleId: profile.id, name: profile.displayName, email: profile.emails[0].value, picture: profile.photos[0].value });
+          user = await User.create({ 
+            googleId: profile.id, 
+            name: profile.displayName, 
+            email: profile.emails[0].value, 
+            picture: profile.photos[0].value 
+          });
         }
         return done(null, user);
-      } catch (err) { return done(err); }
+      } catch (err) {
+        return done(err, null);
+      }
     }
   ));
 }
 
-passport.serializeUser((user, done) => done(null, user.id));
+passport.serializeUser((user, done) => {
+  done(null, user.id);
+});
+
 passport.deserializeUser(async (id, done) => {
   try {
-    await connectDB();
+    const db = await connectDB();
+    if (!db) return done(null, null); // Skip if no DB
     const user = await User.findById(id);
     done(null, user);
-  } catch (err) { done(err, null); }
+  } catch (err) {
+    console.error("Deserialization error:", err);
+    done(err, null);
+  }
 });
 
 const router = express.Router();
 
 router.get('/auth/me', (req, res) => {
-  if (req.user) res.json({ id: req.user.googleId, name: req.user.name, email: req.user.email, picture: req.user.picture });
-  else res.status(401).json(null);
+  if (req.user) {
+    res.json({ 
+      id: req.user.googleId, 
+      name: req.user.name, 
+      email: req.user.email, 
+      picture: req.user.picture, 
+      role: req.user.role, 
+      enrolledLecturerId: req.user.enrolledLecturerId 
+    });
+  } else {
+    res.status(401).json({ message: "Not authenticated" });
+  }
 });
 
-router.get('/auth/google', (req, res, next) => passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next));
-router.get('/auth/google/callback', (req, res, next) => {
-  passport.authenticate('google', (err, user) => {
-    if (err) return res.status(500).send(`Auth Error: ${err.message}`);
-    if (!user) return res.redirect('/login');
-    req.logIn(user, (err) => err ? next(err) : res.redirect('/'));
-  })(req, res, next);
+router.post('/auth/dev', async (req, res) => {
+  try {
+    const db = await connectDB();
+    const devId = 'dev-bypass-12345';
+    let user = null;
+
+    if (db) {
+      user = await User.findOne({ googleId: devId });
+      if (!user) {
+        user = await User.create({
+          googleId: devId,
+          name: 'Developer Mode',
+          email: 'dev@stsystem.local',
+          picture: 'https://api.dicebear.com/7.x/bottts/svg?seed=dev',
+          role: null
+        });
+      }
+    } else {
+      // Memory fallback for dev roaming without DB
+      user = {
+        id: 'mock-id',
+        googleId: devId,
+        name: 'Developer (Mock)',
+        role: null
+      };
+    }
+
+    req.login(user, (err) => {
+      if (err) return res.status(500).json({ message: "Dev login failed" });
+      res.json({ 
+        id: user.googleId, 
+        name: user.name, 
+        email: user.email || 'dev@local', 
+        picture: user.picture || '', 
+        role: user.role, 
+        enrolledLecturerId: user.enrolledLecturerId 
+      });
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Dev login encountered a critical error" });
+  }
 });
 
-router.get('/auth/logout', (req, res) => req.logout(() => res.redirect('/')));
+router.post('/user/update-role', async (req, res) => {
+  if (!req.user) return res.status(401).send();
+  const { role } = req.body;
+  await connectDB();
+  const user = await User.findOneAndUpdate({ googleId: req.user.googleId }, { role }, { new: true });
+  res.json(user);
+});
+
+router.post('/student/join', async (req, res) => {
+  if (!req.user) return res.status(401).send();
+  const { lecturerId } = req.body;
+  await connectDB();
+  const lecturer = await User.findOne({ googleId: lecturerId, role: 'lecturer' });
+  if (!lecturer) return res.status(404).json({ message: "Lecturer ID not found" });
+  const user = await User.findOneAndUpdate({ googleId: req.user.googleId }, { enrolledLecturerId: lecturerId }, { new: true });
+  res.json(user);
+});
 
 router.post('/evaluate', async (req, res) => {
   if (!req.isAuthenticated()) return res.status(401).json({ message: "Login required" });
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) return res.status(500).json({ message: "API_KEY is missing." });
   try {
     const { question, rubric, studentCode, masterSolution, customInstructions } = req.body;
-    const ai = new GoogleGenAI({ apiKey });
-    
-    // Exact prompt injection as per user request
-    const fullPrompt = AGENT_SYSTEM_PROMPT_TEMPLATE
-      .replace('{QUESTION_TEXT}', question || 'N/A')
-      .replace('{MASTER_SOLUTION}', masterSolution || 'N/A')
-      .replace('{RUBRIC}', rubric || 'N/A')
-      .replace('{STUDENT_CODE}', studentCode || 'N/A')
-      .replace('{AGENT_CUSTOM_INSTRUCTIONS}', customInstructions || 'N/A');
-
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const prompt = `${AGENT_SYSTEM_PROMPT_TEMPLATE}\n\nQ: ${question}\nSolution: ${masterSolution}\nRubric: ${rubric}\nStudent: ${studentCode}\nInstr: ${customInstructions}`;
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview', 
-      contents: fullPrompt,
-      config: { 
-        responseMimeType: "application/json", 
-        thinkingConfig: { thinkingBudget: 1000 } 
-      }
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+      config: { responseMimeType: "application/json" }
     });
     res.json(JSON.parse(response.text));
-  } catch (err) { res.status(500).json({ message: err.message || "Evaluation error" }); }
-});
-
-router.post('/grades/save', async (req, res) => {
-  if (!req.isAuthenticated()) return res.status(401).json({ message: "Login required" });
-  try {
-    await connectDB();
-    const { exerciseId, studentId, score, feedback } = req.body;
-    await Grade.findOneAndUpdate({ userId: req.user.googleId, exerciseId, studentId }, { score, feedback, timestamp: Date.now() }, { upsert: true });
-    res.json({ success: true });
-  } catch (err) { res.status(500).json({ success: false }); }
+  } catch (err) { 
+    res.status(500).json({ message: err.message }); 
+  }
 });
 
 router.get('/grades', async (req, res) => {
-  if (!req.isAuthenticated()) return res.status(401).json({ message: "Login required" });
-  try {
-    await connectDB();
-    const grades = await Grade.find({ userId: req.user.googleId });
-    res.json(grades);
-  } catch (err) { res.status(500).json([]); }
+  if (!req.user) return res.status(401).send();
+  await connectDB();
+  const grades = await Grade.find({ userId: req.user.googleId });
+  res.json(grades);
 });
 
-router.delete('/grades/clear', async (req, res) => {
-  if (!req.isAuthenticated()) return res.status(401).json({ message: "Login required" });
-  try {
-    await connectDB();
-    await Grade.deleteMany({ userId: req.user.googleId });
-    res.json({ success: true });
-  } catch (err) { res.status(500).json({ success: false }); }
+router.post('/grades/save', async (req, res) => {
+  if (!req.user) return res.status(401).send();
+  const { exerciseId, studentId, score, feedback } = req.body;
+  await connectDB();
+  await Grade.findOneAndUpdate({ userId: req.user.googleId, exerciseId, studentId }, { score, feedback, timestamp: Date.now() }, { upsert: true });
+  res.json({ success: true });
+});
+
+router.post('/grades/clear', async (req, res) => {
+  if (!req.user) return res.status(401).send();
+  await connectDB();
+  await Grade.deleteMany({ userId: req.user.googleId });
+  res.json({ success: true });
 });
 
 router.post('/archives/save', async (req, res) => {
-  if (!req.isAuthenticated()) return res.status(401).json({ message: "Login required" });
-  try {
-    await connectDB();
-    await Archive.create({ userId: req.user.googleId, state: req.body.state });
-    res.json({ success: true });
-  } catch (err) { res.status(500).json({ success: false }); }
+  if (!req.user) return res.status(401).send();
+  const { state } = req.body;
+  await connectDB();
+  await Archive.create({ userId: req.user.googleId, state });
+  res.json({ success: true });
 });
 
 router.get('/archives', async (req, res) => {
-  if (!req.isAuthenticated()) return res.status(401).json({ message: "Login required" });
-  try {
-    await connectDB();
-    const archives = await Archive.find({ userId: req.user.googleId }).sort({ timestamp: -1 });
-    res.json(archives);
-  } catch (err) { res.status(500).json([]); }
+  if (!req.user) return res.status(401).send();
+  await connectDB();
+  const archives = await Archive.find({ userId: req.user.googleId }).sort({ timestamp: -1 });
+  res.json(archives);
+});
+
+router.post('/student/chat', async (req, res) => {
+  if (!req.user) return res.status(401).send();
+  const { message, sources } = req.body;
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const context = sources.map(s => `SOURCE [${s.title}]:\n${s.content}`).join('\n\n');
+  const prompt = `${NOTEBOOK_SYSTEM_PROMPT}\n\nCONTEXT:\n${context}\n\nQ: ${message}`;
+  const response = await ai.models.generateContent({ model: 'gemini-3-pro-preview', contents: prompt });
+  res.json({ text: response.text });
+});
+
+router.get('/student/workspace', async (req, res) => {
+  if (!req.user) return res.status(401).send();
+  await connectDB();
+  const shared = await Material.find({ courseId: req.user.enrolledLecturerId, type: 'lecturer_shared' });
+  const privateNotes = await Material.find({ userId: req.user.googleId, type: 'student_private' });
+  res.json({ shared, privateNotes });
 });
 
 app.use('/api', router);
-app.use('/', router);
+
+// Explicit 404 handler for API routes
+app.use('/api/*', (req, res) => {
+  res.status(404).json({ message: "API endpoint not found" });
+});
+
 export default app;

@@ -1,140 +1,106 @@
-import { User, GradeBookState, GradingResult, GradingInputs, ArchiveSession } from "../types";
-import { INITIAL_GRADEBOOK_STATE } from "../constants";
 
-// Mock user for local development
-const MOCK_USER: User = {
-  id: "dev-12345",
-  name: "Dev Instructor",
-  email: "dev@example.edu",
-  picture: "https://api.dicebear.com/7.x/avataaars/svg?seed=dev"
-};
-
-const isDevMode = () => localStorage.getItem('ST_DEV_MODE') === 'true';
+import { User, GradeBookState, GradingResult, GradingInputs, ArchiveSession, UserRole, Material } from "../types";
 
 export const apiService = {
   async getCurrentUser(): Promise<User | null> {
-    if (isDevMode()) return MOCK_USER;
     try {
       const res = await fetch(`/api/auth/me`);
-      if (!res.ok) return null;
+      if (res.status === 401) return null;
+      if (!res.ok) throw new Error("Server responded with error: " + res.status);
       return res.json();
     } catch (e) {
+      console.error("apiService.getCurrentUser error:", e);
       return null;
     }
   },
 
-  async getGradebook(): Promise<GradeBookState | null> {
-    if (isDevMode()) {
-      const stored = localStorage.getItem('ST_MOCK_GRADES');
-      return stored ? JSON.parse(stored) : INITIAL_GRADEBOOK_STATE;
+  async devLogin(): Promise<User> {
+    const res = await fetch(`/api/auth/dev`, { method: 'POST' });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.message || "Dev login failed");
     }
-    try {
-      const res = await fetch(`/api/grades`);
-      if (!res.ok) return null;
-      const dbGrades = await res.json();
-      if (!dbGrades || dbGrades.length === 0) return null;
-      const state: GradeBookState = {
-        students: [...INITIAL_GRADEBOOK_STATE.students],
-        exercises: [...INITIAL_GRADEBOOK_STATE.exercises]
-      };
-      dbGrades.forEach((g: any) => {
-        let exercise = state.exercises.find(ex => ex.id === g.exerciseId);
-        if (!exercise) {
-          exercise = {
-            id: g.exerciseId,
-            name: `Restored ${g.exerciseId}`,
-            maxScore: 10,
-            entries: {},
-            question: '',
-            masterSolution: '',
-            rubric: '',
-            customInstructions: ''
-          };
-          state.exercises.push(exercise);
-        }
-        exercise.entries[g.studentId] = { score: g.score, feedback: g.feedback };
-      });
-      return state;
-    } catch (e) {
-      return null;
-    }
+    return res.json();
   },
 
-  async saveGrade(exerciseId: string, studentId: string, result: GradingResult): Promise<void> {
-    if (isDevMode()) {
-      const current = await this.getGradebook() || INITIAL_GRADEBOOK_STATE;
-      const ex = current.exercises.find(e => e.id === exerciseId);
-      if (ex) {
-        ex.entries[studentId] = result;
-        localStorage.setItem('ST_MOCK_GRADES', JSON.stringify(current));
-      }
-      return;
-    }
-    try {
-      await fetch(`/api/grades/save`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ exerciseId, studentId, ...result })
-      });
-    } catch (e) {}
+  async updateUserRole(role: UserRole): Promise<User> {
+    const res = await fetch(`/api/user/update-role`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role })
+    });
+    if (!res.ok) throw new Error("Update role failed");
+    return res.json();
   },
 
-  async archiveSession(state: GradeBookState): Promise<void> {
-    if (isDevMode()) {
-      const archives = JSON.parse(localStorage.getItem('ST_MOCK_ARCHIVES') || '[]');
-      archives.push({ _id: Date.now().toString(), timestamp: new Date(), state });
-      localStorage.setItem('ST_MOCK_ARCHIVES', JSON.stringify(archives));
-      return;
-    }
-    try {
-      await fetch(`/api/archives/save`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ state })
-      });
-    } catch (e) {
-      console.error("Archive failed", e);
-    }
+  async enrollInCourse(lecturerId: string): Promise<User> {
+    const res = await fetch(`/api/student/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lecturerId })
+    });
+    if (!res.ok) throw new Error("Enrollment failed");
+    return res.json();
   },
 
-  async getArchives(): Promise<ArchiveSession[]> {
-    if (isDevMode()) {
-      return JSON.parse(localStorage.getItem('ST_MOCK_ARCHIVES') || '[]');
-    }
-    try {
-      const res = await fetch(`/api/archives`);
-      if (!res.ok) return [];
-      return res.json();
-    } catch (e) {
-      return [];
-    }
+  async getStudentWorkspace(): Promise<{ shared: Material[], privateNotes: Material[] }> {
+    const res = await fetch(`/api/student/workspace`);
+    if (!res.ok) throw new Error("Workspace fetch failed");
+    return res.json();
   },
 
-  async clearAllData(): Promise<void> {
-    if (isDevMode()) {
-      localStorage.removeItem('ST_MOCK_GRADES');
-      return;
-    }
-    await fetch(`/api/grades/clear`, { method: 'DELETE' });
+  async studentChat(message: string, sources: Material[]): Promise<{ text: string }> {
+    const res = await fetch(`/api/student/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, sources })
+    });
+    if (!res.ok) throw new Error("Chat failed");
+    return res.json();
   },
 
+  // Existing Lecturer Methods...
   async evaluate(inputs: GradingInputs): Promise<GradingResult> {
-    if (isDevMode()) {
-      await new Promise(r => setTimeout(r, 1000));
-      return {
-        score: Math.floor(Math.random() * 3) + 8,
-        feedback: "הקוד מצוין. שים לב לשימוש ב-scanf. כל הכבוד על ההערות."
-      };
-    }
     const res = await fetch(`/api/evaluate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(inputs)
     });
-    if (!res.ok) {
-      const errData = await res.json();
-      throw new Error(errData.message || "Server evaluation failed");
-    }
+    if (!res.ok) throw new Error("Evaluation failed");
     return res.json();
+  },
+
+  async getGradebook(): Promise<GradeBookState | null> {
+    const res = await fetch(`/api/grades`);
+    if (!res.ok) return null;
+    return res.json();
+  },
+
+  async saveGrade(exerciseId: string, studentId: string, result: GradingResult): Promise<void> {
+    await fetch(`/api/grades/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ exerciseId, studentId, ...result })
+    });
+  },
+
+  async getArchives(): Promise<ArchiveSession[]> {
+    const res = await fetch(`/api/archives`);
+    if (!res.ok) return [];
+    return res.json();
+  },
+
+  async archiveSession(state: GradeBookState): Promise<void> {
+    await fetch(`/api/archives/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ state })
+    });
+  },
+
+  async clearAllData(): Promise<void> {
+    await fetch(`/api/grades/clear`, {
+      method: 'POST'
+    });
   }
 };

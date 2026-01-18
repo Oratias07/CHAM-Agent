@@ -1,8 +1,22 @@
+
+export type UserRole = 'lecturer' | 'student';
+
 export interface User {
   id: string;
   name: string;
   email: string;
   picture?: string;
+  role?: UserRole;
+  enrolledLecturerId?: string;
+}
+
+export interface Material {
+  id: string;
+  title: string;
+  content: string;
+  type: 'lecturer_shared' | 'student_private';
+  sourceType: 'exercise' | 'note' | 'solution';
+  timestamp: Date;
 }
 
 export interface GradingResult {
