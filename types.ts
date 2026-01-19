@@ -7,7 +7,17 @@ export interface User {
   email: string;
   picture?: string;
   role?: UserRole;
-  enrolledLecturerId?: string;
+  enrolledLecturerId?: string; // Legacy field
+  enrolledCourseIds?: string[]; // New: list of joined course IDs
+}
+
+export interface Course {
+  id: string;
+  lecturerId: string;
+  name: string;
+  code: string; // Unique 6-char code for joining
+  description?: string;
+  createdAt: Date;
 }
 
 export interface Material {
@@ -72,6 +82,7 @@ export interface GradeBookState {
 export interface ArchiveSession {
   _id?: string;
   userId: string;
+  courseId?: string;
   timestamp: Date;
   state: GradeBookState;
 }

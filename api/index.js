@@ -47,7 +47,28 @@ const UserSchema = new mongoose.Schema({
   email: String,
   picture: String,
   role: { type: String, enum: ['lecturer', 'student'], default: null },
-  enrolledLecturerId: String
+  enrolledCourseIds: [String]
+});
+
+const CourseSchema = new mongoose.Schema({
+  lecturerId: String,
+  name: String,
+  code: { type: String, unique: true },
+  description: String,
+  createdAt: { type: Date, default: Date.now }
+});
+
+const ExerciseSchema = new mongoose.Schema({
+  id: String,
+  courseId: String,
+  lecturerId: String,
+  name: String,
+  maxScore: Number,
+  question: String,
+  masterSolution: String,
+  rubric: String,
+  customInstructions: String,
+  entries: mongoose.Schema.Types.Mixed // { studentId: { score, feedback } }
 });
 
 const MaterialSchema = new mongoose.Schema({
@@ -61,7 +82,8 @@ const MaterialSchema = new mongoose.Schema({
 });
 
 const GradeSchema = new mongoose.Schema({
-  userId: String,
+  userId: String, // Lecturer ID
+  courseId: String,
   studentId: String,
   exerciseId: String,
   score: Number,
@@ -71,11 +93,14 @@ const GradeSchema = new mongoose.Schema({
 
 const ArchiveSchema = new mongoose.Schema({
   userId: String,
+  courseId: String,
   timestamp: { type: Date, default: Date.now },
   state: mongoose.Schema.Types.Mixed
 });
 
 const User = mongoose.models.User || mongoose.model('User', UserSchema);
+const Course = mongoose.models.Course || mongoose.model('Course', CourseSchema);
+const Exercise = mongoose.models.Exercise || mongoose.model('Exercise', ExerciseSchema);
 const Material = mongoose.models.Material || mongoose.model('Material', MaterialSchema);
 const Grade = mongoose.models.Grade || mongoose.model('Grade', GradeSchema);
 const Archive = mongoose.models.Archive || mongoose.model('Archive', ArchiveSchema);
@@ -131,7 +156,6 @@ passport.deserializeUser(async (id, done) => {
 
 const router = express.Router();
 
-// GOOGLE AUTH ROUTES
 router.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 router.get('/auth/google/callback', 
   passport.authenticate('google', { failureRedirect: '/' }),
@@ -146,7 +170,7 @@ router.get('/auth/me', (req, res) => {
       email: req.user.email, 
       picture: req.user.picture, 
       role: req.user.role, 
-      enrolledLecturerId: req.user.enrolledLecturerId 
+      enrolledCourseIds: req.user.enrolledCourseIds || [] 
     });
   } else {
     res.status(401).json(null);
@@ -190,13 +214,63 @@ router.post('/user/update-role', async (req, res) => {
   res.json(user);
 });
 
-router.post('/student/join', async (req, res) => {
-  if (!req.user) return res.status(401).send();
-  const { lecturerId } = req.body;
+// COURSE MANAGEMENT
+router.get('/lecturer/courses', async (req, res) => {
+  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
   await connectDB();
+  const courses = await Course.find({ lecturerId: req.user.googleId });
+  res.json(courses);
+});
+
+router.post('/lecturer/courses', async (req, res) => {
+  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
+  const { name, description } = req.body;
+  await connectDB();
+  const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+  const course = await Course.create({
+    lecturerId: req.user.googleId,
+    name,
+    description,
+    code
+  });
+  res.json(course);
+});
+
+// EXERCISE PERSISTENCE
+router.get('/exercises', async (req, res) => {
+  if (!req.user) return res.status(401).send();
+  const { courseId } = req.query;
+  await connectDB();
+  const exercises = await Exercise.find({ lecturerId: req.user.googleId, courseId });
+  res.json(exercises);
+});
+
+router.post('/exercises/sync', async (req, res) => {
+  if (!req.user) return res.status(401).send();
+  const { exercises, courseId } = req.body;
+  await connectDB();
+  
+  // Update or insert each exercise
+  for (const ex of exercises) {
+    await Exercise.findOneAndUpdate(
+      { id: ex.id, lecturerId: req.user.googleId, courseId },
+      { ...ex, lecturerId: req.user.googleId, courseId },
+      { upsert: true }
+    );
+  }
+  res.json({ success: true });
+});
+
+router.post('/student/join-course', async (req, res) => {
+  if (!req.user || req.user.role !== 'student') return res.status(401).send();
+  const { code } = req.body;
+  await connectDB();
+  const course = await Course.findOne({ code });
+  if (!course) return res.status(404).json({ message: "Course not found" });
+  
   const user = await User.findOneAndUpdate(
     { googleId: req.user.googleId },
-    { enrolledLecturerId: lecturerId },
+    { $addToSet: { enrolledCourseIds: course._id } },
     { new: true }
   );
   res.json(user);
@@ -205,8 +279,9 @@ router.post('/student/join', async (req, res) => {
 router.get('/student/workspace', async (req, res) => {
   if (!req.user) return res.status(401).send();
   await connectDB();
+  const courseIds = req.user.enrolledCourseIds || [];
   const shared = await Material.find({ 
-    courseId: req.user.enrolledLecturerId, 
+    courseId: { $in: courseIds }, 
     $or: [
       { type: 'lecturer_shared' },
       { type: 'student_specific', userId: req.user.googleId }
@@ -216,42 +291,21 @@ router.get('/student/workspace', async (req, res) => {
   res.json({ shared, privateNotes });
 });
 
-router.post('/student/upload', async (req, res) => {
-  if (!req.user) return res.status(401).send();
-  const { title, content } = req.body;
-  await connectDB();
-  const newMaterial = await Material.create({
-    userId: req.user.googleId,
-    title,
-    content,
-    type: 'student_private',
-    sourceType: 'note'
-  });
-  res.json(newMaterial);
-});
-
 router.post('/student/chat', async (req, res) => {
   if (!req.user) return res.status(401).send();
   try {
     const { message, sources, task } = req.body;
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    
     let context = "GROUNDING SOURCES:\n";
     sources.forEach(s => context += `--- SOURCE: ${s.title} ---\n${s.content}\n\n`);
-
-    let finalPrompt = `${STUDENT_ASSISTANT_PROMPT}\n\n${context}\n\n`;
-    if (task === 'quiz') finalPrompt += "Generate a 3-question quiz based on the sources.";
-    else if (task === 'summary') finalPrompt += "Generate a concise course summary based on the sources.";
-    else if (task === 'concepts') finalPrompt += "Extract and define the key concepts from these sources.";
-    else finalPrompt += `USER QUERY: ${message}`;
-
+    const finalPrompt = `${STUDENT_ASSISTANT_PROMPT}\n\n${context}\n\nUSER QUERY: ${message || task}`;
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: finalPrompt
     });
     res.json({ text: response.text });
   } catch (err) {
-    res.status(500).json({ text: "I'm sorry, I'm having trouble processing that right now." });
+    res.status(500).json({ text: "Error processing chat." });
   }
 });
 
@@ -260,11 +314,7 @@ router.post('/evaluate', async (req, res) => {
   try {
     const { question, rubric, studentCode, masterSolution, customInstructions } = req.body;
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const prompt = `Evaluate student C code against a question and master solution.
-Return score (0-10) and Hebrew feedback (2-3 sentences MAX).
-Q: ${question}\nSolution: ${masterSolution}\nRubric: ${rubric}\nStudent: ${studentCode}\nInstr: ${customInstructions}
-Output ONLY JSON: { "score": number, "feedback": "string" }`;
-
+    const prompt = `Evaluate C code. Q: ${question}\nSolution: ${masterSolution}\nRubric: ${rubric}\nStudent: ${studentCode}\nOutput ONLY JSON: { "score": number, "feedback": "string" }`;
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
@@ -286,9 +336,9 @@ router.get('/grades', async (req, res) => {
 router.post('/grades/save', async (req, res) => {
   if (!req.user) return res.status(401).send();
   await connectDB();
-  const { exerciseId, studentId, score, feedback } = req.body;
+  const { exerciseId, studentId, score, feedback, courseId } = req.body;
   await Grade.findOneAndUpdate(
-    { userId: req.user.googleId, exerciseId, studentId },
+    { userId: req.user.googleId, exerciseId, studentId, courseId },
     { score, feedback, timestamp: Date.now() },
     { upsert: true }
   );
@@ -304,10 +354,11 @@ router.get('/archives', async (req, res) => {
 
 router.post('/archives/save', async (req, res) => {
   if (!req.user) return res.status(401).send();
-  const { state } = req.body;
+  const { state, courseId } = req.body;
   await connectDB();
   const archive = await Archive.create({
     userId: req.user.googleId,
+    courseId,
     state,
     timestamp: new Date()
   });
@@ -316,29 +367,29 @@ router.post('/archives/save', async (req, res) => {
 
 router.post('/grades/clear', async (req, res) => {
   if (!req.user) return res.status(401).send();
+  const { courseId } = req.body;
   await connectDB();
-  await Grade.deleteMany({ userId: req.user.googleId });
+  await Grade.deleteMany({ userId: req.user.googleId, courseId });
+  await Exercise.deleteMany({ lecturerId: req.user.googleId, courseId });
   res.json({ success: true });
+});
+
+router.post('/lecturer/upload-material', async (req, res) => {
+  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
+  const { courseId, title, content } = req.body;
+  await connectDB();
+  const material = await Material.create({
+    courseId,
+    title,
+    content,
+    type: 'lecturer_shared',
+    sourceType: 'note'
+  });
+  res.json(material);
 });
 
 router.get('/auth/logout', (req, res) => {
   req.logout(() => res.redirect('/'));
-});
-
-// LECTURER STUDENT MANAGEMENT ENDPOINTS
-router.post('/lecturer/student-file', async (req, res) => {
-  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
-  const { studentId, title, content } = req.body;
-  await connectDB();
-  const material = await Material.create({
-    userId: studentId,
-    courseId: req.user.googleId,
-    title,
-    content,
-    type: 'student_specific',
-    sourceType: 'note'
-  });
-  res.json(material);
 });
 
 app.use('/api', router);

@@ -1,15 +1,13 @@
 
-import { User, GradeBookState, GradingResult, GradingInputs, ArchiveSession, UserRole, Material } from "../types";
+import { User, GradeBookState, GradingResult, GradingInputs, ArchiveSession, UserRole, Material, Course, Exercise } from "../types";
 
 export const apiService = {
   async getCurrentUser(): Promise<User | null> {
     try {
       const res = await fetch(`/api/auth/me`);
       if (res.status === 401) return null;
-      if (!res.ok) throw new Error("Server responded with error: " + res.status);
       return res.json();
     } catch (e) {
-      console.error("apiService.getCurrentUser error:", e);
       return null;
     }
   },
@@ -20,10 +18,7 @@ export const apiService = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ passcode })
     });
-    if (!res.ok) {
-      const errorData = await res.json().catch(() => ({}));
-      throw new Error(errorData.message || "Dev login failed");
-    }
+    if (!res.ok) throw new Error("Dev login failed");
     return res.json();
   },
 
@@ -33,23 +28,48 @@ export const apiService = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ role })
     });
-    if (!res.ok) throw new Error("Update role failed");
     return res.json();
   },
 
-  async enrollInCourse(lecturerId: string): Promise<User> {
-    const res = await fetch(`/api/student/join`, {
+  async getCourses(): Promise<Course[]> {
+    const res = await fetch(`/api/lecturer/courses`);
+    return res.json();
+  },
+
+  async createCourse(name: string, description: string): Promise<Course> {
+    const res = await fetch(`/api/lecturer/courses`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ lecturerId })
+      body: JSON.stringify({ name, description })
     });
-    if (!res.ok) throw new Error("Enrollment failed");
     return res.json();
+  },
+
+  async joinCourse(code: string): Promise<User> {
+    const res = await fetch(`/api/student/join-course`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    });
+    if (!res.ok) throw new Error("Join failed");
+    return res.json();
+  },
+
+  async getExercises(courseId: string): Promise<Exercise[]> {
+    const res = await fetch(`/api/exercises?courseId=${courseId}`);
+    return res.json();
+  },
+
+  async syncExercises(exercises: Exercise[], courseId: string): Promise<void> {
+    await fetch(`/api/exercises/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ exercises, courseId })
+    });
   },
 
   async getStudentWorkspace(): Promise<{ shared: Material[], privateNotes: Material[] }> {
     const res = await fetch(`/api/student/workspace`);
-    if (!res.ok) throw new Error("Workspace fetch failed");
     return res.json();
   },
 
@@ -59,28 +79,33 @@ export const apiService = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title, content })
     });
-    if (!res.ok) throw new Error("Upload failed");
     return res.json();
   },
 
-  async studentChat(message: string, sources: Material[], task?: 'quiz' | 'summary' | 'concepts'): Promise<{ text: string }> {
+  async lecturerUploadMaterial(courseId: string, title: string, content: string): Promise<Material> {
+    const res = await fetch(`/api/lecturer/upload-material`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ courseId, title, content })
+    });
+    return res.json();
+  },
+
+  async studentChat(message: string, sources: Material[], task?: string): Promise<{ text: string }> {
     const res = await fetch(`/api/student/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message, sources, task })
     });
-    if (!res.ok) throw new Error("Chat failed");
     return res.json();
   },
 
-  // Lecturer Methods
   async evaluate(inputs: GradingInputs): Promise<GradingResult> {
     const res = await fetch(`/api/evaluate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(inputs)
     });
-    if (!res.ok) throw new Error("Evaluation failed");
     return res.json();
   },
 
@@ -90,31 +115,32 @@ export const apiService = {
     return res.json();
   },
 
-  async saveGrade(exerciseId: string, studentId: string, result: GradingResult): Promise<void> {
+  async saveGrade(exerciseId: string, studentId: string, result: GradingResult, courseId?: string): Promise<void> {
     await fetch(`/api/grades/save`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ exerciseId, studentId, ...result })
+      body: JSON.stringify({ exerciseId, studentId, courseId, ...result })
     });
   },
 
   async getArchives(): Promise<ArchiveSession[]> {
     const res = await fetch(`/api/archives`);
-    if (!res.ok) return [];
     return res.json();
   },
 
-  async archiveSession(state: GradeBookState): Promise<void> {
+  async archiveSession(state: GradeBookState, courseId?: string): Promise<void> {
     await fetch(`/api/archives/save`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ state })
+      body: JSON.stringify({ state, courseId })
     });
   },
 
-  async clearAllData(): Promise<void> {
+  async clearAllData(courseId?: string): Promise<void> {
     await fetch(`/api/grades/clear`, {
-      method: 'POST'
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ courseId })
     });
   }
 };
