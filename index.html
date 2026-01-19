@@ -1,41 +1,43 @@
+
 <!DOCTYPE html>
 <html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AI Code Grader</title>
+    <title>ST System | Academic Integrity</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
         darkMode: 'class',
         theme: {
           extend: {
+            fontFamily: {
+              sans: ['Assistant', 'Inter', 'sans-serif'],
+              mono: ['JetBrains Mono', 'monospace'],
+            },
             colors: {
               brand: {
-                50: '#f5f7ff',
-                100: '#ebf0fe',
-                200: '#ced9fd',
-                300: '#b1c2fb',
-                400: '#7695f8',
-                500: '#3b67f5',
-                600: '#355ddd',
-                700: '#2c4eb8',
-                800: '#233e93',
-                900: '#1d3378',
+                50: '#f8fafc',
+                100: '#f1f5f9',
+                200: '#e2e8f0',
+                300: '#cbd5e1',
+                400: '#94a3b8',
+                500: '#3b82f6',
+                600: '#2563eb',
+                700: '#1d4ed8',
+                800: '#1e40af',
+                900: '#1e3a8a',
               }
             }
           }
         }
       }
     </script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700;800&family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
       body {
-        font-family: 'Inter', sans-serif;
+        font-family: 'Assistant', sans-serif;
         transition: background-color 0.3s ease, color 0.3s ease;
-      }
-      .font-mono {
-        font-family: 'JetBrains Mono', monospace !important;
       }
       .custom-scrollbar::-webkit-scrollbar {
         width: 6px;
@@ -49,7 +51,7 @@
         border-radius: 10px;
       }
       .dark .custom-scrollbar::-webkit-scrollbar-thumb {
-        background: #475569;
+        background: #334155;
       }
       .glass {
         background: rgba(255, 255, 255, 0.7);
@@ -58,14 +60,6 @@
       }
       .dark .glass {
         background: rgba(15, 23, 42, 0.7);
-      }
-      @keyframes float {
-        0% { transform: translateY(0px); }
-        50% { transform: translateY(-10px); }
-        100% { transform: translateY(0px); }
-      }
-      .animate-float {
-        animation: float 6s ease-in-out infinite;
       }
     </style>
   <script type="importmap">
@@ -88,7 +82,7 @@
 }
 </script>
 </head>
-  <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300">
+  <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300 antialiased">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
