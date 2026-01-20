@@ -75,10 +75,21 @@ const ExerciseSchema = new mongoose.Schema({
   entries: mongoose.Schema.Types.Mixed
 });
 
+const GradeSchema = new mongoose.Schema({
+  userId: String,
+  courseId: String,
+  studentId: String,
+  exerciseId: String,
+  score: Number,
+  feedback: String,
+  timestamp: { type: Date, default: Date.now }
+});
+
 const User = mongoose.models.User || mongoose.model('User', UserSchema);
 const Course = mongoose.models.Course || mongoose.model('Course', CourseSchema);
 const Material = mongoose.models.Material || mongoose.model('Material', MaterialSchema);
 const Exercise = mongoose.models.Exercise || mongoose.model('Exercise', ExerciseSchema);
+const Grade = mongoose.models.Grade || mongoose.model('Grade', GradeSchema);
 
 // AUTH
 const sessionConfig = {
@@ -204,10 +215,27 @@ router.put('/lecturer/courses/:id', async (req, res) => {
 router.delete('/lecturer/courses/:id', async (req, res) => {
   if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
   await connectDB();
+  // Thorough cleanup of all course-related objects
   await Course.deleteOne({ _id: req.params.id, lecturerId: req.user.googleId });
   await Material.deleteMany({ courseId: req.params.id });
+  await Exercise.deleteMany({ courseId: req.params.id });
+  await Grade.deleteMany({ courseId: req.params.id });
+  
+  // Remove course from all student enrollment lists
+  await User.updateMany(
+    { enrolledCourseIds: req.params.id },
+    { $pull: { enrolledCourseIds: req.params.id } }
+  );
+  
   res.json({ success: true });
 });
+
+app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+
+app.get('/api/auth/google/callback', 
+  passport.authenticate('google', { failureRedirect: '/login' }),
+  (req, res) => res.redirect('/')
+);
 
 // ENROLLMENT & WAITLIST
 router.post('/student/join-course', async (req, res) => {
@@ -325,7 +353,6 @@ router.post('/evaluate', async (req, res) => {
     const { question, masterSolution, rubric, studentCode, customInstructions } = req.body;
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
-    // Using gemini-3-flash-preview as it has higher rate limits for free tier
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `Evaluate the following student code based on the provided rubric and master solution.
@@ -356,7 +383,7 @@ router.post('/evaluate', async (req, res) => {
           },
           required: ["score", "feedback"]
         },
-        thinkingConfig: { thinkingBudget: 2000 } // Enable thinking for better reasoning on Flash
+        thinkingConfig: { thinkingBudget: 2000 }
       }
     });
     res.json(JSON.parse(response.text));

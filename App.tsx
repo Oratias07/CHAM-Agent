@@ -30,9 +30,39 @@ const App: React.FC = () => {
     setUser(updated);
   };
 
-  if (loading) return <div className="h-screen flex items-center justify-center font-black animate-pulse">INITIALIZING SECURE CORE...</div>;
+  const handleGoogleLogin = () => {
+    window.location.href = '/api/auth/google';
+  };
 
-  if (!user) return <Login onLogin={() => {}} onDevLogin={handleDevLogin} />;
+  if (loading) {
+    return (
+      <div className="h-screen bg-slate-950 flex flex-col items-center justify-center relative overflow-hidden">
+        {/* Background glow */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-brand-500/10 blur-[150px] rounded-full"></div>
+        
+        {/* Rotating Wrap Logo */}
+        <div className="relative group">
+          <div className="absolute inset-0 bg-brand-500 rounded-[2rem] blur-2xl opacity-20 group-hover:opacity-40 transition-opacity animate-pulse"></div>
+          <div className="relative w-24 h-24 bg-gradient-to-br from-brand-500 to-brand-700 rounded-[2rem] flex items-center justify-center text-white font-black text-4xl shadow-2xl animate-logo-secondary">
+            ST
+            {/* Spinning Orbit Ring */}
+            <div className="absolute -inset-4 border-2 border-brand-500/30 border-t-brand-500 rounded-full animate-orbit-clean"></div>
+          </div>
+        </div>
+        
+        <div className="mt-12 space-y-2 text-center">
+          <div className="text-[10px] font-black text-brand-400 uppercase tracking-[0.5em] animate-pulse">
+            System Synchronizing
+          </div>
+          <div className="text-slate-600 text-[8px] font-black uppercase tracking-widest">
+            Academic Integrity v2.1.0
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) return <Login onLogin={handleGoogleLogin} onDevLogin={handleDevLogin} />;
   if (!user.role) return <RoleSelector onSelect={handleRoleSelect} />;
 
   if (user.role === 'student') {
