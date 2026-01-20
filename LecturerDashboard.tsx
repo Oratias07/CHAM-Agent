@@ -1,4 +1,5 @@
 
+// LecturerDashboard.tsx - Implemented handlers for evaluation and gradebook management to fix missing name errors.
 import React, { useState, useEffect } from 'react';
 import InputSection from './components/InputSection';
 import ResultSection from './components/ResultSection';
@@ -6,17 +7,19 @@ import GradeBook from './components/GradeBook';
 import ChatBot from './components/ChatBot';
 import CourseManager from './components/CourseManager';
 import StudentManagement from './components/StudentManagement';
+import DirectChat from './components/DirectChat';
 import { apiService } from './services/apiService';
-import { GradingResult, TabOption, GradeBookState, User, Course, Student } from './types';
+import { GradingResult, TabOption, GradeBookState, User, Course, Student, Exercise } from './types';
 import { INITIAL_GRADEBOOK_STATE } from './constants';
 
-type ViewMode = 'EVALUATION' | 'SHEETS' | 'STUDENTS' | 'COURSES';
+type ViewMode = 'EVALUATION' | 'SHEETS' | 'STUDENTS' | 'COURSES' | 'MESSAGES';
 
 const Icons = {
   Evaluation: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>,
   Gradebook: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>,
   Courses: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>,
   Students: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>,
+  Messages: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>,
   SignOut: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>,
   Theme: (isDark: boolean) => isDark ? 
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m12.728 12.728l.707.707M12 8a4 4 0 100 8 4 4 0 000-8z" /></svg> : 
@@ -32,8 +35,22 @@ const LecturerDashboard: React.FC<{ user: User }> = ({ user }) => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [activeCourse, setActiveCourse] = useState<Course | null>(null);
   const [gradeBookState, setGradeBookState] = useState<GradeBookState>(INITIAL_GRADEBOOK_STATE);
+  const [activeExerciseId, setActiveExerciseId] = useState<string>('ex-1');
   const [studentCode, setStudentCode] = useState('');
+  const [selectedStudentId, setSelectedStudentId] = useState<string>('student-1');
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') !== 'light');
+  const [pendingCount, setPendingCount] = useState(0);
+  const [chatTarget, setChatTarget] = useState<Student | null>(null);
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      const res = await apiService.getLecturerNotifications();
+      setPendingCount(res.pendingCount);
+    };
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -45,23 +62,144 @@ const LecturerDashboard: React.FC<{ user: User }> = ({ user }) => {
     apiService.getCourses().then(setCourses);
   }, []);
 
+  // Fetch saved grades to populate the gradebook state
+  useEffect(() => {
+    const loadGrades = async () => {
+      try {
+        const grades = await apiService.getGrades();
+        setGradeBookState(prev => {
+          const updatedExercises = prev.exercises.map(ex => {
+            const exerciseGrades = grades.filter((g: any) => g.exerciseId === ex.id);
+            const newEntries = { ...ex.entries };
+            exerciseGrades.forEach((g: any) => {
+              newEntries[g.studentId] = { score: g.score, feedback: g.feedback };
+            });
+            return { ...ex, entries: newEntries };
+          });
+          return { ...prev, exercises: updatedExercises };
+        });
+      } catch (e) { console.debug("Failed to load grades", e); }
+    };
+    loadGrades();
+  }, []);
+
+  const activeExercise = gradeBookState.exercises.find(ex => ex.id === activeExerciseId) || gradeBookState.exercises[0];
+
+  // handleEvaluate triggers the AI analysis and updates both local state and backend persistence.
   const handleEvaluate = async () => {
+    if (!activeExercise || isEvaluating) return;
     setIsEvaluating(true);
     setError(null);
+    setResult(null);
+
     try {
-      const ex = gradeBookState.exercises[0];
-      const res = await apiService.evaluate({ ...ex, studentCode });
+      const inputs = {
+        question: activeExercise.question,
+        masterSolution: activeExercise.masterSolution,
+        rubric: activeExercise.rubric,
+        studentCode: studentCode,
+        customInstructions: activeExercise.customInstructions,
+      };
+
+      const res = await apiService.evaluate(inputs);
       setResult(res);
-    } catch (e) { 
-      setError(e.message || "AI Evaluation failed.");
-    } finally { 
-      setIsEvaluating(false); 
+
+      // Update local gradebook and persist to DB
+      onUpdateEntry(activeExerciseId, selectedStudentId, 'score', res.score);
+      onUpdateEntry(activeExerciseId, selectedStudentId, 'feedback', res.feedback);
+
+      await apiService.saveGrade({
+        exerciseId: activeExerciseId,
+        studentId: selectedStudentId,
+        score: res.score,
+        feedback: res.feedback
+      });
+
+    } catch (err: any) {
+      setError(err.message || "Evaluation engine failure.");
+    } finally {
+      setIsEvaluating(false);
+    }
+  };
+
+  // State handlers for exercise and student data management
+  const onUpdateExerciseData = (field: keyof Exercise, value: any) => {
+    setGradeBookState(prev => ({
+      ...prev,
+      exercises: prev.exercises.map(ex => ex.id === activeExerciseId ? { ...ex, [field]: value } : ex)
+    }));
+  };
+
+  const onAddExercise = () => {
+    const newId = `ex-${gradeBookState.exercises.length + 1}`;
+    const newEx: Exercise = {
+      id: newId,
+      name: `Exercise ${gradeBookState.exercises.length + 1}`,
+      maxScore: 10,
+      entries: {},
+      question: '',
+      masterSolution: '',
+      rubric: '',
+      customInstructions: ''
+    };
+    setGradeBookState(prev => ({
+      ...prev,
+      exercises: [...prev.exercises, newEx]
+    }));
+    setActiveExerciseId(newId);
+  };
+
+  const onUpdateStudentName = (id: string, name: string) => {
+    setGradeBookState(prev => ({
+      ...prev,
+      students: prev.students.map(s => s.id === id ? { ...s, name } : s)
+    }));
+  };
+
+  const onUpdateMaxScore = (exerciseId: string, maxScore: number) => {
+    setGradeBookState(prev => ({
+      ...prev,
+      exercises: prev.exercises.map(ex => ex.id === exerciseId ? { ...ex, maxScore } : ex)
+    }));
+  };
+
+  const onUpdateEntry = (exerciseId: string, studentId: string, field: 'score' | 'feedback', value: any) => {
+    setGradeBookState(prev => ({
+      ...prev,
+      exercises: prev.exercises.map(ex => 
+        ex.id === exerciseId 
+          ? { 
+              ...ex, 
+              entries: { 
+                ...ex.entries, 
+                [studentId]: { ...(ex.entries[studentId] || { score: 0, feedback: '' }), [field]: value } 
+              } 
+            } 
+          : ex
+      )
+    }));
+  };
+
+  const onAddStudent = () => {
+    const newId = `student-${gradeBookState.students.length + 1}`;
+    setGradeBookState(prev => ({
+      ...prev,
+      students: [...prev.students, { id: newId, name: `Student ${prev.students.length + 1}` }]
+    }));
+  };
+
+  const onResetSystem = async () => {
+    if (confirm("Reset all class data?")) {
+      setGradeBookState(INITIAL_GRADEBOOK_STATE);
+      setActiveExerciseId('ex-1');
+      setResult(null);
     }
   };
 
   const navItems = [
     { id: 'COURSES', label: 'Dashboard', icon: <Icons.Courses /> },
-    { id: 'STUDENTS', label: 'Waitlist', icon: <Icons.Students /> },
+    { id: 'STUDENTS', label: 'Waitlist', icon: <Icons.Students />, badge: pendingCount },
+    { id: 'MESSAGES', label: 'Messages', icon: <Icons.Messages /> },
     { id: 'EVALUATION', label: 'Grader', icon: <Icons.Evaluation /> },
     { id: 'SHEETS', label: 'Book', icon: <Icons.Gradebook /> }
   ];
@@ -78,10 +216,15 @@ const LecturerDashboard: React.FC<{ user: User }> = ({ user }) => {
             <button 
               key={item.id} 
               onClick={() => setViewMode(item.id as ViewMode)} 
-              className={`w-full flex items-center p-3 rounded-xl transition-all ${viewMode === item.id ? 'bg-brand-600 text-white' : 'text-slate-500 hover:bg-zinc-100 dark:hover:bg-slate-800'}`}
+              className={`w-full flex items-center p-3 rounded-xl transition-all relative ${viewMode === item.id ? 'bg-brand-600 text-white' : 'text-slate-500 hover:bg-zinc-100 dark:hover:bg-slate-800'}`}
             >
               <span className="shrink-0">{item.icon}</span>
               <span className="ml-4 font-bold text-sm whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">{item.label}</span>
+              {item.badge && item.badge > 0 && (
+                <span className="absolute top-2 right-2 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[8px] font-black text-white animate-pulse">
+                  +{item.badge}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -138,6 +281,32 @@ const LecturerDashboard: React.FC<{ user: User }> = ({ user }) => {
           {viewMode === 'STUDENTS' && activeCourse && (
             <StudentManagement courseId={activeCourse.id} />
           )}
+          {viewMode === 'MESSAGES' && activeCourse && (
+             <div className="h-full flex space-x-8">
+               <div className="w-80 bg-white dark:bg-slate-850 rounded-3xl border border-zinc-200 dark:border-slate-800 p-6 flex flex-col">
+                  <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-6">Select Student</h3>
+                  <div className="flex-grow overflow-y-auto space-y-2 custom-scrollbar">
+                     {gradeBookState.students.map(s => (
+                       <button 
+                        key={s.id} 
+                        onClick={() => setChatTarget(s)}
+                        className={`w-full flex items-center space-x-3 p-3 rounded-2xl transition-all ${chatTarget?.id === s.id ? 'bg-brand-50 dark:bg-slate-800 border border-brand-100 dark:border-slate-700' : 'hover:bg-zinc-50 dark:hover:bg-slate-800'}`}
+                       >
+                         <div className="w-8 h-8 rounded-full bg-brand-100 dark:bg-slate-800 flex items-center justify-center font-bold text-brand-600 text-[10px]">{s.name.charAt(0)}</div>
+                         <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{s.name}</span>
+                       </button>
+                     ))}
+                  </div>
+               </div>
+               <div className="flex-grow">
+                 {chatTarget ? (
+                   <DirectChat currentUser={user} targetUser={chatTarget} />
+                 ) : (
+                   <div className="h-full flex items-center justify-center text-slate-400 font-bold uppercase text-[10px] tracking-widest border border-dashed dark:border-slate-800 rounded-3xl">Select a conversation</div>
+                 )}
+               </div>
+             </div>
+          )}
           {viewMode === 'EVALUATION' && (
             <div className="grid grid-cols-1 xl:grid-cols-10 gap-8 h-full">
                <section className="xl:col-span-3 h-full">
@@ -145,26 +314,35 @@ const LecturerDashboard: React.FC<{ user: User }> = ({ user }) => {
                </section>
                <section className="xl:col-span-7 h-full">
                  <InputSection 
-                   activeExercise={gradeBookState.exercises[0]} 
+                   activeExercise={activeExercise} 
                    studentCode={studentCode}
                    setStudentCode={setStudentCode}
                    onEvaluate={handleEvaluate}
                    isEvaluating={isEvaluating}
                    activeTab={activeTab}
                    setActiveTab={setActiveTab}
-                   onUpdateExerciseData={() => {}}
-                   students={[]}
-                   selectedStudentId=""
-                   setSelectedStudentId={() => {}}
+                   onUpdateExerciseData={onUpdateExerciseData}
+                   students={gradeBookState.students}
+                   selectedStudentId={selectedStudentId}
+                   setSelectedStudentId={setSelectedStudentId}
                    exercises={gradeBookState.exercises}
-                   setActiveExerciseId={() => {}}
-                   onAddExercise={() => {}}
+                   setActiveExerciseId={setActiveExerciseId}
+                   onAddExercise={onAddExercise}
                  />
                </section>
             </div>
           )}
           {viewMode === 'SHEETS' && (
-             <GradeBook state={gradeBookState} onUpdateStudentName={() => {}} onUpdateMaxScore={() => {}} onUpdateEntry={() => {}} onAddExercise={() => {}} onAddStudent={() => {}} onResetSystem={() => {}} isResetting={false} />
+             <GradeBook 
+                state={gradeBookState} 
+                onUpdateStudentName={onUpdateStudentName} 
+                onUpdateMaxScore={onUpdateMaxScore} 
+                onUpdateEntry={onUpdateEntry} 
+                onAddExercise={onAddExercise} 
+                onAddStudent={onAddStudent} 
+                onResetSystem={onResetSystem} 
+                isResetting={false} 
+              />
           )}
         </main>
       </div>

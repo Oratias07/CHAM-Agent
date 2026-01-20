@@ -8,6 +8,16 @@ export interface User {
   picture?: string;
   role?: UserRole;
   enrolledCourseIds?: string[];
+  unseenApprovals?: number;
+}
+
+export interface DirectMessage {
+  id?: string;
+  senderId: string;
+  receiverId: string;
+  text: string;
+  timestamp: Date;
+  isRead: boolean;
 }
 
 export interface Course {
@@ -18,8 +28,8 @@ export interface Course {
   description?: string;
   schedule?: string;
   instructorName?: string;
-  enrolledStudentIds: string[]; // Approved students
-  pendingStudentIds: string[];  // Waitlist students
+  enrolledStudentIds: string[];
+  pendingStudentIds: string[];
   createdAt: Date;
 }
 
@@ -83,12 +93,4 @@ export interface Exercise {
 export interface GradeBookState {
   students: Student[];
   exercises: Exercise[];
-}
-
-export interface ArchiveSession {
-  _id?: string;
-  userId: string;
-  courseId?: string;
-  timestamp: Date;
-  state: GradeBookState;
 }

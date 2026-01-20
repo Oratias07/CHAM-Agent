@@ -1,5 +1,6 @@
 
-import { User, GradingInputs, GradingResult, Material, Course, Student, UserRole } from "../types";
+// apiService.ts - Added saveGrade and getGrades for persistent storage of evaluation results.
+import { User, GradingInputs, GradingResult, Material, Course, Student, UserRole, DirectMessage } from "../types";
 
 const handleResponse = async (res: Response) => {
   if (!res.ok) {
@@ -33,6 +34,31 @@ export const apiService = {
       body: JSON.stringify({ role })
     });
     return handleResponse(res);
+  },
+
+  // Messaging
+  async getMessages(otherId: string): Promise<DirectMessage[]> {
+    const res = await fetch(`/api/messages/${otherId}`);
+    return handleResponse(res);
+  },
+
+  async sendMessage(receiverId: string, text: string): Promise<DirectMessage> {
+    const res = await fetch(`/api/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ receiverId, text })
+    });
+    return handleResponse(res);
+  },
+
+  // Notifications
+  async getLecturerNotifications(): Promise<{ pendingCount: number }> {
+    const res = await fetch(`/api/lecturer/notifications`);
+    return handleResponse(res);
+  },
+
+  async clearStudentNotifications(): Promise<void> {
+    await fetch(`/api/student/clear-notifications`, { method: 'POST' });
   },
 
   // Course Management
@@ -152,6 +178,21 @@ export const apiService = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(inputs)
     });
+    return handleResponse(res);
+  },
+
+  // Grades Persistence
+  async saveGrade(data: { exerciseId: string, studentId: string, score: number, feedback: string }): Promise<void> {
+    const res = await fetch(`/api/grades/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    await handleResponse(res);
+  },
+
+  async getGrades(): Promise<any[]> {
+    const res = await fetch(`/api/grades`);
     return handleResponse(res);
   }
 };
