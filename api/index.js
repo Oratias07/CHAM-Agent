@@ -194,7 +194,19 @@ router.get('/lecturer/courses', async (req, res) => {
   if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
   await connectDB();
   const courses = await Course.find({ lecturerId: req.user.googleId });
-  res.json(courses);
+  // Map _id to id for frontend consistency
+  res.json(courses.map(c => ({
+    id: c._id.toString(),
+    lecturerId: c.lecturerId,
+    name: c.name,
+    code: c.code,
+    description: c.description,
+    schedule: c.schedule,
+    instructorName: c.instructorName,
+    enrolledStudentIds: c.enrolledStudentIds,
+    pendingStudentIds: c.pendingStudentIds,
+    createdAt: c.createdAt
+  })));
 });
 
 router.post('/lecturer/courses', async (req, res) => {
@@ -202,29 +214,33 @@ router.post('/lecturer/courses', async (req, res) => {
   await connectDB();
   const code = Math.random().toString(36).substring(2, 8).toUpperCase();
   const course = await Course.create({ ...req.body, code, lecturerId: req.user.googleId });
-  res.json(course);
+  res.json({ ...course._doc, id: course._id.toString() });
 });
 
 router.put('/lecturer/courses/:id', async (req, res) => {
   if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
   await connectDB();
   const course = await Course.findOneAndUpdate({ _id: req.params.id, lecturerId: req.user.googleId }, req.body, { new: true });
-  res.json(course);
+  res.json({ ...course._doc, id: course._id.toString() });
 });
 
 router.delete('/lecturer/courses/:id', async (req, res) => {
   if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
   await connectDB();
-  // Thorough cleanup of all course-related objects
-  await Course.deleteOne({ _id: req.params.id, lecturerId: req.user.googleId });
-  await Material.deleteMany({ courseId: req.params.id });
-  await Exercise.deleteMany({ courseId: req.params.id });
-  await Grade.deleteMany({ courseId: req.params.id });
+  const courseId = req.params.id;
   
-  // Remove course from all student enrollment lists
+  // Verify ownership before delete
+  const course = await Course.findOne({ _id: courseId, lecturerId: req.user.googleId });
+  if (!course) return res.status(404).json({ message: "Course not found or unauthorized" });
+
+  await Course.deleteOne({ _id: courseId });
+  await Material.deleteMany({ courseId });
+  await Exercise.deleteMany({ courseId });
+  await Grade.deleteMany({ courseId });
+  
   await User.updateMany(
-    { enrolledCourseIds: req.params.id },
-    { $pull: { enrolledCourseIds: req.params.id } }
+    { enrolledCourseIds: courseId },
+    { $pull: { enrolledCourseIds: courseId } }
   );
   
   res.json({ success: true });
@@ -293,21 +309,21 @@ router.get('/lecturer/courses/:id/materials', async (req, res) => {
   if (!req.user) return res.status(401).send();
   await connectDB();
   const materials = await Material.find({ courseId: req.params.id });
-  res.json(materials);
+  res.json(materials.map(m => ({ ...m._doc, id: m._id.toString() })));
 });
 
 router.post('/lecturer/materials', async (req, res) => {
   if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
   await connectDB();
   const material = await Material.create({ ...req.body, timestamp: Date.now() });
-  res.json(material);
+  res.json({ ...material._doc, id: material._id.toString() });
 });
 
 router.put('/lecturer/materials/:id', async (req, res) => {
   if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
   await connectDB();
   const material = await Material.findByIdAndUpdate(req.params.id, req.body, { new: true });
-  res.json(material);
+  res.json({ ...material._doc, id: material._id.toString() });
 });
 
 router.delete('/lecturer/materials/:id', async (req, res) => {

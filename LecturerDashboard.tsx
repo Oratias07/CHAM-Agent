@@ -85,11 +85,24 @@ const LecturerDashboard: React.FC<{ user: User }> = ({ user }) => {
             </button>
           ))}
         </div>
-        <div className="p-3 border-t dark:border-slate-800">
-           <button onClick={() => window.location.href="/api/auth/logout"} className="w-full flex items-center p-3 rounded-xl text-slate-500 hover:text-rose-500">
-             <Icons.SignOut />
-             <span className="ml-4 font-bold text-sm opacity-0 group-hover:opacity-100 transition-opacity">Sign Out</span>
-           </button>
+
+        {/* User Profile Section */}
+        <div className="mt-auto border-t dark:border-slate-800 p-3 space-y-1">
+          <div className="flex items-center p-2 rounded-xl text-slate-500">
+            {user.picture ? (
+              <img src={user.picture} alt={user.name} className="w-8 h-8 rounded-full border border-zinc-200 dark:border-slate-700 shrink-0" />
+            ) : (
+              <div className="w-8 h-8 bg-brand-100 dark:bg-slate-800 rounded-full flex items-center justify-center text-brand-600 font-bold shrink-0">{user.name.charAt(0)}</div>
+            )}
+            <div className="ml-3 overflow-hidden opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+              <p className="text-[11px] font-black text-slate-800 dark:text-slate-200 leading-none">{user.name}</p>
+              <p className="text-[9px] font-bold text-slate-400 truncate mt-1">{user.email}</p>
+            </div>
+          </div>
+          <button onClick={() => window.location.href="/api/auth/logout"} className="w-full flex items-center p-3 rounded-xl text-slate-500 hover:text-rose-500 transition-colors">
+            <Icons.SignOut />
+            <span className="ml-4 font-bold text-sm opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">Sign Out</span>
+          </button>
         </div>
       </nav>
 
@@ -102,7 +115,7 @@ const LecturerDashboard: React.FC<{ user: User }> = ({ user }) => {
               <select 
                 value={activeCourse?.id || ''} 
                 onChange={e => setActiveCourse(courses.find(c => c.id === e.target.value) || null)}
-                className="bg-zinc-50 dark:bg-slate-800 border-none rounded-lg text-xs font-bold px-3 py-1"
+                className="bg-zinc-50 dark:bg-slate-800 border-none rounded-lg text-xs font-bold px-3 py-1 outline-none focus:ring-1 focus:ring-brand-500"
               >
                 <option value="">Select Course...</option>
                 {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
