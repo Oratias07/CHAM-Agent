@@ -7,16 +7,18 @@ export interface User {
   email: string;
   picture?: string;
   role?: UserRole;
-  enrolledLecturerId?: string; // Legacy field
-  enrolledCourseIds?: string[]; // New: list of joined course IDs
+  enrolledCourseIds?: string[];
 }
 
 export interface Course {
   id: string;
   lecturerId: string;
   name: string;
-  code: string; // Unique 6-char code for joining
+  code: string;
   description?: string;
+  schedule?: string;
+  instructorName?: string;
+  assignedStudentIds: string[]; // Whitelist for access control
   createdAt: Date;
 }
 
@@ -26,6 +28,8 @@ export interface Material {
   courseId: string;
   title: string;
   content: string;
+  folder?: string; // Folder grouping
+  isVisible: boolean; // Student visibility toggle
   type: 'lecturer_shared' | 'student_private' | 'student_specific';
   sourceType: 'exercise' | 'note' | 'solution';
   timestamp: Date;
@@ -56,6 +60,7 @@ export interface Student {
   id: string;
   name: string;
   email?: string;
+  picture?: string;
 }
 
 export interface GradeEntry {
