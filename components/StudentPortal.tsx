@@ -19,7 +19,7 @@ const Icons = {
 };
 
 const STLogo = () => (
-  <div className="flex items-center group/logo overflow-hidden">
+  <div className="flex items-center overflow-hidden">
     <div className="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center font-bold text-white text-lg shrink-0 shadow-sm border border-brand-500/20">
       ST
     </div>

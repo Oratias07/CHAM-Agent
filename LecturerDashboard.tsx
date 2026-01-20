@@ -25,12 +25,12 @@ const Icons = {
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
 };
 
-export const STLogo = ({ expanded = false }) => (
-  <div className="flex items-center group/logo overflow-hidden">
+export const STLogo = () => (
+  <div className="flex items-center overflow-hidden">
     <div className="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center font-bold text-white text-lg shrink-0 shadow-sm border border-brand-500/20">
       ST
     </div>
-    <span className={`font-extrabold text-lg tracking-tight text-slate-900 dark:text-white uppercase overflow-hidden whitespace-nowrap transition-all duration-500 ease-in-out ${expanded ? 'max-w-[120px] opacity-100 ml-2' : 'max-w-0 opacity-0'}`}>
+    <span className="font-extrabold text-lg tracking-tight text-slate-900 dark:text-white uppercase overflow-hidden whitespace-nowrap transition-all duration-500 ease-in-out max-w-0 opacity-0 group-hover:max-w-[120px] group-hover:opacity-100 group-hover:ml-2">
       System
     </span>
   </div>
@@ -144,7 +144,7 @@ const LecturerDashboard: React.FC<{ user: User }> = ({ user }) => {
     <div className="min-h-screen bg-zinc-100 dark:bg-slate-900 flex font-sans transition-colors duration-500 overflow-hidden">
       <nav className="fixed left-0 top-0 h-full w-[72px] hover:w-64 bg-white dark:bg-slate-850 border-r border-slate-200 dark:border-slate-800 transition-all duration-300 z-50 flex flex-col group">
         <div className="h-16 flex items-center px-5 border-b border-zinc-100 dark:border-slate-800">
-          <STLogo expanded={false} />
+          <STLogo />
         </div>
         <div className="flex-grow py-6 px-3 space-y-2 overflow-y-auto custom-scrollbar">
           {navItems.map((item) => (
