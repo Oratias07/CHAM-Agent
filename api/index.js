@@ -16,14 +16,6 @@ app.use(express.json({ limit: '10mb' }));
 
 let cachedDb = null;
 
-const STUDENT_ASSISTANT_PROMPT = `You are a high-level academic tutor powered by Gemini. 
-Your goal is to help students understand their course materials deeply.
-[BEHAVIOR]
-- Use the provided grounding sources to answer.
-- IMPORTANT: You ONLY have access to materials explicitly provided in the context.
-- Format responses using Markdown for clarity.
-- Be encouraging but rigorous.`;
-
 const connectDB = async () => {
   if (cachedDb && mongoose.connection.readyState === 1) return cachedDb;
   const uri = process.env.MONGODB_URI;
@@ -38,6 +30,7 @@ const connectDB = async () => {
   }
 };
 
+// SCHEMAS
 const UserSchema = new mongoose.Schema({
   googleId: { type: String, required: true, unique: true },
   name: String,
@@ -54,8 +47,19 @@ const CourseSchema = new mongoose.Schema({
   description: String,
   schedule: String,
   instructorName: String,
-  assignedStudentIds: [String],
+  enrolledStudentIds: [String],
+  pendingStudentIds: [String],
   createdAt: { type: Date, default: Date.now }
+});
+
+const MaterialSchema = new mongoose.Schema({
+  courseId: String,
+  title: String,
+  content: String,
+  folder: { type: String, default: 'General' },
+  isVisible: { type: Boolean, default: true },
+  type: { type: String, enum: ['lecturer_shared', 'student_private'] },
+  timestamp: { type: Date, default: Date.now }
 });
 
 const ExerciseSchema = new mongoose.Schema({
@@ -71,34 +75,12 @@ const ExerciseSchema = new mongoose.Schema({
   entries: mongoose.Schema.Types.Mixed
 });
 
-const MaterialSchema = new mongoose.Schema({
-  userId: String,
-  courseId: String,
-  title: String,
-  content: String,
-  folder: { type: String, default: 'General' },
-  isVisible: { type: Boolean, default: true },
-  type: { type: String, enum: ['lecturer_shared', 'student_private', 'student_specific'] },
-  sourceType: String,
-  timestamp: { type: Date, default: Date.now }
-});
-
-const GradeSchema = new mongoose.Schema({
-  userId: String,
-  courseId: String,
-  studentId: String,
-  exerciseId: String,
-  score: Number,
-  feedback: String,
-  timestamp: { type: Date, default: Date.now }
-});
-
 const User = mongoose.models.User || mongoose.model('User', UserSchema);
 const Course = mongoose.models.Course || mongoose.model('Course', CourseSchema);
-const Exercise = mongoose.models.Exercise || mongoose.model('Exercise', ExerciseSchema);
 const Material = mongoose.models.Material || mongoose.model('Material', MaterialSchema);
-const Grade = mongoose.models.Grade || mongoose.model('Grade', GradeSchema);
+const Exercise = mongoose.models.Exercise || mongoose.model('Exercise', ExerciseSchema);
 
+// AUTH
 const sessionConfig = {
   secret: process.env.SESSION_SECRET || 'academic-integrity-secret-123',
   resave: false,
@@ -150,6 +132,7 @@ passport.deserializeUser(async (id, done) => {
 
 const router = express.Router();
 
+// AUTH ROUTES
 router.get('/auth/me', (req, res) => {
   if (req.user) {
     res.json({ 
@@ -167,10 +150,8 @@ router.get('/auth/me', (req, res) => {
 
 router.post('/auth/dev', async (req, res) => {
   const { passcode } = req.body;
-  let role = null;
-  if (passcode === '12345') role = 'lecturer';
-  else if (passcode === '1234') role = 'student';
-  else return res.status(403).json({ message: "Invalid passcode" });
+  let role = passcode === '12345' ? 'lecturer' : passcode === '1234' ? 'student' : null;
+  if (!role) return res.status(403).json({ message: "Invalid passcode" });
 
   await connectDB();
   const devId = `dev-${role}-${passcode}`;
@@ -179,7 +160,7 @@ router.post('/auth/dev', async (req, res) => {
     user = await User.create({
       googleId: devId,
       name: `Dev ${role}`,
-      email: `dev-${role}@stsystem.local`,
+      email: `dev-${role}@system.local`,
       role,
       picture: `https://ui-avatars.com/api/?name=Dev+${role}&background=random`
     });
@@ -192,101 +173,12 @@ router.post('/auth/dev', async (req, res) => {
 
 router.post('/user/update-role', async (req, res) => {
   if (!req.user) return res.status(401).send();
-  const { role } = req.body;
   await connectDB();
-  const user = await User.findOneAndUpdate(
-    { googleId: req.user.googleId },
-    { role },
-    { new: true }
-  );
+  const user = await User.findOneAndUpdate({ googleId: req.user.googleId }, { role: req.body.role }, { new: true });
   res.json(user);
 });
 
-// EVALUATION
-router.post('/evaluate', async (req, res) => {
-  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
-  
-  try {
-    const { question, masterSolution, rubric, studentCode, customInstructions } = req.body;
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
-      contents: `Evaluate the following student code submission.
-      
-      Question: ${question}
-      Master Solution: ${masterSolution}
-      Rubric: ${rubric}
-      Custom Instructions: ${customInstructions}
-      Student Submission: ${studentCode}
-      
-      Output ONLY a JSON object with a score (0-10) and pedagogical feedback in Hebrew.`,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            score: { type: Type.NUMBER, description: "Final score from 0 to 10" },
-            feedback: { type: Type.STRING, description: "Detailed feedback in Hebrew" }
-          },
-          required: ["score", "feedback"]
-        }
-      }
-    });
-
-    res.json(JSON.parse(response.text));
-  } catch (err) {
-    console.error("AI Error:", err);
-    res.status(500).json({ message: "AI Engine Error: " + err.message });
-  }
-});
-
-// EXERCISES
-router.get('/exercises', async (req, res) => {
-  if (!req.user) return res.status(401).send();
-  const { courseId } = req.query;
-  await connectDB();
-  const exs = await Exercise.find({ courseId });
-  res.json(exs);
-});
-
-router.post('/exercises/sync', async (req, res) => {
-  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
-  const { exercises, courseId } = req.body;
-  await connectDB();
-  for (const ex of exercises) {
-    await Exercise.findOneAndUpdate(
-      { id: ex.id, courseId },
-      { ...ex, lecturerId: req.user.googleId },
-      { upsert: true }
-    );
-  }
-  res.json({ success: true });
-});
-
-// GRADES
-router.post('/grades/save', async (req, res) => {
-  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
-  const { exerciseId, studentId, score, feedback, courseId } = req.body;
-  await connectDB();
-  await Grade.findOneAndUpdate(
-    { userId: req.user.googleId, exerciseId, studentId, courseId },
-    { score, feedback, timestamp: Date.now() },
-    { upsert: true }
-  );
-  res.json({ success: true });
-});
-
-router.post('/grades/clear', async (req, res) => {
-  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
-  const { courseId } = req.body;
-  await connectDB();
-  await Grade.deleteMany({ userId: req.user.googleId, courseId });
-  await Exercise.deleteMany({ lecturerId: req.user.googleId, courseId });
-  res.json({ success: true });
-});
-
-// COURSE MANAGEMENT
+// COURSE ROUTES
 router.get('/lecturer/courses', async (req, res) => {
   if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
   await connectDB();
@@ -296,29 +188,16 @@ router.get('/lecturer/courses', async (req, res) => {
 
 router.post('/lecturer/courses', async (req, res) => {
   if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
-  const { name, description, schedule, instructorName } = req.body;
   await connectDB();
   const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-  const course = await Course.create({
-    lecturerId: req.user.googleId,
-    name,
-    description,
-    schedule,
-    instructorName,
-    code,
-    assignedStudentIds: []
-  });
+  const course = await Course.create({ ...req.body, code, lecturerId: req.user.googleId });
   res.json(course);
 });
 
 router.put('/lecturer/courses/:id', async (req, res) => {
   if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
   await connectDB();
-  const course = await Course.findOneAndUpdate(
-    { _id: req.params.id, lecturerId: req.user.googleId },
-    req.body,
-    { new: true }
-  );
+  const course = await Course.findOneAndUpdate({ _id: req.params.id, lecturerId: req.user.googleId }, req.body, { new: true });
   res.json(course);
 });
 
@@ -327,94 +206,171 @@ router.delete('/lecturer/courses/:id', async (req, res) => {
   await connectDB();
   await Course.deleteOne({ _id: req.params.id, lecturerId: req.user.googleId });
   await Material.deleteMany({ courseId: req.params.id });
-  await Exercise.deleteMany({ courseId: req.params.id });
-  await Grade.deleteMany({ courseId: req.params.id });
   res.json({ success: true });
 });
 
-router.get('/lecturer/all-students', async (req, res) => {
-  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
-  await connectDB();
-  const students = await User.find({ role: 'student' });
-  res.json(students.map(s => ({ id: s.googleId, name: s.name, picture: s.picture })));
-});
-
+// ENROLLMENT & WAITLIST
 router.post('/student/join-course', async (req, res) => {
   if (!req.user || req.user.role !== 'student') return res.status(401).send();
-  const { code } = req.body;
   await connectDB();
-  const course = await Course.findOne({ code });
+  const course = await Course.findOne({ code: req.body.code });
+  if (!course) return res.status(404).json({ message: "Invalid code" });
   
-  if (!course) return res.status(404).json({ message: "Course not found" });
-  if (!course.assignedStudentIds.includes(req.user.googleId)) {
-    return res.status(403).json({ message: "Access Denied: You are not assigned to this course." });
-  }
-  
-  const user = await User.findOneAndUpdate(
-    { googleId: req.user.googleId },
-    { $addToSet: { enrolledCourseIds: course._id.toString() } },
-    { new: true }
-  );
-  res.json(user);
+  await Course.updateOne({ _id: course._id }, { $addToSet: { pendingStudentIds: req.user.googleId } });
+  res.json({ message: "Request sent. Waiting for instructor approval." });
 });
 
-router.get('/student/workspace', async (req, res) => {
+router.get('/lecturer/courses/:id/waitlist', async (req, res) => {
+  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
+  await connectDB();
+  const course = await Course.findById(req.params.id);
+  const pending = await User.find({ googleId: { $in: course.pendingStudentIds } });
+  const enrolled = await User.find({ googleId: { $in: course.enrolledStudentIds } });
+  res.json({ 
+    pending: pending.map(u => ({ id: u.googleId, name: u.name, picture: u.picture, status: 'pending' })),
+    enrolled: enrolled.map(u => ({ id: u.googleId, name: u.name, picture: u.picture, status: 'enrolled' }))
+  });
+});
+
+router.post('/lecturer/courses/:id/approve', async (req, res) => {
+  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
+  await connectDB();
+  const { studentId } = req.body;
+  await Course.updateOne({ _id: req.params.id }, { 
+    $pull: { pendingStudentIds: studentId },
+    $addToSet: { enrolledStudentIds: studentId }
+  });
+  await User.updateOne({ googleId: studentId }, { $addToSet: { enrolledCourseIds: req.params.id } });
+  res.json({ success: true });
+});
+
+router.post('/lecturer/courses/:id/reject', async (req, res) => {
+  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
+  await connectDB();
+  await Course.updateOne({ _id: req.params.id }, { $pull: { pendingStudentIds: req.body.studentId } });
+  res.json({ success: true });
+});
+
+router.post('/lecturer/courses/:id/remove-student', async (req, res) => {
+  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
+  await connectDB();
+  const { studentId } = req.body;
+  await Course.updateOne({ _id: req.params.id }, { $pull: { enrolledStudentIds: studentId } });
+  await User.updateOne({ googleId: studentId }, { $pull: { enrolledCourseIds: req.params.id } });
+  res.json({ success: true });
+});
+
+// MATERIAL MANAGEMENT
+router.get('/lecturer/courses/:id/materials', async (req, res) => {
   if (!req.user) return res.status(401).send();
   await connectDB();
-  const courseIds = req.user.enrolledCourseIds || [];
-  const shared = await Material.find({ courseId: { $in: courseIds }, isVisible: true });
-  const privateNotes = await Material.find({ userId: req.user.googleId, type: 'student_private' });
-  res.json({ shared, privateNotes });
+  const materials = await Material.find({ courseId: req.params.id });
+  res.json(materials);
 });
 
+router.post('/lecturer/materials', async (req, res) => {
+  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
+  await connectDB();
+  const material = await Material.create({ ...req.body, timestamp: Date.now() });
+  res.json(material);
+});
+
+router.put('/lecturer/materials/:id', async (req, res) => {
+  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
+  await connectDB();
+  const material = await Material.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  res.json(material);
+});
+
+router.delete('/lecturer/materials/:id', async (req, res) => {
+  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
+  await connectDB();
+  await Material.findByIdAndDelete(req.params.id);
+  res.json({ success: true });
+});
+
+// GROUNDED CHAT
 router.post('/student/chat', async (req, res) => {
-  if (!req.user) return res.status(401).send();
+  if (!req.user || req.user.role !== 'student') return res.status(401).send();
   try {
-    const { message, task } = req.body;
+    const { message, courseId } = req.body;
     await connectDB();
-    const courseIds = req.user.enrolledCourseIds || [];
-    const visibleMaterials = await Material.find({ courseId: { $in: courseIds }, isVisible: true });
     
+    // Check enrollment
+    const course = await Course.findOne({ _id: courseId, enrolledStudentIds: req.user.googleId });
+    if (!course) return res.status(403).json({ text: "Access denied. Enrollment required." });
+
+    // Grounding: Only VISIBLE materials
+    const materials = await Material.find({ courseId, isVisible: true });
+    const context = materials.map(m => `--- SOURCE: ${m.title} ---\n${m.content}`).join("\n\n");
+
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    let context = "GROUNDING SOURCES:\n";
-    visibleMaterials.forEach(s => context += `--- SOURCE: ${s.title} ---\n${s.content}\n\n`);
-    
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `${STUDENT_ASSISTANT_PROMPT}\n\n${context}\n\nUSER QUERY: ${message || task}`
+      contents: `You are an academic assistant. Use ONLY these materials to answer:
+      ${context}
+      
+      User Query: ${message}`
     });
     res.json({ text: response.text });
   } catch (err) {
-    res.status(500).json({ text: "Chat Engine Error." });
+    res.status(500).json({ text: "Assistant error." });
   }
 });
 
-router.put('/lecturer/materials/:id/visibility', async (req, res) => {
+// OTHER ROUTES
+router.post('/evaluate', async (req, res) => {
   if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
-  await connectDB();
-  const material = await Material.findByIdAndUpdate(req.params.id, { isVisible: req.body.isVisible }, { new: true });
-  res.json(material);
+  try {
+    const { question, masterSolution, rubric, studentCode, customInstructions } = req.body;
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
+    // Using gemini-3-flash-preview as it has higher rate limits for free tier
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: `Evaluate the following student code based on the provided rubric and master solution.
+      
+      ### Question:
+      ${question}
+      
+      ### Master Solution:
+      ${masterSolution}
+      
+      ### Rubric:
+      ${rubric}
+      
+      ### Custom Instructions (Strict):
+      ${customInstructions}
+      
+      ### Student Submission:
+      ${studentCode}
+      
+      Provide a pedagogical feedback in Hebrew and a score from 0 to 10.`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            score: { type: Type.NUMBER },
+            feedback: { type: Type.STRING }
+          },
+          required: ["score", "feedback"]
+        },
+        thinkingConfig: { thinkingBudget: 2000 } // Enable thinking for better reasoning on Flash
+      }
+    });
+    res.json(JSON.parse(response.text));
+  } catch (err) {
+    console.error("Evaluation Error:", err);
+    if (err.status === 429 || (err.message && err.message.includes('Quota exceeded'))) {
+      res.status(429).json({ message: "System Rate Limit Exceeded. Please wait 60 seconds and try again." });
+    } else {
+      res.status(500).json({ message: "AI Evaluation Service encountered an error." });
+    }
+  }
 });
 
-router.post('/lecturer/upload-material', async (req, res) => {
-  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
-  const { courseId, title, content, folder } = req.body;
-  await connectDB();
-  const material = await Material.create({
-    courseId, title, content, folder: folder || 'General', isVisible: true, type: 'lecturer_shared', sourceType: 'note'
-  });
-  res.json(material);
-});
-
-router.get('/archives', async (req, res) => {
-  if (!req.user) return res.status(401).send();
-  // Simply return placeholder or logic for gradebook history
-  res.json([]);
-});
-
-router.get('/auth/logout', (req, res) => {
-  req.logout(() => res.redirect('/'));
-});
+router.get('/auth/logout', (req, res) => req.logout(() => res.redirect('/')));
 
 app.use('/api', router);
 app.use('/', router);

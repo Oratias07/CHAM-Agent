@@ -14,6 +14,7 @@ const Icons = {
   Warning: () => <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>,
   Target: () => <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
   Review: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" /></svg>,
+  Clock: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
 };
 
 const ResultSection: React.FC<ResultSectionProps> = ({ result, error, isEvaluating }) => {
@@ -34,20 +35,37 @@ const ResultSection: React.FC<ResultSectionProps> = ({ result, error, isEvaluati
   }
 
   if (error) {
+    const isRateLimit = error.includes('Limit') || error.includes('Quota');
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-rose-50 dark:bg-rose-950/20 rounded-3xl shadow-xl border border-rose-200 dark:border-rose-900/30 p-12 text-center">
-        <div className="w-20 h-20 rounded-2xl bg-rose-100 dark:bg-rose-900/40 flex items-center justify-center mb-8 text-rose-600 shadow-sm">
-          <Icons.Warning />
+      <div className={`h-full flex flex-col items-center justify-center rounded-3xl shadow-xl border p-12 text-center transition-colors ${
+        isRateLimit 
+          ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/30' 
+          : 'bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/30'
+      }`}>
+        <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mb-8 shadow-sm ${
+          isRateLimit ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-600' : 'bg-rose-100 dark:bg-rose-900/40 text-rose-600'
+        }`}>
+          {isRateLimit ? <Icons.Clock /> : <Icons.Warning />}
         </div>
-        <h3 className="text-xl font-black text-rose-800 dark:text-rose-400 mb-3 uppercase tracking-tighter">Engine Interrupted</h3>
-        <p className="text-rose-600/80 dark:text-rose-500/80 text-xs font-bold max-w-sm leading-relaxed mb-10">
+        <h3 className={`text-xl font-black mb-3 uppercase tracking-tighter ${
+          isRateLimit ? 'text-amber-800 dark:text-amber-400' : 'text-rose-800 dark:text-rose-400'
+        }`}>
+          {isRateLimit ? 'System Cooling Down' : 'Engine Interrupted'}
+        </h3>
+        <p className={`text-xs font-bold max-w-sm leading-relaxed mb-10 ${
+          isRateLimit ? 'text-amber-700/80 dark:text-amber-500/80' : 'text-rose-600/80 dark:text-rose-500/80'
+        }`}>
           {error}
         </p>
         <button 
           onClick={() => window.location.reload()}
-          className="px-8 py-3 bg-rose-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-500 transition-all shadow-lg shadow-rose-500/20"
+          className={`px-8 py-3 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg ${
+            isRateLimit 
+              ? 'bg-amber-600 hover:bg-amber-500 shadow-amber-500/20' 
+              : 'bg-rose-600 hover:bg-rose-500 shadow-rose-500/20'
+          }`}
         >
-          Reset Session
+          {isRateLimit ? 'Wait & Reset' : 'Reset Session'}
         </button>
       </div>
     );

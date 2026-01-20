@@ -18,7 +18,8 @@ export interface Course {
   description?: string;
   schedule?: string;
   instructorName?: string;
-  assignedStudentIds: string[]; // Whitelist for access control
+  enrolledStudentIds: string[]; // Approved students
+  pendingStudentIds: string[];  // Waitlist students
   createdAt: Date;
 }
 
@@ -28,10 +29,9 @@ export interface Material {
   courseId: string;
   title: string;
   content: string;
-  folder?: string; // Folder grouping
-  isVisible: boolean; // Student visibility toggle
-  type: 'lecturer_shared' | 'student_private' | 'student_specific';
-  sourceType: 'exercise' | 'note' | 'solution';
+  folder?: string; 
+  isVisible: boolean; 
+  type: 'lecturer_shared' | 'student_private';
   timestamp: Date;
 }
 
@@ -61,6 +61,7 @@ export interface Student {
   name: string;
   email?: string;
   picture?: string;
+  status?: 'pending' | 'enrolled';
 }
 
 export interface GradeEntry {
