@@ -69,52 +69,52 @@ const App: React.FC = () => {
   };
 
   if (loading) return (
-    <div className="h-screen w-full bg-slate-950 flex flex-col items-center justify-center relative overflow-hidden font-sans">
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-brand-500/10 blur-[150px] rounded-full"></div>
-      <div className="absolute top-[20%] left-[20%] w-[300px] h-[300px] bg-indigo-500/5 blur-[100px] rounded-full animate-pulse"></div>
+    <div className="h-screen w-full bg-slate-950 flex flex-col items-center justify-center relative overflow-hidden">
+      {/* Background Ambience */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.05),transparent_70%)]"></div>
       
-      <div className="relative flex flex-col items-center">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 border-[1px] border-white/5 rounded-full"></div>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 border-[2px] border-brand-500/10 rounded-full"></div>
-        <div className="absolute top-1/2 left-1/2 w-72 h-72 border-[3px] border-transparent border-t-brand-500 border-r-brand-500 rounded-full animate-[centered-spin_1s_linear_infinite]"></div>
-        <div className="absolute top-1/2 left-1/2 w-80 h-80 border-[1px] border-dashed border-white/10 rounded-full animate-[centered-spin_10s_linear_infinite]"></div>
+      {/* Central Animation Container */}
+      <div className="relative flex items-center justify-center w-64 h-64">
+        {/* Primary Orbital Spinner - Rotating around its own center */}
+        <div className="absolute w-40 h-40 border-2 border-brand-500/10 rounded-full"></div>
+        <div className="absolute w-40 h-40 border-2 border-transparent border-t-brand-500 rounded-full animate-orbit-clean"></div>
         
-        <div className="relative w-56 h-56 bg-slate-900 rounded-[3.5rem] border border-white/10 flex flex-col items-center justify-center shadow-[0_0_50px_rgba(59,103,245,0.1)] z-10 transition-all duration-1000 overflow-hidden group">
-           <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/5 to-transparent"></div>
-           <div className="bg-gradient-to-br from-brand-400 via-brand-500 to-indigo-600 bg-clip-text text-transparent text-[7rem] font-black tracking-tighter drop-shadow-2xl">ST</div>
-           <div className="text-brand-500/90 text-sm font-black uppercase tracking-[0.7em] -mt-4 drop-shadow-sm">System</div>
-           <div className="absolute top-0 left-0 w-full h-[2px] bg-brand-400/30 animate-[scan_2s_infinite_ease-in-out]"></div>
-        </div>
+        {/* Secondary Decorative Ring */}
+        <div className="absolute w-52 h-52 border border-white/5 border-dashed rounded-full animate-[logo-spin-slow_20s_linear_infinite_reverse]"></div>
 
-        <div className="mt-32 flex flex-col items-center">
-          <div className="flex items-center space-x-4 mb-4">
-            <div className="flex space-x-1">
-              <span className="h-1.5 w-1.5 bg-brand-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-              <span className="h-1.5 w-1.5 bg-brand-500 rounded-full animate-bounce" style={{ animationDelay: '200ms' }}></span>
-              <span className="h-1.5 w-1.5 bg-brand-500 rounded-full animate-bounce" style={{ animationDelay: '400ms' }}></span>
-            </div>
-            <div className="font-black tracking-[0.6em] text-white/80 uppercase text-[10px]">Synchronizing Core</div>
+        {/* Central Logo Box - Perfectly Centered via Parent Flex */}
+        <div className="relative w-24 h-24 bg-slate-900 rounded-3xl border border-white/10 flex items-center justify-center shadow-[0_0_60px_rgba(59,130,246,0.15)] z-10 overflow-hidden group perspective-1000">
+          <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
+          
+          {/* Internal ST Letters (Secondary Animation) */}
+          <div className="text-white font-black text-4xl tracking-tighter select-none animate-logo-secondary drop-shadow-[0_0_10px_rgba(59,130,246,0.5)]">
+            ST
           </div>
-          <div className="h-[2px] w-56 bg-white/5 relative overflow-hidden rounded-full">
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-brand-500 to-transparent w-full animate-[loading-bar_1.5s_infinite_ease-in-out]"></div>
-          </div>
-          <p className="text-slate-500 text-[9px] mt-10 font-bold uppercase tracking-[0.4em] opacity-60">Powered by Gemini 3.0 Ultra-Flash</p>
+
+          {/* Shimmer Light */}
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -skew-x-12 translate-x-[-150%] animate-[shimmer_3s_infinite]"></div>
+        </div>
+      </div>
+
+      {/* Loading Status Text */}
+      <div className="mt-8 flex flex-col items-center">
+        <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.5em] animate-pulse">
+          Secure Core Initializing
+        </p>
+        <div className="mt-4 w-48 h-1 bg-slate-800 rounded-full overflow-hidden">
+          <div className="h-full bg-brand-500 animate-[progress_5s_ease-in-out_infinite]"></div>
         </div>
       </div>
 
       <style>{`
-        @keyframes centered-spin {
-          from { transform: translate(-50%, -50%) rotate(0deg); }
-          to { transform: translate(-50%, -50%) rotate(360deg); }
+        @keyframes shimmer {
+          0% { transform: translateX(-150%) skewX(-12deg); }
+          100% { transform: translateX(150%) skewX(-12deg); }
         }
-        @keyframes scan {
-          0% { top: 0%; opacity: 0; }
-          50% { opacity: 0.5; }
-          100% { top: 100%; opacity: 0; }
-        }
-        @keyframes loading-bar {
-          0% { transform: translateX(-100%); }
-          100% { transform: translateX(100%); }
+        @keyframes progress {
+          0% { width: 0%; transform: translateX(-100%); }
+          50% { width: 70%; transform: translateX(0%); }
+          100% { width: 100%; transform: translateX(100%); }
         }
       `}</style>
     </div>
@@ -141,7 +141,7 @@ const App: React.FC = () => {
               const code = (e.target as any).courseCode.value;
               handleLecturerJoin(code);
             }}>
-              <input name="courseCode" placeholder="Course Code (e.g. ABC123)" className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl p-4 mb-6 text-slate-800 dark:text-white outline-none focus:border-brand-500 transition-all font-bold uppercase text-center" required />
+              <input name="courseCode" placeholder="Course Code (e.g. ABC123)" className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl p-4 mb-6 text-slate-800 dark:white outline-none focus:border-brand-500 transition-all font-bold uppercase text-center" required />
               <button className="w-full py-5 bg-brand-500 text-white font-black rounded-2xl uppercase tracking-widest shadow-xl shadow-brand-500/20 hover:scale-[1.02] active:scale-95 transition-all">Join Course</button>
             </form>
           </div>

@@ -314,9 +314,34 @@ router.post('/evaluate', async (req, res) => {
   try {
     const { question, rubric, studentCode, masterSolution, customInstructions } = req.body;
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const prompt = `Evaluate C code. Q: ${question}\nSolution: ${masterSolution}\nRubric: ${rubric}\nStudent: ${studentCode}\nOutput ONLY JSON: { "score": number, "feedback": "string" }`;
+    
+    // STRICT PEDAGOGICAL HEBREW EVALUATOR PROMPT
+    const prompt = `[CRITICAL INSTRUCTION]
+You are a senior C programming academic evaluator. Your evaluation must be rigorous, pedagogical, and perfectly aligned with the provided rubric and custom constraints.
+
+[FEEDBACK REQUIREMENT]
+1. The feedback MUST BE ENTIRELY IN HEBREW. 
+2. Use professional, formal academic Hebrew.
+3. Be constructive: explain WHAT is wrong and HOW to improve it according to the "Master Solution".
+4. Address any "Custom Instructions" violations (e.g., use of forbidden commands like 'break').
+
+[VERIFICATION STEP]
+Before outputting, verify:
+- Is the feedback in Hebrew?
+- Does the score accurately reflect the rubric point-by-point?
+- Are there any 'Custom Instructions' violations that should penalize the score?
+
+[INPUT]
+Q: ${question}
+Master Solution: ${masterSolution}
+Rubric: ${rubric}
+Instructions: ${customInstructions}
+Student Code: ${studentCode}
+
+Output ONLY valid JSON: { "score": number, "feedback": "string" }`;
+
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3-pro-preview',
       contents: prompt,
       config: { responseMimeType: "application/json" }
     });

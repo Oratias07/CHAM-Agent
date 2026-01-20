@@ -17,9 +17,15 @@ interface LecturerDashboardProps {
 }
 
 const STLogo = () => (
-  <div className="flex items-center space-x-2">
-    <div className="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center font-bold text-white text-lg">ST</div>
-    <span className="font-extrabold text-lg tracking-tight text-slate-900 dark:text-white uppercase">System</span>
+  <div className="flex items-center group/logo overflow-hidden">
+    {/* Square Icon Part - Always Visible */}
+    <div className="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center font-bold text-white text-lg shrink-0 shadow-sm border border-brand-500/20">
+      ST
+    </div>
+    {/* Text Label Part - Expands on Sidebar Hover (group class on <nav>) */}
+    <span className="font-extrabold text-lg tracking-tight text-slate-900 dark:text-white uppercase overflow-hidden whitespace-nowrap transition-all duration-500 ease-in-out max-w-0 opacity-0 group-hover:max-w-[120px] group-hover:opacity-100 group-hover:ml-2">
+      System
+    </span>
   </div>
 );
 
@@ -153,14 +159,21 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user }) => {
       const evaluation = await apiService.evaluate(inputs);
       setResult(evaluation);
       if (selectedStudentId) {
+        // Persist local state
         handleUpdateEntry(activeExerciseId, selectedStudentId, 'score', evaluation.score);
         handleUpdateEntry(activeExerciseId, selectedStudentId, 'feedback', evaluation.feedback);
+        
+        // Persist to backend
         await apiService.saveGrade(activeExerciseId, selectedStudentId, evaluation, activeCourseId);
         
+        // AUTOMATIC MOVE TO NEXT STUDENT
         const currentIndex = gradeBookState.students.findIndex(s => s.id === selectedStudentId);
         if (currentIndex !== -1 && currentIndex < gradeBookState.students.length - 1) {
-          setSelectedStudentId(gradeBookState.students[currentIndex + 1].id);
-          setStudentCode('');
+          // Delaying slightly so instructor can see the feedback before the shift
+          setTimeout(() => {
+             setSelectedStudentId(gradeBookState.students[currentIndex + 1].id);
+             setStudentCode(''); // Reset code area for next student
+          }, 3000); 
         }
       }
     } catch (err) {
