@@ -16,12 +16,20 @@
               mono: ['JetBrains Mono', 'monospace'],
             },
             colors: {
+              slate: {
+                850: '#1e293b',
+                900: '#0f172a', // Slightly lighter than standard 950
+              },
+              zinc: {
+                50: '#f9f9fb', // Slightly darker than standard white
+                100: '#f4f4f7', // Slightly darker than standard 50
+              },
               brand: {
-                50: '#f8fafc',
-                100: '#f1f5f9',
-                200: '#e2e8f0',
-                300: '#cbd5e1',
-                400: '#94a3b8',
+                50: '#eff6ff',
+                100: '#dbeafe',
+                200: '#bfdbfe',
+                300: '#93c5fd',
+                400: '#60a5fa',
                 500: '#3b82f6',
                 600: '#2563eb',
                 700: '#1d4ed8',
@@ -30,27 +38,17 @@
               }
             },
             animation: {
-              'logo-spin-slow': 'logo-spin-slow 8s linear infinite',
-              'logo-pulse-subtle': 'logo-pulse-subtle 3s ease-in-out infinite',
               'orbit-clean': 'orbit-clean 1.5s linear infinite',
               'logo-secondary': 'logo-secondary 4s ease-in-out infinite',
             },
             keyframes: {
-              'logo-spin-slow': {
-                '0%': { transform: 'rotate(0deg)' },
-                '100%': { transform: 'rotate(360deg)' },
-              },
-              'logo-pulse-subtle': {
-                '0%, 100%': { opacity: '1', transform: 'scale(1)' },
-                '50%': { opacity: '0.8', transform: 'scale(0.96)' },
-              },
               'orbit-clean': {
                 '0%': { transform: 'rotate(0deg)' },
                 '100%': { transform: 'rotate(360deg)' },
               },
               'logo-secondary': {
                 '0%, 100%': { transform: 'rotateY(0deg) scale(1)' },
-                '50%': { transform: 'rotateY(15deg) scale(1.05)' },
+                '50%': { transform: 'rotateY(10deg) scale(1.02)' },
               }
             }
           }
@@ -77,36 +75,28 @@
       .dark .custom-scrollbar::-webkit-scrollbar-thumb {
         background: #334155;
       }
-      .glass {
-        background: rgba(255, 255, 255, 0.7);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
-      }
-      .dark .glass {
-        background: rgba(15, 23, 42, 0.7);
-      }
     </style>
-  <script type="importmap">
+<script type="importmap">
 {
   "imports": {
-    "vite": "https://esm.sh/vite@^7.3.1",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
-    "express": "https://esm.sh/express@^5.2.1",
-    "mongoose": "https://esm.sh/mongoose@^9.1.4",
-    "passport": "https://esm.sh/passport@^0.7.0",
-    "passport-google-oauth20": "https://esm.sh/passport-google-oauth20@^2.0.0",
-    "express-session": "https://esm.sh/express-session@^1.18.2",
-    "connect-mongo": "https://esm.sh/connect-mongo@^6.0.0",
-    "dotenv": "https://esm.sh/dotenv@^17.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.37.0",
     "react/": "https://esm.sh/react@^19.2.3/",
     "react": "https://esm.sh/react@^19.2.3",
-    "@google/genai": "https://esm.sh/@google/genai@^1.37.0"
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "express-session": "https://esm.sh/express-session@^1.18.2",
+    "dotenv": "https://esm.sh/dotenv@^17.2.3",
+    "passport": "https://esm.sh/passport@^0.7.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "express": "https://esm.sh/express@^5.2.1",
+    "mongoose": "https://esm.sh/mongoose@^9.1.4",
+    "vite": "https://esm.sh/vite@^7.3.1",
+    "connect-mongo": "https://esm.sh/connect-mongo@^6.0.0",
+    "passport-google-oauth20": "https://esm.sh/passport-google-oauth20@^2.0.0"
   }
 }
 </script>
 </head>
-  <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300 antialiased">
+  <body class="bg-zinc-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 transition-colors duration-300 antialiased">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>

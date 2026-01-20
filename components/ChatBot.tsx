@@ -17,10 +17,16 @@ interface ChatBotProps {
   };
 }
 
-const ChatBot: React.FC<ChatBotProps> = ({ darkMode, context }) => {
+const Icons = {
+  Open: () => <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>,
+  Close: () => <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>,
+  Send: () => <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+};
+
+const ChatBot: React.FC<ChatBotProps> = ({ context }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'model', text: 'Hello! I am your grading assistant. I am currently monitoring your active exercise and can help you refine the rubric or evaluate the student code.' }
+    { role: 'model', text: 'Assistant Engine initialized. Grounding established with current active task. How can I facilitate your evaluation process?' }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -42,7 +48,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ darkMode, context }) => {
       const responseText = await sendChatMessage(userMessage, context);
       setMessages(prev => [...prev, { role: 'model', text: responseText }]);
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'model', text: 'Sorry, I encountered an error. Please try again.' }]);
+      setMessages(prev => [...prev, { role: 'model', text: 'Error encountered during context search. Please re-execute.' }]);
     } finally {
       setIsLoading(false);
     }
@@ -52,53 +58,47 @@ const ChatBot: React.FC<ChatBotProps> = ({ darkMode, context }) => {
     <>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-6 right-6 z-50 p-4 rounded-full shadow-lg transition-all transform hover:scale-105 ${
-          isOpen ? 'bg-red-500 rotate-45' : 'bg-brand-600 hover:bg-brand-700'
+        className={`fixed bottom-6 right-6 z-50 p-4 rounded-full shadow-2xl transition-all transform hover:scale-110 ${
+          isOpen ? 'bg-slate-800 dark:bg-slate-700' : 'bg-brand-600 hover:bg-brand-500'
         } text-white`}
       >
-        {isOpen ? (
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-        ) : (
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
-        )}
+        {isOpen ? <Icons.Close /> : <Icons.Open />}
       </button>
 
       {isOpen && (
-        <div className="fixed bottom-24 right-6 z-40 w-96 max-w-[calc(100vw-3rem)] h-[500px] bg-white dark:bg-slate-900 rounded-3xl shadow-2xl flex flex-col border border-slate-200 dark:border-slate-800 overflow-hidden">
-          <div className="bg-brand-600 p-6 flex justify-between items-center">
-            <div>
-              <h3 className="text-white font-black text-xs uppercase tracking-widest">Grading Assistant</h3>
-              <p className="text-[9px] text-brand-200 uppercase tracking-tighter mt-1">Grounded in Active Exercise</p>
-            </div>
+        <div className="fixed bottom-24 right-6 z-40 w-96 max-w-[calc(100vw-3rem)] h-[500px] bg-white dark:bg-slate-850 rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] flex flex-col border border-zinc-200 dark:border-slate-800 overflow-hidden transition-all">
+          <div className="bg-slate-900 p-6 border-b border-white/5">
+            <h3 className="text-white font-black text-[10px] uppercase tracking-[0.2em]">Grading Assistant</h3>
+            <p className="text-[8px] text-slate-400 uppercase tracking-widest mt-1">Grounding: Active Session</p>
           </div>
 
-          <div className="flex-grow overflow-y-auto p-4 bg-slate-50 dark:bg-slate-800/40 custom-scrollbar space-y-4">
+          <div className="flex-grow overflow-y-auto p-5 bg-zinc-50 dark:bg-slate-900/40 custom-scrollbar space-y-4">
             {messages.map((msg, idx) => (
               <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                  msg.role === 'user' ? 'bg-brand-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-100 dark:border-slate-700'
+                <div className={`max-w-[85%] rounded-2xl px-5 py-3 text-xs font-bold leading-relaxed ${
+                  msg.role === 'user' ? 'bg-slate-800 dark:bg-brand-600 text-white shadow-md' : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-zinc-100 dark:border-slate-700 shadow-sm'
                 }`}>
                   {msg.text}
                 </div>
               </div>
             ))}
-            {isLoading && <div className="text-[9px] font-black text-slate-400 uppercase animate-pulse">Assistant is searching context...</div>}
+            {isLoading && <div className="text-[8px] font-black text-slate-400 uppercase animate-pulse px-2">Searching context cache...</div>}
             <div ref={messagesEndRef} />
           </div>
 
-          <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800">
-            <div className="flex items-center space-x-2 bg-slate-50 dark:bg-slate-800 rounded-2xl px-4 py-2 border border-slate-200 dark:border-slate-700">
+          <div className="p-4 bg-white dark:bg-slate-850 border-t border-zinc-100 dark:border-slate-800">
+            <div className="flex items-center space-x-2 bg-zinc-50 dark:bg-slate-800/60 rounded-xl px-4 py-1.5 border border-zinc-200 dark:border-slate-700">
               <input
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                placeholder="Ask about current task..."
-                className="flex-grow bg-transparent outline-none text-sm py-2"
+                placeholder="Ask intelligence engine..."
+                className="flex-grow bg-transparent outline-none text-xs py-2 font-bold text-slate-700 dark:text-slate-200"
                 disabled={isLoading}
               />
-              <button onClick={handleSend} disabled={!input.trim() || isLoading} className="p-2 text-brand-600">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" /></svg>
+              <button onClick={handleSend} disabled={!input.trim() || isLoading} className="p-2 text-brand-600 hover:text-brand-500 disabled:opacity-30">
+                <Icons.Send />
               </button>
             </div>
           </div>
