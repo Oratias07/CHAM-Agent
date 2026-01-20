@@ -5,7 +5,7 @@ import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import session from 'express-session';
 import MongoStore from 'connect-mongo';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, Type } from '@google/genai';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -54,7 +54,7 @@ const CourseSchema = new mongoose.Schema({
   description: String,
   schedule: String,
   instructorName: String,
-  assignedStudentIds: [String], // Whitelist of users who can join
+  assignedStudentIds: [String],
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -150,12 +150,6 @@ passport.deserializeUser(async (id, done) => {
 
 const router = express.Router();
 
-router.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
-router.get('/auth/google/callback', 
-  passport.authenticate('google', { failureRedirect: '/' }),
-  (req, res) => res.redirect('/')
-);
-
 router.get('/auth/me', (req, res) => {
   if (req.user) {
     res.json({ 
@@ -208,6 +202,90 @@ router.post('/user/update-role', async (req, res) => {
   res.json(user);
 });
 
+// EVALUATION
+router.post('/evaluate', async (req, res) => {
+  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
+  
+  try {
+    const { question, masterSolution, rubric, studentCode, customInstructions } = req.body;
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-pro-preview',
+      contents: `Evaluate the following student code submission.
+      
+      Question: ${question}
+      Master Solution: ${masterSolution}
+      Rubric: ${rubric}
+      Custom Instructions: ${customInstructions}
+      Student Submission: ${studentCode}
+      
+      Output ONLY a JSON object with a score (0-10) and pedagogical feedback in Hebrew.`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            score: { type: Type.NUMBER, description: "Final score from 0 to 10" },
+            feedback: { type: Type.STRING, description: "Detailed feedback in Hebrew" }
+          },
+          required: ["score", "feedback"]
+        }
+      }
+    });
+
+    res.json(JSON.parse(response.text));
+  } catch (err) {
+    console.error("AI Error:", err);
+    res.status(500).json({ message: "AI Engine Error: " + err.message });
+  }
+});
+
+// EXERCISES
+router.get('/exercises', async (req, res) => {
+  if (!req.user) return res.status(401).send();
+  const { courseId } = req.query;
+  await connectDB();
+  const exs = await Exercise.find({ courseId });
+  res.json(exs);
+});
+
+router.post('/exercises/sync', async (req, res) => {
+  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
+  const { exercises, courseId } = req.body;
+  await connectDB();
+  for (const ex of exercises) {
+    await Exercise.findOneAndUpdate(
+      { id: ex.id, courseId },
+      { ...ex, lecturerId: req.user.googleId },
+      { upsert: true }
+    );
+  }
+  res.json({ success: true });
+});
+
+// GRADES
+router.post('/grades/save', async (req, res) => {
+  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
+  const { exerciseId, studentId, score, feedback, courseId } = req.body;
+  await connectDB();
+  await Grade.findOneAndUpdate(
+    { userId: req.user.googleId, exerciseId, studentId, courseId },
+    { score, feedback, timestamp: Date.now() },
+    { upsert: true }
+  );
+  res.json({ success: true });
+});
+
+router.post('/grades/clear', async (req, res) => {
+  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
+  const { courseId } = req.body;
+  await connectDB();
+  await Grade.deleteMany({ userId: req.user.googleId, courseId });
+  await Exercise.deleteMany({ lecturerId: req.user.googleId, courseId });
+  res.json({ success: true });
+});
+
 // COURSE MANAGEMENT
 router.get('/lecturer/courses', async (req, res) => {
   if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
@@ -250,6 +328,7 @@ router.delete('/lecturer/courses/:id', async (req, res) => {
   await Course.deleteOne({ _id: req.params.id, lecturerId: req.user.googleId });
   await Material.deleteMany({ courseId: req.params.id });
   await Exercise.deleteMany({ courseId: req.params.id });
+  await Grade.deleteMany({ courseId: req.params.id });
   res.json({ success: true });
 });
 
@@ -267,10 +346,8 @@ router.post('/student/join-course', async (req, res) => {
   const course = await Course.findOne({ code });
   
   if (!course) return res.status(404).json({ message: "Course not found" });
-  
-  // WHITELIST CHECK
   if (!course.assignedStudentIds.includes(req.user.googleId)) {
-    return res.status(403).json({ message: "Access Denied: You are not assigned to this course by the instructor." });
+    return res.status(403).json({ message: "Access Denied: You are not assigned to this course." });
   }
   
   const user = await User.findOneAndUpdate(
@@ -285,13 +362,7 @@ router.get('/student/workspace', async (req, res) => {
   if (!req.user) return res.status(401).send();
   await connectDB();
   const courseIds = req.user.enrolledCourseIds || [];
-  
-  // Filter by isVisible for student view
-  const shared = await Material.find({ 
-    courseId: { $in: courseIds }, 
-    isVisible: true,
-    type: 'lecturer_shared'
-  });
+  const shared = await Material.find({ courseId: { $in: courseIds }, isVisible: true });
   const privateNotes = await Material.find({ userId: req.user.googleId, type: 'student_private' });
   res.json({ shared, privateNotes });
 });
@@ -302,26 +373,19 @@ router.post('/student/chat', async (req, res) => {
     const { message, task } = req.body;
     await connectDB();
     const courseIds = req.user.enrolledCourseIds || [];
-    
-    // Only fetch visible materials for the chat context
-    const visibleMaterials = await Material.find({
-      courseId: { $in: courseIds },
-      isVisible: true,
-      type: 'lecturer_shared'
-    });
+    const visibleMaterials = await Material.find({ courseId: { $in: courseIds }, isVisible: true });
     
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    let context = "GROUNDING SOURCES (VISIBLE TO STUDENT):\n";
+    let context = "GROUNDING SOURCES:\n";
     visibleMaterials.forEach(s => context += `--- SOURCE: ${s.title} ---\n${s.content}\n\n`);
     
-    const finalPrompt = `${STUDENT_ASSISTANT_PROMPT}\n\n${context}\n\nUSER QUERY: ${message || task}`;
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: finalPrompt
+      contents: `${STUDENT_ASSISTANT_PROMPT}\n\n${context}\n\nUSER QUERY: ${message || task}`
     });
     res.json({ text: response.text });
   } catch (err) {
-    res.status(500).json({ text: "Error processing chat." });
+    res.status(500).json({ text: "Chat Engine Error." });
   }
 });
 
@@ -332,27 +396,20 @@ router.put('/lecturer/materials/:id/visibility', async (req, res) => {
   res.json(material);
 });
 
-router.delete('/lecturer/materials/:id', async (req, res) => {
-  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
-  await connectDB();
-  await Material.findByIdAndDelete(req.params.id);
-  res.json({ success: true });
-});
-
 router.post('/lecturer/upload-material', async (req, res) => {
   if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
   const { courseId, title, content, folder } = req.body;
   await connectDB();
   const material = await Material.create({
-    courseId,
-    title,
-    content,
-    folder: folder || 'General',
-    isVisible: true,
-    type: 'lecturer_shared',
-    sourceType: 'note'
+    courseId, title, content, folder: folder || 'General', isVisible: true, type: 'lecturer_shared', sourceType: 'note'
   });
   res.json(material);
+});
+
+router.get('/archives', async (req, res) => {
+  if (!req.user) return res.status(401).send();
+  // Simply return placeholder or logic for gradebook history
+  res.json([]);
 });
 
 router.get('/auth/logout', (req, res) => {
