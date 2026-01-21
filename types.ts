@@ -9,7 +9,7 @@ export interface User {
   role?: UserRole;
   enrolledCourseIds?: string[];
   unseenApprovals?: number;
-  activeCourse?: Course; // Optimized: Context included in user object
+  activeCourse?: Course;
 }
 
 export interface DirectMessage {
@@ -60,6 +60,7 @@ export interface Material {
   isVisible: boolean; 
   type: 'lecturer_shared' | 'student_private';
   timestamp: Date;
+  viewedBy?: string[]; // Track student IDs who opened the file
 }
 
 export interface GradingResult {
