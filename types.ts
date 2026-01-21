@@ -9,6 +9,7 @@ export interface User {
   role?: UserRole;
   enrolledCourseIds?: string[];
   unseenApprovals?: number;
+  activeCourse?: Course; // Optimized: Context included in user object
 }
 
 export interface DirectMessage {
@@ -20,9 +21,25 @@ export interface DirectMessage {
   isRead: boolean;
 }
 
+export interface Archive {
+  id: string;
+  lecturerId: string;
+  sessionName: string;
+  courseId: string;
+  data: GradeBookState;
+  timestamp: Date;
+  stats: {
+    avgScore: number;
+    totalSubmissions: number;
+    distribution: { [key: string]: number };
+  };
+}
+
 export interface Course {
   id: string;
   lecturerId: string;
+  lecturerName: string;
+  lecturerPicture?: string;
   name: string;
   code: string;
   description?: string;

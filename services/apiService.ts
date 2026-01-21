@@ -1,6 +1,5 @@
 
-// apiService.ts - Added saveGrade and getGrades for persistent storage of evaluation results.
-import { User, GradingInputs, GradingResult, Material, Course, Student, UserRole, DirectMessage } from "../types";
+import { User, GradingInputs, GradingResult, Material, Course, Student, UserRole, DirectMessage, Archive } from "../types";
 
 const handleResponse = async (res: Response) => {
   if (!res.ok) {
@@ -36,6 +35,28 @@ export const apiService = {
     return handleResponse(res);
   },
 
+  // Optimized: Batch fetch dashboard data (Courses + Archives + Meta)
+  async getLecturerDashboardData(): Promise<{ courses: Course[], archives: Archive[], pendingCount: number, unreadMessages: number }> {
+    const res = await fetch(`/api/lecturer/dashboard-init`);
+    return handleResponse(res);
+  },
+
+  // Optimized: Batch poll meta data
+  async getLecturerSync(): Promise<{ pendingCount: number, unreadMessages: number }> {
+    const res = await fetch(`/api/lecturer/sync`);
+    return handleResponse(res);
+  },
+
+  // Archives
+  async archiveSession(payload: Partial<Archive>): Promise<Archive> {
+    const res = await fetch(`/api/lecturer/archive`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    return handleResponse(res);
+  },
+
   // Messaging
   async getMessages(otherId: string): Promise<DirectMessage[]> {
     const res = await fetch(`/api/messages/${otherId}`);
@@ -52,75 +73,8 @@ export const apiService = {
   },
 
   // Notifications
-  async getLecturerNotifications(): Promise<{ pendingCount: number }> {
-    const res = await fetch(`/api/lecturer/notifications`);
-    return handleResponse(res);
-  },
-
   async clearStudentNotifications(): Promise<void> {
     await fetch(`/api/student/clear-notifications`, { method: 'POST' });
-  },
-
-  // Course Management
-  async getCourses(): Promise<Course[]> {
-    const res = await fetch(`/api/lecturer/courses`);
-    return handleResponse(res);
-  },
-
-  async createCourse(data: Partial<Course>): Promise<Course> {
-    const res = await fetch(`/api/lecturer/courses`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-    return handleResponse(res);
-  },
-
-  async updateCourse(id: string, data: Partial<Course>): Promise<Course> {
-    const res = await fetch(`/api/lecturer/courses/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-    return handleResponse(res);
-  },
-
-  async deleteCourse(id: string): Promise<void> {
-    const res = await fetch(`/api/lecturer/courses/${id}`, { method: 'DELETE' });
-    await handleResponse(res);
-  },
-
-  // Enrollment Waitlist
-  async getWaitlist(courseId: string): Promise<{ pending: Student[], enrolled: Student[] }> {
-    const res = await fetch(`/api/lecturer/courses/${courseId}/waitlist`);
-    return handleResponse(res);
-  },
-
-  async approveStudent(courseId: string, studentId: string): Promise<void> {
-    const res = await fetch(`/api/lecturer/courses/${courseId}/approve`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ studentId })
-    });
-    await handleResponse(res);
-  },
-
-  async rejectStudent(courseId: string, studentId: string): Promise<void> {
-    const res = await fetch(`/api/lecturer/courses/${courseId}/reject`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ studentId })
-    });
-    await handleResponse(res);
-  },
-
-  async removeStudent(courseId: string, studentId: string): Promise<void> {
-    const res = await fetch(`/api/lecturer/courses/${courseId}/remove-student`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ studentId })
-    });
-    await handleResponse(res);
   },
 
   // Student Actions
@@ -133,21 +87,59 @@ export const apiService = {
     return handleResponse(res);
   },
 
-  async studentChat(courseId: string, message: string): Promise<{ text: string }> {
-    const res = await fetch(`/api/student/chat`, {
+  // Course methods
+  async createCourse(data: Partial<Course>): Promise<Course> {
+    const res = await fetch(`/api/lecturer/courses`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ courseId, message })
+      body: JSON.stringify(data)
     });
     return handleResponse(res);
   },
-
-  // Materials
+  async updateCourse(id: string, data: Partial<Course>): Promise<Course> {
+    const res = await fetch(`/api/lecturer/courses/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return handleResponse(res);
+  },
+  async deleteCourse(id: string): Promise<void> {
+    const res = await fetch(`/api/lecturer/courses/${id}`, { method: 'DELETE' });
+    await handleResponse(res);
+  },
+  async getWaitlist(courseId: string): Promise<{ pending: Student[], enrolled: Student[] }> {
+    const res = await fetch(`/api/lecturer/courses/${courseId}/waitlist`);
+    return handleResponse(res);
+  },
+  async approveStudent(courseId: string, studentId: string): Promise<void> {
+    const res = await fetch(`/api/lecturer/courses/${courseId}/approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ studentId })
+    });
+    await handleResponse(res);
+  },
+  async rejectStudent(courseId: string, studentId: string): Promise<void> {
+    const res = await fetch(`/api/lecturer/courses/${courseId}/reject`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ studentId })
+    });
+    await handleResponse(res);
+  },
+  async removeStudent(courseId: string, studentId: string): Promise<void> {
+    const res = await fetch(`/api/lecturer/courses/${courseId}/remove-student`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ studentId })
+    });
+    await handleResponse(res);
+  },
   async getMaterials(courseId: string): Promise<Material[]> {
     const res = await fetch(`/api/lecturer/courses/${courseId}/materials`);
     return handleResponse(res);
   },
-
   async addMaterial(data: Partial<Material>): Promise<Material> {
     const res = await fetch(`/api/lecturer/materials`, {
       method: 'POST',
@@ -156,7 +148,6 @@ export const apiService = {
     });
     return handleResponse(res);
   },
-
   async updateMaterial(id: string, data: Partial<Material>): Promise<Material> {
     const res = await fetch(`/api/lecturer/materials/${id}`, {
       method: 'PUT',
@@ -165,13 +156,10 @@ export const apiService = {
     });
     return handleResponse(res);
   },
-
   async deleteMaterial(id: string): Promise<void> {
     const res = await fetch(`/api/lecturer/materials/${id}`, { method: 'DELETE' });
     await handleResponse(res);
   },
-
-  // Evaluation
   async evaluate(inputs: GradingInputs): Promise<GradingResult> {
     const res = await fetch(`/api/evaluate`, {
       method: 'POST',
@@ -180,19 +168,24 @@ export const apiService = {
     });
     return handleResponse(res);
   },
-
-  // Grades Persistence
-  async saveGrade(data: { exerciseId: string, studentId: string, score: number, feedback: string }): Promise<void> {
+  async studentChat(courseId: string, message: string): Promise<{ text: string }> {
+    const res = await fetch(`/api/student/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ courseId, message })
+    });
+    return handleResponse(res);
+  },
+  async getGrades(): Promise<any[]> {
+    const res = await fetch(`/api/grades`);
+    return handleResponse(res);
+  },
+  async saveGrade(data: any): Promise<void> {
     const res = await fetch(`/api/grades/save`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     });
     await handleResponse(res);
-  },
-
-  async getGrades(): Promise<any[]> {
-    const res = await fetch(`/api/grades`);
-    return handleResponse(res);
   }
 };
