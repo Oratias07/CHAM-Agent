@@ -227,7 +227,6 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
         <header className="h-16 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-850 px-8 flex items-center justify-between shrink-0 transition-colors">
           <h2 className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{viewMode}</h2>
           <div className="flex items-center space-x-4">
-            {/* Fixed: replaced c._id with c.id for mapping and find comparison */}
             {courses.length > 0 && <select value={activeCourse?.id || ''} onChange={e => setActiveCourse(courses.find(c => c.id === e.target.value) || null)} className="bg-zinc-50 dark:bg-slate-800 border-none rounded-lg text-xs font-bold px-3 py-1 outline-none text-slate-700 dark:text-white"><option value="">Context Selection...</option>{courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>}
             <button onClick={() => setDarkMode(!darkMode)} className="p-2 text-slate-400 hover:text-brand-500 transition-colors">{Icons.Theme(darkMode)}</button>
           </div>
@@ -236,7 +235,6 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
         <main className="flex-grow p-8 overflow-hidden relative">
           {viewMode === 'ARCHIVES' && <ArchiveViewer archives={archives} />}
           {viewMode === 'COURSES' && <CourseManager courses={courses} onCourseUpdate={() => apiService.getLecturerDashboardData().then(d => setCourses(d.courses))} onSelectCourse={setActiveCourse} />}
-          {/* Fixed: replaced activeCourse._id with activeCourse.id */}
           {viewMode === 'STUDENTS' && activeCourse && <StudentManagement courseId={activeCourse.id} />}
           {viewMode === 'MESSAGES' && (
              <div className="h-full flex space-x-8">
