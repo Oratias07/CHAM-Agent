@@ -168,6 +168,15 @@ export const apiService = {
     await handleResponse(res);
   },
 
+  async switchCourse(courseId: string): Promise<User> {
+    const res = await fetch(`/api/student/switch-course`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ courseId })
+    });
+    return handleResponse(res);
+  },
+
   async evaluate(inputs: GradingInputs): Promise<GradingResult> {
     const res = await fetch(`/api/evaluate`, {
       method: 'POST',
