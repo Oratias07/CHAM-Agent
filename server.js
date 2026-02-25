@@ -132,8 +132,22 @@ app.post('/api/evaluate', async (req, res) => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview', 
-      contents: `Grade this code. Rubric: ${rubric}. Question: ${question}. Student: ${studentCode}. Feedback in Hebrew.`,
+      model: 'gemini-3-flash-preview', 
+      contents: `You are an expert academic code reviewer. 
+      Evaluate the following student submission based on the provided rubric and question.
+      
+      Question: ${question}
+      Rubric: ${rubric}
+      Student Code: ${studentCode}
+      
+      Instructions:
+      1. Provide a numerical score from 0 to 10 based on the rubric.
+      2. Provide detailed, professional pedagogical feedback in Hebrew.
+      3. Return ONLY a JSON object with the following structure:
+      {
+        "score": number,
+        "feedback": "string (Hebrew)"
+      }`,
       config: { responseMimeType: "application/json" }
     });
 

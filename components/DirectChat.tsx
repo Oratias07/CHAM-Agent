@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { DirectMessage, User, Student } from '../types';
+import { DirectMessage, User } from '../types';
 import { apiService } from '../services/apiService';
 
 interface DirectChatProps {

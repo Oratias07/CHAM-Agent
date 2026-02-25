@@ -6,7 +6,7 @@ interface ResultSectionProps {
   result: GradingResult | null;
   error: string | null;
   isEvaluating: boolean;
-  darkMode?: boolean;
+  isSaved?: boolean;
 }
 
 const Icons = {
@@ -15,9 +15,10 @@ const Icons = {
   Target: () => <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
   Review: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" /></svg>,
   Clock: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+  CheckCircle: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
 };
 
-const ResultSection: React.FC<ResultSectionProps> = ({ result, error, isEvaluating }) => {
+const ResultSection: React.FC<ResultSectionProps> = ({ result, error, isEvaluating, isSaved }) => {
   if (isEvaluating) {
     return (
       <div className="h-full flex flex-col items-center justify-center bg-white dark:bg-slate-850 rounded-3xl shadow-xl border border-zinc-100 dark:border-slate-800 p-10 text-center transition-all">
@@ -103,7 +104,15 @@ const ResultSection: React.FC<ResultSectionProps> = ({ result, error, isEvaluati
         <h2 className="text-sm font-black text-slate-800 dark:text-slate-100 flex items-center uppercase tracking-tighter">
           <span className="mr-3 text-brand-500"><Icons.Lightning /></span> Grading Analysis
         </h2>
-        <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 border border-zinc-200 dark:border-slate-700 px-3 py-1 rounded-lg uppercase tracking-widest shadow-sm">Flash 3.0 Core</span>
+        <div className="flex items-center space-x-3">
+          {isSaved && (
+            <div className="flex items-center space-x-1.5 text-[9px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 px-3 py-1 rounded-lg border border-emerald-100 dark:border-emerald-900/20 uppercase tracking-widest">
+              <Icons.CheckCircle />
+              <span>Saved</span>
+            </div>
+          )}
+          <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 border border-zinc-200 dark:border-slate-700 px-3 py-1 rounded-lg uppercase tracking-widest shadow-sm">Flash 3.0 Core</span>
+        </div>
       </div>
       
       <div className="p-10 flex-grow overflow-y-auto custom-scrollbar bg-zinc-50/30 dark:bg-slate-900/30">

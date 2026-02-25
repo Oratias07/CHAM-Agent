@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { User, Material, Course } from '../types';
+import { User, Material } from '../types';
 import { apiService } from '../services/apiService';
 import DirectChat from './DirectChat';
 
