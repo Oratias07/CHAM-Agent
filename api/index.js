@@ -253,7 +253,7 @@ router.post('/student/chat', async (req, res) => {
   const materials = await Material.find({ courseId, isVisible: true });
   const context = materials.map(m => `### ${m.title} ###\n${m.content}`).join('\n\n');
 
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: `You are a specialized Course Assistant. 
@@ -322,25 +322,43 @@ router.post('/evaluate', async (req, res) => {
   if (!req.user) return res.status(401).send();
   try {
     const { question, masterSolution, rubric, studentCode, customInstructions } = req.body;
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
-      contents: `Evaluate this code. Question: ${question}. Master Solution: ${masterSolution}. Rubric: ${rubric}. Student Code: ${studentCode}. Instructions: ${customInstructions}`,
+      model: 'gemini-3-flash-preview',
+      contents: `You are a Senior Academic Code Reviewer.
+      Evaluate this student submission.
+      
+      CONTEXT:
+      - Question: ${question}
+      - Master Solution: ${masterSolution || 'Not provided'}
+      - Rubric: ${rubric}
+      - Instructions: ${customInstructions || 'None'}
+      
+      STUDENT CODE:
+      ${studentCode}
+      
+      REQUIREMENTS:
+      1. Score 0-10.
+      2. Feedback in Hebrew.
+      3. Return ONLY JSON.
+      
+      FORMAT:
+      { "score": number, "feedback": "string" }`,
       config: {
         responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            score: { type: Type.NUMBER },
-            feedback: { type: Type.STRING }
-          },
-          required: ["score", "feedback"]
-        }
+        temperature: 0.2
       }
     });
+    
+    if (!response.text) {
+      throw new Error("Empty response from AI engine");
+    }
+    
     res.json(JSON.parse(response.text));
   } catch (err) {
-    res.status(500).json({ message: "AI Analysis Engine Timeout" });
+    console.error('AI Evaluation Error:', err);
+    res.status(500).json({ message: "AI Analysis Engine Error: " + err.message });
   }
 });
 
