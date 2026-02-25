@@ -31,6 +31,8 @@ const UserSchema = new mongoose.Schema({
   name: String,
   email: String,
   picture: String,
+  role: { type: String, enum: ['lecturer', 'student'], default: 'student' },
+  activeCourseId: String,
 });
 
 const GradeSchema = new mongoose.Schema({
@@ -42,8 +44,46 @@ const GradeSchema = new mongoose.Schema({
   timestamp: { type: Date, default: Date.now }
 });
 
+const CourseSchema = new mongoose.Schema({
+  name: String,
+  code: { type: String, unique: true },
+  lecturerId: String,
+  lecturerName: String,
+  lecturerPicture: String,
+  enrolledStudents: [String], // googleIds
+  pendingStudents: [String], // googleIds
+});
+
+const MaterialSchema = new mongoose.Schema({
+  courseId: String,
+  title: String,
+  content: String,
+  isVisible: { type: Boolean, default: true },
+  viewedBy: [String], // googleIds
+});
+
+const MessageSchema = new mongoose.Schema({
+  senderId: String,
+  receiverId: String,
+  text: String,
+  timestamp: { type: Date, default: Date.now },
+  isRead: { type: Boolean, default: false }
+});
+
+const ArchiveSchema = new mongoose.Schema({
+  sessionName: String,
+  courseId: String,
+  data: Object,
+  stats: Object,
+  timestamp: { type: Date, default: Date.now }
+});
+
 const User = mongoose.models.User || mongoose.model('User', UserSchema);
 const Grade = mongoose.models.Grade || mongoose.model('Grade', GradeSchema);
+const Course = mongoose.models.Course || mongoose.model('Course', CourseSchema);
+const Material = mongoose.models.Material || mongoose.model('Material', MaterialSchema);
+const Message = mongoose.models.Message || mongoose.model('Message', MessageSchema);
+const Archive = mongoose.models.Archive || mongoose.model('Archive', ArchiveSchema);
 
 // 2. AUTHENTICATION CONFIG
 app.use(session({
@@ -102,15 +142,146 @@ passport.deserializeUser(async (id, done) => {
 // 3. API ENDPOINTS
 app.get('/api/auth/me', async (req, res) => {
   if (req.user) {
+    await connectDB();
+    const course = req.user.activeCourseId ? await Course.findById(req.user.activeCourseId) : null;
     res.json({
       id: req.user.googleId,
       name: req.user.name,
       email: req.user.email,
-      picture: req.user.picture
+      picture: req.user.picture,
+      role: req.user.role,
+      activeCourse: course ? {
+        id: course._id,
+        name: course.name,
+        lecturerId: course.lecturerId,
+        lecturerName: course.lecturerName,
+        lecturerPicture: course.lecturerPicture
+      } : null
     });
   } else {
     res.status(401).json(null);
   }
+});
+
+app.post('/api/user/update-role', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ message: "Login required" });
+  await connectDB();
+  const { role } = req.body;
+  await User.findOneAndUpdate({ googleId: req.user.googleId }, { role });
+  res.json({ success: true });
+});
+
+app.get('/api/messages/:otherId', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ message: "Login required" });
+  await connectDB();
+  const messages = await Message.find({
+    $or: [
+      { senderId: req.user.googleId, receiverId: req.params.otherId },
+      { senderId: req.params.otherId, receiverId: req.user.googleId }
+    ]
+  }).sort({ timestamp: 1 });
+  res.json(messages);
+});
+
+app.post('/api/messages', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ message: "Login required" });
+  await connectDB();
+  const { receiverId, text } = req.body;
+  const msg = await Message.create({
+    senderId: req.user.googleId,
+    receiverId,
+    text
+  });
+  res.json(msg);
+});
+
+app.get('/api/lecturer/dashboard-init', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ message: "Login required" });
+  await connectDB();
+  const courses = await Course.find({ lecturerId: req.user.googleId });
+  const archives = await Archive.find({ lecturerId: req.user.googleId });
+  res.json({ courses, archives });
+});
+
+app.get('/api/lecturer/sync', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ message: "Login required" });
+  await connectDB();
+  const unreadMessages = await Message.countDocuments({ receiverId: req.user.googleId, isRead: false });
+  const lastMsg = await Message.findOne({ receiverId: req.user.googleId }).sort({ timestamp: -1 });
+  res.json({
+    pendingCount: 0, // Simplified for now
+    unreadMessages,
+    alert: lastMsg ? { text: lastMsg.text, senderId: lastMsg.senderId } : undefined
+  });
+});
+
+app.get('/api/lecturer/courses/:id/materials', async (req, res) => {
+  await connectDB();
+  const materials = await Material.find({ courseId: req.params.id });
+  res.json(materials);
+});
+
+app.post('/api/student/chat', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ message: "Login required" });
+  const { message } = req.body;
+  // Mock AI chat for student
+  res.json({ text: `I am your assistant. You asked: ${message}. Currently I only have access to course documents.` });
+});
+
+app.get('/api/admin/db', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ message: "Login required" });
+  await connectDB();
+  const users = await User.find({});
+  const grades = await Grade.find({});
+  const courses = await Course.find({});
+  const messages = await Message.find({});
+  res.json({ users, grades, courses, messages });
+});
+
+app.post('/api/student/join-course', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ message: "Login required" });
+  await connectDB();
+  const { code } = req.body;
+  const course = await Course.findOne({ code });
+  if (!course) return res.status(404).json({ message: "Course not found" });
+  
+  if (!course.pendingStudents.includes(req.user.googleId) && !course.enrolledStudents.includes(req.user.googleId)) {
+    course.pendingStudents.push(req.user.googleId);
+    await course.save();
+  }
+  res.json({ message: "Request sent" });
+});
+
+app.post('/api/lecturer/courses/:courseId/approve', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ message: "Login required" });
+  await connectDB();
+  const { studentId } = req.body;
+  const course = await Course.findById(req.params.courseId);
+  if (!course) return res.status(404).json({ message: "Course not found" });
+  
+  course.pendingStudents = course.pendingStudents.filter(id => id !== studentId);
+  if (!course.enrolledStudents.includes(studentId)) {
+    course.enrolledStudents.push(studentId);
+    await User.findOneAndUpdate({ googleId: studentId }, { activeCourseId: course._id });
+  }
+  await course.save();
+  res.json({ success: true });
+});
+
+app.post('/api/lecturer/courses', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ message: "Login required" });
+  await connectDB();
+  const { name, code } = req.body;
+  const course = await Course.create({
+    name,
+    code,
+    lecturerId: req.user.googleId,
+    lecturerName: req.user.name,
+    lecturerPicture: req.user.picture,
+    enrolledStudents: [],
+    pendingStudents: []
+  });
+  res.json(course);
 });
 
 app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
