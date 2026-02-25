@@ -235,19 +235,19 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
           </div>
         </header>
 
-        <main className="flex-grow p-8 overflow-hidden relative">
+        <main className="flex-grow p-8 overflow-y-auto custom-scrollbar relative">
           {viewMode === 'DATABASE' && <DatabaseViewer />}
           {viewMode === 'ARCHIVES' && <ArchiveViewer archives={archives} />}
           {viewMode === 'COURSES' && <CourseManager courses={courses} onCourseUpdate={() => apiService.getLecturerDashboardData().then(d => setCourses(d.courses))} onSelectCourse={setActiveCourse} />}
           {viewMode === 'STUDENTS' && activeCourse && <StudentManagement courseId={activeCourse.id} />}
           {viewMode === 'MESSAGES' && (
-             <div className="h-full flex space-x-8">
+             <div className="h-full min-h-[600px] flex space-x-8">
                <div className="w-80 bg-white dark:bg-slate-850 rounded-[2.5rem] border border-zinc-200 dark:border-slate-800 p-6 flex flex-col transition-colors"><h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-6">Class Node Roster</h3><div className="flex-grow overflow-y-auto space-y-2 custom-scrollbar">{gradeBookState.students.map(s => <button key={s.id} onClick={() => setChatTarget(s)} className={`w-full flex items-center space-x-3 p-3 rounded-2xl transition-all ${chatTarget?.id === s.id ? 'bg-brand-50 dark:bg-slate-800 border border-brand-100 dark:border-slate-700' : 'hover:bg-zinc-50 dark:hover:bg-slate-800'}`}><div className="w-8 h-8 rounded-full bg-brand-100 dark:bg-slate-800 flex items-center justify-center font-bold text-brand-600 text-[10px]">{s.name.charAt(0)}</div><span className="text-xs font-bold text-slate-700 dark:text-slate-200">{s.name}</span></button>)}</div></div>
                <div className="flex-grow">{chatTarget ? <DirectChat currentUser={user} targetUser={chatTarget} /> : <div className="h-full flex items-center justify-center text-slate-400 font-black text-[10px] uppercase border-2 border-dashed dark:border-slate-800 rounded-[3rem]">Select a channel</div>}</div>
              </div>
           )}
           {viewMode === 'EVALUATION' && (
-            <div className="grid grid-cols-1 xl:grid-cols-10 gap-8 h-full">
+            <div className="grid grid-cols-1 xl:grid-cols-10 gap-8 h-full min-h-[800px]">
                <section className="xl:col-span-3 h-full"><ResultSection result={result} error={error} isEvaluating={isEvaluating} isSaved={isSaved} /></section>
                <section className="xl:col-span-7 h-full">
                  <InputSection 
