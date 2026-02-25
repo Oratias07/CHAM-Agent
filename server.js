@@ -13,16 +13,14 @@ const app = express();
 app.use(express.json());
 
 // 1. DATABASE CONNECTION
-const MONGODB_URI = process.env.MONGODB_URI;
-
 // Helper to ensure DB is connected
 const connectDB = async () => {
   if (mongoose.connection.readyState >= 1) return;
-  if (!MONGODB_URI) {
-    console.warn("MONGODB_URI missing. Some features will not work.");
-    return;
+  const uri = process.env.MONGODB_URI;
+  if (!uri) {
+    throw new Error("MONGODB_URI is not defined in environment variables.");
   }
-  return mongoose.connect(MONGODB_URI);
+  await mongoose.connect(uri);
 };
 
 // Model definitions (idempotent)
@@ -33,6 +31,8 @@ const UserSchema = new mongoose.Schema({
   picture: String,
   role: { type: String, enum: ['lecturer', 'student'], default: 'student' },
   activeCourseId: String,
+  enrolledCourseIds: [String],
+  pendingCourseIds: [String],
 });
 
 const GradeSchema = new mongoose.Schema({
@@ -150,6 +150,8 @@ app.get('/api/auth/me', async (req, res) => {
       email: req.user.email,
       picture: req.user.picture,
       role: req.user.role,
+      enrolledCourseIds: req.user.enrolledCourseIds || [],
+      pendingCourseIds: req.user.pendingCourseIds || [],
       activeCourse: course ? {
         id: course._id,
         name: course.name,
@@ -230,12 +232,17 @@ app.post('/api/student/chat', async (req, res) => {
 
 app.get('/api/admin/db', async (req, res) => {
   if (!req.isAuthenticated()) return res.status(401).json({ message: "Login required" });
-  await connectDB();
-  const users = await User.find({});
-  const grades = await Grade.find({});
-  const courses = await Course.find({});
-  const messages = await Message.find({});
-  res.json({ users, grades, courses, messages });
+  try {
+    await connectDB();
+    const users = await User.find({}).limit(100);
+    const grades = await Grade.find({}).limit(100);
+    const courses = await Course.find({}).limit(100);
+    const messages = await Message.find({}).limit(100);
+    res.json({ users, grades, courses, messages });
+  } catch (err) {
+    console.error('DB Admin Error:', err);
+    res.status(500).send(err.message);
+  }
 });
 
 app.post('/api/student/join-course', async (req, res) => {
@@ -245,9 +252,17 @@ app.post('/api/student/join-course', async (req, res) => {
   const course = await Course.findOne({ code });
   if (!course) return res.status(404).json({ message: "Course not found" });
   
+  const student = await User.findOne({ googleId: req.user.googleId });
+  if (!student) return res.status(404).json({ message: "Student not found" });
+
   if (!course.pendingStudents.includes(req.user.googleId) && !course.enrolledStudents.includes(req.user.googleId)) {
     course.pendingStudents.push(req.user.googleId);
     await course.save();
+    
+    if (!student.pendingCourseIds.includes(course._id.toString())) {
+      student.pendingCourseIds.push(course._id.toString());
+      await student.save();
+    }
   }
   res.json({ message: "Request sent" });
 });
@@ -262,7 +277,16 @@ app.post('/api/lecturer/courses/:courseId/approve', async (req, res) => {
   course.pendingStudents = course.pendingStudents.filter(id => id !== studentId);
   if (!course.enrolledStudents.includes(studentId)) {
     course.enrolledStudents.push(studentId);
-    await User.findOneAndUpdate({ googleId: studentId }, { activeCourseId: course._id });
+    
+    const student = await User.findOne({ googleId: studentId });
+    if (student) {
+      student.pendingCourseIds = student.pendingCourseIds.filter(id => id !== course._id.toString());
+      if (!student.enrolledCourseIds.includes(course._id.toString())) {
+        student.enrolledCourseIds.push(course._id.toString());
+      }
+      student.activeCourseId = course._id.toString();
+      await student.save();
+    }
   }
   await course.save();
   res.json({ success: true });
@@ -284,6 +308,67 @@ app.post('/api/lecturer/courses', async (req, res) => {
   res.json(course);
 });
 
+app.post('/api/auth/dev', async (req, res) => {
+  const { passcode } = req.body;
+  if (passcode === '1234') { // Simple dev passcode
+    await connectDB();
+    let user = await User.findOne({ googleId: 'dev-user' });
+    if (!user) {
+      user = await User.create({
+        googleId: 'dev-user',
+        name: 'Dev Lecturer',
+        email: 'dev@example.com',
+        picture: 'https://picsum.photos/200',
+        role: 'lecturer'
+      });
+    }
+    req.login(user, (err) => {
+      if (err) return res.status(500).json({ message: "Login failed" });
+      res.json({
+        id: user.googleId,
+        name: user.name,
+        email: user.email,
+        picture: user.picture,
+        role: user.role
+      });
+    });
+  } else {
+    res.status(401).json({ message: "Invalid passcode" });
+  }
+});
+
+app.post('/api/lecturer/archive', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ message: "Login required" });
+  await connectDB();
+  const archive = await Archive.create({
+    ...req.body,
+    lecturerId: req.user.googleId
+  });
+  res.json(archive);
+});
+
+app.get('/api/lecturer/courses/:courseId/waitlist', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ message: "Login required" });
+  await connectDB();
+  const course = await Course.findById(req.params.courseId);
+  if (!course) return res.status(404).json({ message: "Course not found" });
+  
+  const pending = await User.find({ googleId: { $in: course.pendingStudents } });
+  const enrolled = await User.find({ googleId: { $in: course.enrolledStudents } });
+  
+  res.json({
+    pending: pending.map(u => ({ id: u.googleId, name: u.name, picture: u.picture, status: 'pending' })),
+    enrolled: enrolled.map(u => ({ id: u.googleId, name: u.name, picture: u.picture, status: 'enrolled' }))
+  });
+});
+
+app.post('/api/lecturer/materials', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ message: "Login required" });
+  await connectDB();
+  const material = await Material.create(req.body);
+  res.json(material);
+});
+
 app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 
 app.get('/api/auth/google/callback', 
@@ -295,36 +380,81 @@ app.get('/api/auth/logout', (req, res) => {
   req.logout(() => res.redirect('/'));
 });
 
+app.post('/api/student/switch-course', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ message: "Login required" });
+  await connectDB();
+  const { courseId } = req.body;
+  if (!req.user.enrolledCourseIds.includes(courseId)) {
+    return res.status(403).json({ message: "Not enrolled in this course" });
+  }
+  await User.findOneAndUpdate({ googleId: req.user.googleId }, { activeCourseId: courseId });
+  
+  const user = await User.findOne({ googleId: req.user.googleId });
+  const course = await Course.findById(courseId);
+  
+  res.json({
+    id: user.googleId,
+    name: user.name,
+    email: user.email,
+    picture: user.picture,
+    role: user.role,
+    enrolledCourseIds: user.enrolledCourseIds,
+    pendingCourseIds: user.pendingCourseIds,
+    activeCourse: course ? {
+      id: course._id,
+      name: course.name,
+      lecturerId: course.lecturerId,
+      lecturerName: course.lecturerName,
+      lecturerPicture: course.lecturerPicture
+    } : null
+  });
+});
+
 app.post('/api/evaluate', async (req, res) => {
   if (!req.isAuthenticated()) return res.status(401).json({ message: "Login required" });
   
   try {
-    const { question, rubric, studentCode } = req.body;
+    const { question, rubric, studentCode, masterSolution, customInstructions } = req.body;
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview', 
-      contents: `You are an expert academic code reviewer. 
-      Evaluate the following student submission based on the provided rubric and question.
+      contents: `You are a Senior Academic Code Reviewer and Pedagogical Expert.
+      Your task is to evaluate a student's code submission with extreme precision based on the provided rubric.
       
-      Question: ${question}
-      Rubric: ${rubric}
-      Student Code: ${studentCode}
+      ### CONTEXT
+      - **Exercise Question:** ${question}
+      - **Master Solution (Reference):** ${masterSolution || 'Not provided'}
+      - **Grading Rubric:** ${rubric}
+      - **Additional Constraints:** ${customInstructions || 'None'}
       
-      Instructions:
-      1. Provide a numerical score from 0 to 10 based on the rubric.
-      2. Provide detailed, professional pedagogical feedback in Hebrew.
-      3. Return ONLY a JSON object with the following structure:
+      ### STUDENT SUBMISSION
+      \`\`\`
+      ${studentCode}
+      \`\`\`
+      
+      ### EVALUATION REQUIREMENTS
+      1. **Strict Rubric Adherence:** Evaluate the code ONLY against the provided rubric criteria.
+      2. **Professionalism:** Your feedback must be constructive, academic, and professional.
+      3. **Language:** Feedback MUST be in Hebrew (עברית).
+      4. **Score:** Provide a score from 0.0 to 10.0.
+      
+      ### OUTPUT FORMAT
+      Return ONLY a valid JSON object:
       {
         "score": number,
-        "feedback": "string (Hebrew)"
+        "feedback": "Detailed pedagogical feedback in Hebrew"
       }`,
-      config: { responseMimeType: "application/json" }
+      config: { 
+        responseMimeType: "application/json",
+        temperature: 0.2
+      }
     });
 
     res.json(JSON.parse(response.text));
   } catch (err) {
-    res.status(500).json({ message: "AI Evaluation failed" });
+    console.error('AI Evaluation Error:', err);
+    res.status(500).json({ message: "AI Evaluation failed: " + err.message });
   }
 });
 
