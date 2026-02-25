@@ -63,7 +63,7 @@ const InputSection: React.FC<InputSectionProps> = ({
 - קריאות קוד: שמות משתנים משמעותיים ומבנה קוד סדור.
 - תיעוד: חובה לכלול הערות קוד שמסבירות את הלוגיקה.`);
     onUpdateExerciseData('question', 'כתבו תוכנית הקולטת מספר ובודקת אם הוא זוגי בטווח 1-1000.');
-    onUpdateExerciseData('masterSolution', '#include <stdio.h>\nint main() {\n  int num;\n  scanf("%d", &num);\n  if(num % 2 == 0 && num >= 1 && num <= 1000) printf("Valid");\n  return 0;\n}');
+    onUpdateExerciseData('masterSolution', '#include <stdio.h>\\nint main() {\\n  int num;\\n  scanf("%d", &num);\\n  if(num % 2 == 0 && num >= 1 && num <= 1000) printf("Valid");\\n  return 0;\\n}');
   };
 
   const handleNextStudent = () => {
@@ -103,7 +103,7 @@ const InputSection: React.FC<InputSectionProps> = ({
     { id: TabOption.CUSTOM, label: 'Advanced', icon: <Icons.Advanced /> },
   ];
 
-  const lineCount = currentVal.split('\n').length;
+  const lineCount = currentVal.split('\\n').length;
 
   return (
     <div className="bg-white dark:bg-slate-850 rounded-3xl shadow-xl flex flex-col h-full border border-slate-200 dark:border-slate-800 overflow-hidden">
@@ -173,7 +173,7 @@ const InputSection: React.FC<InputSectionProps> = ({
           style={{ lineHeight: '1.75rem' }}
           value={currentVal} 
           onChange={(e) => handleChange(e.target.value)} 
-          placeholder={`Enter ${tabs.find(t => t.id === activeTab)?.label.toLowerCase()} content here...`} 
+          placeholder={`Enter \${tabs.find(t => t.id === activeTab)?.label.toLowerCase()} content here...`} 
         />
         
         <div className="absolute bottom-10 right-10 flex items-center space-x-4">
