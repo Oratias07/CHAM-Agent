@@ -49,6 +49,8 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
   const [studentCode, setStudentCode] = useState('');
   const [result, setResult] = useState<GradingResult | null>(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
+  const [autoAdvance, setAutoAdvance] = useState(true);
+  const [isSaved, setIsSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabOption>(TabOption.QUESTION);
 
@@ -119,7 +121,9 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
   const onEvaluate = async () => {
     const activeEx = gradeBookState.exercises.find(e => e.id === activeExerciseId);
     if (!activeEx || !studentCode.trim()) return;
-    setIsEvaluating(true); setError(null);
+    setIsEvaluating(true); 
+    setError(null);
+    setIsSaved(false);
     try {
       const res = await apiService.evaluate({ 
         question: activeEx.question, 
@@ -131,8 +135,36 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
       setResult(res);
       onUpdateEntry(activeExerciseId, selectedStudentId, 'score', res.score);
       onUpdateEntry(activeExerciseId, selectedStudentId, 'feedback', res.feedback);
-    } catch (e: any) { setError(e.message); }
-    finally { setIsEvaluating(false); }
+      
+      // Auto-save to database
+      await apiService.saveGrade({
+        exerciseId: activeExerciseId,
+        studentId: selectedStudentId,
+        score: res.score,
+        feedback: res.feedback
+      });
+      setIsSaved(true);
+
+      // Auto-advance logic
+      if (autoAdvance) {
+        const currentIndex = gradeBookState.students.findIndex(s => s.id === selectedStudentId);
+        if (currentIndex !== -1 && currentIndex < gradeBookState.students.length - 1) {
+          const nextStudent = gradeBookState.students[currentIndex + 1];
+          // Small delay for visual feedback before switching
+          setTimeout(() => {
+            setSelectedStudentId(nextStudent.id);
+            setStudentCode(''); // Clear code for next student
+            setResult(null);    // Clear result for next student
+            setIsSaved(false);
+            setActiveTab(TabOption.STUDENT_ANSWER); // Switch to submission tab for next student
+          }, 2000);
+        }
+      }
+    } catch (e: any) { 
+      setError(e.message); 
+    } finally { 
+      setIsEvaluating(false); 
+    }
   };
 
   const onResetSystem = async () => {
@@ -214,13 +246,14 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
           )}
           {viewMode === 'EVALUATION' && (
             <div className="grid grid-cols-1 xl:grid-cols-10 gap-8 h-full">
-               <section className="xl:col-span-3 h-full"><ResultSection result={result} error={error} isEvaluating={isEvaluating} /></section>
+               <section className="xl:col-span-3 h-full"><ResultSection result={result} error={error} isEvaluating={isEvaluating} isSaved={isSaved} /></section>
                <section className="xl:col-span-7 h-full">
                  <InputSection 
                    activeExercise={gradeBookState.exercises.find(e => e.id === activeExerciseId) || gradeBookState.exercises[0]} 
                    studentCode={studentCode} setStudentCode={setStudentCode} onEvaluate={onEvaluate} isEvaluating={isEvaluating} 
                    activeTab={activeTab} setActiveTab={setActiveTab} onUpdateExerciseData={onUpdateExerciseData} students={gradeBookState.students} 
                    selectedStudentId={selectedStudentId} setSelectedStudentId={setSelectedStudentId} exercises={gradeBookState.exercises} setActiveExerciseId={setActiveExerciseId} onAddExercise={onAddExercise} 
+                   autoAdvance={autoAdvance} setAutoAdvance={setAutoAdvance}
                  />
                </section>
             </div>
