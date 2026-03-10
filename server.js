@@ -86,8 +86,13 @@ const Message = mongoose.models.Message || mongoose.model('Message', MessageSche
 const Archive = mongoose.models.Archive || mongoose.model('Archive', ArchiveSchema);
 
 // 2. AUTHENTICATION CONFIG
+// 2. AUTHENTICATION CONFIG
+if (!process.env.SESSION_SECRET && process.env.NODE_ENV === 'production') {
+  throw new Error("SESSION_SECRET env variable is not set. Refusing to start.");
+}
+
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'fallback-secret',
+  secret: process.env.SESSION_SECRET || 'dev-only-secret',
   resave: false,
   saveUninitialized: false,
   store: MONGODB_URI ? MongoStore.create({ mongoUrl: MONGODB_URI }) : undefined,
@@ -231,7 +236,7 @@ app.post('/api/student/chat', async (req, res) => {
 });
 
 app.get('/api/admin/db', async (req, res) => {
-  if (!req.isAuthenticated()) return res.status(401).json({ message: "Login required" });
+  if (!req.isAuthenticated() || req.user.role !== 'lecturer') return res.status(403).json({ message: "Forbidden" });
   try {
     await connectDB();
     const users = await User.find({}).limit(100);
