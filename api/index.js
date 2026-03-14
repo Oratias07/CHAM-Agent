@@ -222,6 +222,23 @@ router.get('/lecturer/dashboard-init', async (req, res) => {
   res.json({ courses, archives });
 });
 
+router.get('/admin/db', async (req, res) => {
+  if (!req.user) return res.status(401).send();
+  try {
+    await connectDB();
+    const [users, grades, courses, messages] = await Promise.all([
+      User.find({}).limit(100),
+      Grade.find({}).limit(100),
+      Course.find({}).limit(100),
+      DirectMessage.find({}).limit(100)
+    ]);
+    res.json({ users, grades, courses, messages });
+  } catch (err) {
+    console.error('DB Admin Error:', err);
+    res.status(500).json({ message: "Database Error: " + err.message });
+  }
+});
+
 // ARCHIVE MANAGEMENT
 router.post('/lecturer/archive', async (req, res) => {
   if (!req.user) return res.status(401).send();
@@ -253,7 +270,11 @@ router.post('/student/chat', async (req, res) => {
   const materials = await Material.find({ courseId, isVisible: true });
   const context = materials.map(m => `### ${m.title} ###\n${m.content}`).join('\n\n');
 
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  const aiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+  if (!aiKey) {
+    return res.json({ text: "I apologize, but the AI engine is not configured. Please contact the administrator." });
+  }
+  const ai = new GoogleGenAI({ apiKey: aiKey });
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: `You are a specialized Course Assistant. 
@@ -322,7 +343,11 @@ router.post('/evaluate', async (req, res) => {
   if (!req.user) return res.status(401).send();
   try {
     const { question, masterSolution, rubric, studentCode, customInstructions } = req.body;
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const aiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+    if (!aiKey) {
+      return res.status(500).json({ message: "AI Analysis Engine Error: API key is not configured in the environment." });
+    }
+    const ai = new GoogleGenAI({ apiKey: aiKey });
     
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',

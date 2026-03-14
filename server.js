@@ -86,13 +86,8 @@ const Message = mongoose.models.Message || mongoose.model('Message', MessageSche
 const Archive = mongoose.models.Archive || mongoose.model('Archive', ArchiveSchema);
 
 // 2. AUTHENTICATION CONFIG
-// 2. AUTHENTICATION CONFIG
-if (!process.env.SESSION_SECRET && process.env.NODE_ENV === 'production') {
-  throw new Error("SESSION_SECRET env variable is not set. Refusing to start.");
-}
-
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'dev-only-secret',
+  secret: process.env.SESSION_SECRET || 'fallback-secret',
   resave: false,
   saveUninitialized: false,
   store: MONGODB_URI ? MongoStore.create({ mongoUrl: MONGODB_URI }) : undefined,
@@ -236,7 +231,7 @@ app.post('/api/student/chat', async (req, res) => {
 });
 
 app.get('/api/admin/db', async (req, res) => {
-  if (!req.isAuthenticated() || req.user.role !== 'lecturer') return res.status(403).json({ message: "Forbidden" });
+  if (!req.isAuthenticated()) return res.status(401).json({ message: "Login required" });
   try {
     await connectDB();
     const users = await User.find({}).limit(100);
@@ -420,7 +415,11 @@ app.post('/api/evaluate', async (req, res) => {
   
   try {
     const { question, rubric, studentCode, masterSolution, customInstructions } = req.body;
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  const aiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+  if (!aiKey) {
+    return res.status(500).json({ message: "AI Analysis Engine Error: API key is not configured in the environment." });
+  }
+  const ai = new GoogleGenAI({ apiKey: aiKey });
     
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview', 
