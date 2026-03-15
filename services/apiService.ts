@@ -284,5 +284,34 @@ export const apiService = {
       body: JSON.stringify({ studentCode })
     });
     return handleResponse(res);
+  },
+
+  async getCourseContacts(courseId: string): Promise<{ lecturer: User, students: User[] }> {
+    const res = await fetch(`/api/student/course-contacts/${courseId}`);
+    return handleResponse(res);
+  },
+
+  async getStudentSubmissions(): Promise<Submission[]> {
+    const res = await fetch(`/api/student/submissions`);
+    return handleResponse(res);
+  },
+
+  async getWaitlistHistory(): Promise<any[]> {
+    const res = await fetch(`/api/student/waitlist-history`);
+    return handleResponse(res);
+  },
+
+  async addPrivateMaterial(data: { title: string, content: string }): Promise<Material> {
+    const res = await fetch(`/api/student/private-materials`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return handleResponse(res);
+  },
+
+  async getPrivateMaterials(): Promise<Material[]> {
+    const res = await fetch(`/api/student/private-materials`);
+    return handleResponse(res);
   }
 };

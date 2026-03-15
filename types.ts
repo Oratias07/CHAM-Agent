@@ -64,6 +64,7 @@ export interface Material {
   folder?: string; 
   isVisible: boolean; 
   type: 'lecturer_shared' | 'student_private';
+  ownerId?: string;
   timestamp: Date;
   viewedBy?: string[]; // Track student IDs who opened the file
 }
