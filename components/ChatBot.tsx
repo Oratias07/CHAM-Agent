@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { sendChatMessage } from '../services/geminiService';
+import { sendChatMessage, sendStudentChatMessage } from '../services/geminiService';
 
 interface Message {
   role: 'user' | 'model';
@@ -9,6 +9,8 @@ interface Message {
 
 interface ChatBotProps {
   darkMode?: boolean;
+  mode?: 'student' | 'lecturer';
+  courseId?: string;
   context?: {
     question?: string;
     masterSolution?: string;
@@ -23,10 +25,10 @@ const Icons = {
   Send: () => <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
 };
 
-const ChatBot: React.FC<ChatBotProps> = ({ context }) => {
+const ChatBot: React.FC<ChatBotProps> = ({ context, mode = 'lecturer', courseId }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'model', text: 'Assistant Engine initialized. Grounding established with current active task. How can I facilitate your evaluation process?' }
+    { role: 'model', text: mode === 'student' ? 'Student Assistant Engine online. I am grounded in your course materials. How can I help you today?' : 'Assistant Engine initialized. Grounding established with current active task. How can I facilitate your evaluation process?' }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -45,7 +47,12 @@ const ChatBot: React.FC<ChatBotProps> = ({ context }) => {
     setIsLoading(true);
 
     try {
-      const responseText = await sendChatMessage(userMessage, context);
+      let responseText = '';
+      if (mode === 'student' && courseId) {
+        responseText = await sendStudentChatMessage(userMessage, courseId);
+      } else {
+        responseText = await sendChatMessage(userMessage, context);
+      }
       setMessages(prev => [...prev, { role: 'model', text: responseText }]);
     } catch (error) {
       setMessages(prev => [...prev, { role: 'model', text: 'Error encountered during context search. Please re-execute.' }]);

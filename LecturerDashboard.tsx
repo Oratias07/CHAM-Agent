@@ -10,7 +10,7 @@ import DirectChat from './components/DirectChat';
 import ArchiveViewer from './components/ArchiveViewer';
 import AssignmentManager from './components/AssignmentManager';
 import { apiService } from './services/apiService';
-import { GradingResult, TabOption, GradeBookState, User, Course, Student, Exercise, Archive, GradeEntry } from './types';
+import { GradingResult, TabOption, GradeBookState, User, Course, Student, Exercise, Archive, GradeEntry, Submission } from './types';
 import { INITIAL_GRADEBOOK_STATE } from './constants';
 
 interface LecturerDashboardProps {
@@ -20,7 +20,7 @@ interface LecturerDashboardProps {
   onSignOut: () => void;
 }
 
-type ViewMode = 'EVALUATION' | 'SHEETS' | 'STUDENTS' | 'COURSES' | 'MESSAGES' | 'ARCHIVES' | 'ASSIGNMENTS';
+type ViewMode = 'EVALUATION' | 'SHEETS' | 'STUDENTS' | 'COURSES' | 'MESSAGES' | 'ARCHIVES' | 'ASSIGNMENTS' | 'EVALUATIONS';
 
 const Icons = {
   Evaluation: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>,
@@ -33,7 +33,8 @@ const Icons = {
   Database: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" /></svg>,
   SignOut: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>,
   Theme: (isDark: boolean) => isDark ? <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m12.728 12.728l.707.707M12 8a4 4 0 100 8 4 4 0 000-8z" /></svg> : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>,
-  Close: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+  Close: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>,
+  Library: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" /></svg>
 };
 
 const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, setDarkMode, onSignOut }) => {
@@ -47,6 +48,7 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
   const [messageAlert, setMessageAlert] = useState<{ text: string, senderId: string } | null>(null);
   const [chatTarget, setChatTarget] = useState<Student | null>(null);
   const [allUsers, setAllUsers] = useState<Student[]>([]);
+  const [allSubmissions, setAllSubmissions] = useState<Submission[]>([]);
 
   const [activeExerciseId, setActiveExerciseId] = useState<string>('ex-1');
   const [selectedStudentId, setSelectedStudentId] = useState<string>('student-1');
@@ -83,7 +85,10 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
     if (viewMode === 'MESSAGES') {
       apiService.getAllUsers().then(setAllUsers);
     }
-  }, [viewMode]);
+    if (viewMode === 'EVALUATIONS' && activeCourse) {
+      apiService.getLecturerAllSubmissions(activeCourse.id).then(setAllSubmissions);
+    }
+  }, [viewMode, activeCourse]);
 
   useEffect(() => {
     if (activeCourse) {
@@ -257,7 +262,8 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
     { id: 'STUDENTS', label: 'Waitlist', icon: <Icons.Students />, badge: pendingCount },
     { id: 'MESSAGES', label: 'Inbox', icon: <Icons.Messages />, badge: unreadMessages, pulsing: true },
     { id: 'ASSIGNMENTS', label: 'Tasks', icon: <Icons.Solution /> },
-    { id: 'ARCHIVES', label: 'Library', icon: <Icons.Archives /> },
+    { id: 'EVALUATIONS', label: 'Library Zone', icon: <Icons.Library /> },
+    { id: 'ARCHIVES', label: 'Snapshots', icon: <Icons.Archives /> },
     { id: 'EVALUATION', label: 'Core', icon: <Icons.Evaluation /> },
     { id: 'SHEETS', label: 'Grid', icon: <Icons.Gradebook /> }
   ];
@@ -306,6 +312,44 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
 
         <main className="flex-grow p-8 overflow-y-auto custom-scrollbar relative">
           {viewMode === 'ASSIGNMENTS' && activeCourse && <AssignmentManager course={activeCourse} />}
+          {viewMode === 'EVALUATIONS' && activeCourse && (
+            <div className="space-y-8 overflow-y-auto custom-scrollbar pb-20">
+              <header>
+                <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tighter">Evaluation Library</h3>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Historical Submissions & Feedback</p>
+              </header>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {allSubmissions.map(s => (
+                  <div key={s.id} className="bg-white dark:bg-slate-850 p-8 rounded-[2.5rem] border border-zinc-200 dark:border-slate-800 shadow-sm">
+                    <div className="flex justify-between items-start mb-6">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-brand-50 dark:bg-slate-800 rounded-xl flex items-center justify-center text-brand-600 font-black text-xs">
+                          {s.studentName.charAt(0)}
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-tighter">{s.studentName}</h4>
+                          <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">{new Date(s.timestamp).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-2xl font-black text-emerald-600">{s.score}</p>
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Score</p>
+                      </div>
+                    </div>
+                    <div className="p-4 bg-zinc-50 dark:bg-slate-900/40 rounded-2xl border border-zinc-100 dark:border-slate-800">
+                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Feedback</p>
+                      <p className="text-xs text-slate-600 dark:text-slate-300 font-bold italic leading-relaxed">{s.feedback}</p>
+                    </div>
+                  </div>
+                ))}
+                {allSubmissions.length === 0 && (
+                  <div className="col-span-full py-20 text-center border-2 border-dashed dark:border-slate-800 rounded-[3rem]">
+                    <p className="text-slate-500 font-bold uppercase text-[10px] tracking-widest">No evaluated submissions in library</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           {viewMode === 'ARCHIVES' && <ArchiveViewer archives={archives} onRestore={onRestoreArchive} />}
           {viewMode === 'COURSES' && <CourseManager courses={courses} onCourseUpdate={() => apiService.getLecturerDashboardData().then(d => setCourses(d.courses))} onSelectCourse={setActiveCourse} />}
           {viewMode === 'STUDENTS' && activeCourse && <StudentManagement courseId={activeCourse.id} />}
