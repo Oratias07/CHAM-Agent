@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { User, Material } from '../types';
 import { apiService } from '../services/apiService';
 import DirectChat from './DirectChat';
+import StudentAssignments from './StudentAssignments';
 
 interface StudentPortalProps {
   user: User;
@@ -11,7 +12,7 @@ interface StudentPortalProps {
   onSignOut: () => void;
 }
 
-type ViewMode = 'AI_CHAT' | 'DIRECT_CHAT' | 'MATERIALS';
+type ViewMode = 'AI_CHAT' | 'DIRECT_CHAT' | 'MATERIALS' | 'ASSIGNMENTS';
 
 const Icons = {
   Send: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>,
@@ -112,6 +113,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
         </div>
         <div className="p-4 space-y-2">
           <button onClick={() => setViewMode('MATERIALS')} className={`w-full flex items-center space-x-3 p-4 rounded-2xl transition-all ${viewMode === 'MATERIALS' ? 'bg-brand-600 text-white shadow-lg' : 'hover:bg-zinc-50 dark:hover:bg-slate-800 text-slate-500'}`}><Icons.Book /> <span className="text-xs font-black uppercase tracking-widest">Documents</span></button>
+          <button onClick={() => setViewMode('ASSIGNMENTS')} className={`w-full flex items-center space-x-3 p-4 rounded-2xl transition-all ${viewMode === 'ASSIGNMENTS' ? 'bg-brand-600 text-white shadow-lg' : 'hover:bg-zinc-50 dark:hover:bg-slate-800 text-slate-500'}`}><Icons.Material /> <span className="text-xs font-black uppercase tracking-widest">Assignments</span></button>
           <button onClick={() => setViewMode('AI_CHAT')} className={`w-full flex items-center space-x-3 p-4 rounded-2xl transition-all ${viewMode === 'AI_CHAT' ? 'bg-brand-600 text-white shadow-lg' : 'hover:bg-zinc-50 dark:hover:bg-slate-800 text-slate-500'}`}><Icons.Robot /> <span className="text-xs font-black uppercase tracking-widest">Strict Assistant</span></button>
           <button onClick={() => setViewMode('DIRECT_CHAT')} className={`w-full flex items-center space-x-3 p-4 rounded-2xl transition-all ${viewMode === 'DIRECT_CHAT' ? 'bg-brand-600 text-white shadow-lg' : 'hover:bg-zinc-50 dark:hover:bg-slate-800 text-slate-500'}`}><Icons.Chat /> <span className="text-xs font-black uppercase tracking-widest">Direct Line</span></button>
         </div>
@@ -149,6 +151,9 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
                   </div>
                 )}
              </div>
+          )}
+          {viewMode === 'ASSIGNMENTS' && (
+            <div className="flex-grow overflow-hidden">{course ? <StudentAssignments course={course} /> : <div className="h-full flex items-center justify-center font-black uppercase text-slate-400 tracking-widest text-[10px]">Vault locked</div>}</div>
           )}
           {viewMode === 'AI_CHAT' && (
             <>
