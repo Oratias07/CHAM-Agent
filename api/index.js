@@ -73,6 +73,7 @@ const MaterialSchema = new mongoose.Schema({
   folder: { type: String, default: 'General' },
   isVisible: { type: Boolean, default: true },
   type: { type: String, enum: ['lecturer_shared', 'student_private'] },
+  ownerId: String,
   timestamp: { type: Date, default: Date.now },
   viewedBy: { type: [String], default: [] }
 });
@@ -138,6 +139,16 @@ const DirectMessage = mongoose.models.DirectMessage || mongoose.model('DirectMes
 const Grade = mongoose.models.Grade || mongoose.model('Grade', GradeSchema);
 const Assignment = mongoose.models.Assignment || mongoose.model('Assignment', AssignmentSchema);
 const Submission = mongoose.models.Submission || mongoose.model('Submission', SubmissionSchema);
+
+const WaitlistHistorySchema = new mongoose.Schema({
+  studentId: String,
+  courseId: String,
+  courseName: String,
+  status: { type: String, enum: ['pending', 'approved', 'rejected'] },
+  timestamp: { type: Date, default: Date.now }
+});
+WaitlistHistorySchema.set('toJSON', { virtuals: true });
+const WaitlistHistory = mongoose.models.WaitlistHistory || mongoose.model('WaitlistHistory', WaitlistHistorySchema);
 
 // AUTH CONFIG
 const sessionConfig = {
@@ -287,13 +298,84 @@ router.post('/student/materials/:id/view', async (req, res) => {
   res.json({ success: true });
 });
 
+// STUDENT ROUTES
+router.post('/student/join-course', async (req, res) => {
+  if (!req.user || req.user.role !== 'student') return res.status(401).send();
+  await connectDB();
+  const { code } = req.body;
+  const course = await Course.findOne({ code });
+  if (!course) return res.status(404).json({ message: "Course not found" });
+  
+  if (course.enrolledStudentIds.includes(req.user.googleId)) {
+    return res.status(400).json({ message: "Already enrolled" });
+  }
+  
+  await Course.updateOne({ _id: course._id }, { $addToSet: { pendingStudentIds: req.user.googleId } });
+  
+  await WaitlistHistory.create({
+    studentId: req.user.googleId,
+    courseId: course._id,
+    courseName: course.name,
+    status: 'pending'
+  });
+
+  res.json({ message: "Request sent to lecturer" });
+});
+
+router.get('/student/course-contacts/:courseId', async (req, res) => {
+  if (!req.user) return res.status(401).send();
+  await connectDB();
+  const course = await Course.findById(req.params.courseId);
+  if (!course) return res.status(404).send();
+  
+  const lecturer = await User.findOne({ googleId: course.lecturerId });
+  const students = await User.find({ googleId: { $in: course.enrolledStudentIds, $ne: req.user.googleId } });
+  
+  res.json({ lecturer, students });
+});
+
+router.get('/student/submissions', async (req, res) => {
+  if (!req.user) return res.status(401).send();
+  await connectDB();
+  const submissions = await Submission.find({ studentId: req.user.googleId, status: 'evaluated' });
+  res.json(submissions);
+});
+
+router.get('/student/waitlist-history', async (req, res) => {
+  if (!req.user) return res.status(401).send();
+  await connectDB();
+  const history = await WaitlistHistory.find({ studentId: req.user.googleId }).sort({ timestamp: -1 });
+  res.json(history);
+});
+
+router.post('/student/private-materials', async (req, res) => {
+  if (!req.user) return res.status(401).send();
+  await connectDB();
+  const material = await Material.create({ 
+    ...req.body, 
+    ownerId: req.user.googleId, 
+    type: 'student_private' 
+  });
+  res.json(material);
+});
+
+router.get('/student/private-materials', async (req, res) => {
+  if (!req.user) return res.status(401).send();
+  await connectDB();
+  const materials = await Material.find({ ownerId: req.user.googleId, type: 'student_private' });
+  res.json(materials);
+});
+
 // STRICT RAG STUDENT CHAT
 router.post('/student/chat', async (req, res) => {
   if (!req.user || req.user.role !== 'student') return res.status(401).send();
   await connectDB();
   const { courseId, message } = req.body;
-  const materials = await Material.find({ courseId, isVisible: true });
-  const context = materials.map(m => `### ${m.title} ###\n${m.content}`).join('\n\n');
+  const lecturerMaterials = await Material.find({ courseId, isVisible: true, type: 'lecturer_shared' });
+  const studentMaterials = await Material.find({ ownerId: req.user.googleId, type: 'student_private' });
+  
+  const allMaterials = [...lecturerMaterials, ...studentMaterials];
+  const context = allMaterials.map(m => `### ${m.title} ###\n${m.content}`).join('\n\n');
 
   const aiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
   if (!aiKey) {
@@ -630,15 +712,34 @@ router.post('/lecturer/courses/:id/approve', async (req, res) => {
   if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
   await connectDB();
   const { studentId } = req.body;
+  const course = await Course.findById(req.params.id);
   await Course.updateOne({ _id: req.params.id }, { $pull: { pendingStudentIds: studentId }, $addToSet: { enrolledStudentIds: studentId } });
   await User.updateOne({ googleId: studentId }, { $addToSet: { enrolledCourseIds: req.params.id }, $inc: { unseenApprovals: 1 } });
+  
+  await WaitlistHistory.create({
+    studentId,
+    courseId: req.params.id,
+    courseName: course.name,
+    status: 'approved'
+  });
+
   res.json({ success: true });
 });
 
 router.post('/lecturer/courses/:id/reject', async (req, res) => {
-  if (!req.user) return res.status(401).send();
+  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
   await connectDB();
-  await Course.updateOne({ _id: req.params.id }, { $pull: { pendingStudentIds: req.body.studentId } });
+  const { studentId } = req.body;
+  const course = await Course.findById(req.params.id);
+  await Course.updateOne({ _id: req.params.id }, { $pull: { pendingStudentIds: studentId } });
+  
+  await WaitlistHistory.create({
+    studentId,
+    courseId: req.params.id,
+    courseName: course.name,
+    status: 'rejected'
+  });
+
   res.json({ success: true });
 });
 
