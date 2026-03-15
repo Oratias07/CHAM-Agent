@@ -13,12 +13,17 @@ export interface User {
 }
 
 export interface DirectMessage {
-  id?: string;
+  id: string;
   senderId: string;
   receiverId: string;
   text: string;
   timestamp: Date;
   isRead: boolean;
+  replyTo?: string; // ID of the message being replied to
+  replyText?: string; // Text of the message being replied to (for quick display)
+  isEdited?: boolean;
+  deletedFor?: string[]; // Array of user IDs who deleted this message for themselves
+  deletedForAll?: boolean;
 }
 
 export interface Archive {
@@ -95,6 +100,34 @@ export interface Student {
 export interface GradeEntry {
   score: number;
   feedback: string;
+}
+
+export interface Assignment {
+  id: string;
+  courseId: string;
+  title: string;
+  question: string;
+  masterSolution: string;
+  rubric: string;
+  customInstructions?: string;
+  maxScore: number;
+  openDate: Date;
+  dueDate: Date;
+  createdAt: Date;
+}
+
+export interface Submission {
+  id: string;
+  assignmentId: string;
+  courseId: string;
+  studentId: string;
+  studentName: string;
+  studentCode: string;
+  score?: number;
+  feedback?: string;
+  timestamp: Date;
+  status: 'pending' | 'evaluated';
+  extensionUntil?: Date; // For special permission
 }
 
 export interface Exercise {

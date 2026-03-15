@@ -83,7 +83,12 @@ const DirectMessageSchema = new mongoose.Schema({
   receiverId: String,
   text: String,
   timestamp: { type: Date, default: Date.now },
-  isRead: { type: Boolean, default: false }
+  isRead: { type: Boolean, default: false },
+  replyTo: String, // ID of the message being replied to
+  replyText: String, // Text of the message being replied to
+  isEdited: { type: Boolean, default: false },
+  deletedFor: { type: [String], default: [] },
+  deletedForAll: { type: Boolean, default: false }
 });
 DirectMessageSchema.set('toJSON', { virtuals: true });
 
@@ -97,12 +102,42 @@ const GradeSchema = new mongoose.Schema({
 });
 GradeSchema.set('toJSON', { virtuals: true });
 
+const AssignmentSchema = new mongoose.Schema({
+  courseId: String,
+  title: String,
+  question: String,
+  masterSolution: String,
+  rubric: String,
+  customInstructions: String,
+  maxScore: { type: Number, default: 100 },
+  openDate: Date,
+  dueDate: Date,
+  createdAt: { type: Date, default: Date.now }
+});
+AssignmentSchema.set('toJSON', { virtuals: true });
+
+const SubmissionSchema = new mongoose.Schema({
+  assignmentId: String,
+  courseId: String,
+  studentId: String,
+  studentName: String,
+  studentCode: String,
+  score: Number,
+  feedback: String,
+  timestamp: { type: Date, default: Date.now },
+  status: { type: String, enum: ['pending', 'evaluated'], default: 'pending' },
+  extensionUntil: Date
+});
+SubmissionSchema.set('toJSON', { virtuals: true });
+
 const User = mongoose.models.User || mongoose.model('User', UserSchema);
 const Course = mongoose.models.Course || mongoose.model('Course', CourseSchema);
 const Archive = mongoose.models.Archive || mongoose.model('Archive', ArchiveSchema);
 const Material = mongoose.models.Material || mongoose.model('Material', MaterialSchema);
 const DirectMessage = mongoose.models.DirectMessage || mongoose.model('DirectMessage', DirectMessageSchema);
 const Grade = mongoose.models.Grade || mongoose.model('Grade', GradeSchema);
+const Assignment = mongoose.models.Assignment || mongoose.model('Assignment', AssignmentSchema);
+const Submission = mongoose.models.Submission || mongoose.model('Submission', SubmissionSchema);
 
 // AUTH CONFIG
 const sessionConfig = {
@@ -193,6 +228,13 @@ router.post('/user/update-role', async (req, res) => {
 });
 
 // ENHANCED SYNC: Message Alerts + Pending Counts
+router.get('/users/all', async (req, res) => {
+  if (!req.user) return res.status(401).send();
+  await connectDB();
+  const users = await User.find({ googleId: { $ne: req.user.googleId } });
+  res.json(users.map(u => ({ id: u.googleId, name: u.name, picture: u.picture })));
+});
+
 router.get('/lecturer/sync', async (req, res) => {
   if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
   await connectDB();
@@ -220,23 +262,6 @@ router.get('/lecturer/dashboard-init', async (req, res) => {
     Archive.find({ lecturerId: req.user.googleId }).sort({ timestamp: -1 })
   ]);
   res.json({ courses, archives });
-});
-
-router.get('/admin/db', async (req, res) => {
-  if (!req.user) return res.status(401).send();
-  try {
-    await connectDB();
-    const [users, grades, courses, messages] = await Promise.all([
-      User.find({}).limit(100),
-      Grade.find({}).limit(100),
-      Course.find({}).limit(100),
-      DirectMessage.find({}).limit(100)
-    ]);
-    res.json({ users, grades, courses, messages });
-  } catch (err) {
-    console.error('DB Admin Error:', err);
-    res.status(500).json({ message: "Database Error: " + err.message });
-  }
 });
 
 // ARCHIVE MANAGEMENT
@@ -301,7 +326,9 @@ router.get('/messages/:otherId', async (req, res) => {
     $or: [
       { senderId: req.user.googleId, receiverId: req.params.otherId },
       { senderId: req.params.otherId, receiverId: req.user.googleId }
-    ]
+    ],
+    deletedForAll: { $ne: true },
+    deletedFor: { $ne: req.user.googleId }
   }).sort({ timestamp: 1 });
   res.json(messages);
 });
@@ -313,9 +340,40 @@ router.post('/messages', async (req, res) => {
     senderId: req.user.googleId,
     receiverId: req.body.receiverId,
     text: req.body.text,
+    replyTo: req.body.replyTo,
+    replyText: req.body.replyText,
     timestamp: new Date()
   });
   res.json(msg);
+});
+
+router.put('/messages/:id', async (req, res) => {
+  if (!req.user) return res.status(401).send();
+  await connectDB();
+  const msg = await DirectMessage.findOneAndUpdate(
+    { _id: req.params.id, senderId: req.user.googleId },
+    { text: req.body.text, isEdited: true },
+    { new: true }
+  );
+  res.json(msg);
+});
+
+router.delete('/messages/:id', async (req, res) => {
+  if (!req.user) return res.status(401).send();
+  await connectDB();
+  const { forEveryone } = req.query;
+  if (forEveryone === 'true') {
+    await DirectMessage.findOneAndUpdate(
+      { _id: req.params.id, senderId: req.user.googleId },
+      { deletedForAll: true }
+    );
+  } else {
+    await DirectMessage.findByIdAndUpdate(
+      req.params.id,
+      { $addToSet: { deletedFor: req.user.googleId } }
+    );
+  }
+  res.json({ success: true });
 });
 
 // PERSISTENCE ROUTES
@@ -323,11 +381,20 @@ router.post('/grades/save', async (req, res) => {
   if (!req.user) return res.status(401).send();
   await connectDB();
   const { exerciseId, studentId, score, feedback } = req.body;
+  
+  // Update generic Grade model
   await Grade.findOneAndUpdate(
     { userId: req.user.googleId, exerciseId, studentId },
     { score, feedback, timestamp: Date.now() },
     { upsert: true }
   );
+
+  // Also update Submission if this exerciseId is an assignmentId
+  await Submission.findOneAndUpdate(
+    { assignmentId: exerciseId, studentId },
+    { score, feedback, status: 'evaluated' }
+  );
+
   res.json({ success: true });
 });
 
@@ -384,6 +451,145 @@ router.post('/evaluate', async (req, res) => {
   } catch (err) {
     console.error('AI Evaluation Error:', err);
     res.status(500).json({ message: "AI Analysis Engine Error: " + err.message });
+  }
+});
+
+// ASSIGNMENT MANAGEMENT
+router.post('/lecturer/assignments', async (req, res) => {
+  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
+  await connectDB();
+  const assignment = await Assignment.create(req.body);
+  res.json(assignment);
+});
+
+router.get('/lecturer/courses/:courseId/assignments', async (req, res) => {
+  if (!req.user) return res.status(401).send();
+  await connectDB();
+  const assignments = await Assignment.find({ courseId: req.params.courseId }).sort({ createdAt: -1 });
+  res.json(assignments);
+});
+
+router.put('/lecturer/assignments/:id', async (req, res) => {
+  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
+  await connectDB();
+  const assignment = await Assignment.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  res.json(assignment);
+});
+
+router.delete('/lecturer/assignments/:id', async (req, res) => {
+  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
+  await connectDB();
+  await Assignment.findByIdAndDelete(req.params.id);
+  await Submission.deleteMany({ assignmentId: req.params.id });
+  res.json({ success: true });
+});
+
+router.get('/lecturer/assignments/:id/submissions', async (req, res) => {
+  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
+  await connectDB();
+  const submissions = await Submission.find({ assignmentId: req.params.id }).sort({ timestamp: -1 });
+  res.json(submissions);
+});
+
+router.post('/lecturer/submissions/:id/extension', async (req, res) => {
+  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
+  await connectDB();
+  const submission = await Submission.findByIdAndUpdate(req.params.id, { extensionUntil: req.body.extensionUntil }, { new: true });
+  res.json(submission);
+});
+
+// STUDENT ASSIGNMENT ROUTES
+router.get('/student/courses/:courseId/assignments', async (req, res) => {
+  if (!req.user) return res.status(401).send();
+  await connectDB();
+  const assignments = await Assignment.find({ courseId: req.params.courseId }).sort({ createdAt: -1 });
+  // Also fetch student's submissions for these assignments
+  const submissions = await Submission.find({ studentId: req.user.googleId, courseId: req.params.courseId });
+  res.json({ assignments, submissions });
+});
+
+router.post('/student/assignments/:id/submit', async (req, res) => {
+  if (!req.user) return res.status(401).send();
+  await connectDB();
+  
+  const assignment = await Assignment.findById(req.params.id);
+  if (!assignment) return res.status(404).json({ message: "Assignment not found" });
+
+  const now = new Date();
+  
+  // Check if open
+  if (now < new Date(assignment.openDate)) {
+    return res.status(403).json({ message: "Submission period has not started yet" });
+  }
+
+  // Check if past due
+  let existingSubmission = await Submission.findOne({ assignmentId: req.params.id, studentId: req.user.googleId });
+  const effectiveDueDate = existingSubmission?.extensionUntil ? new Date(existingSubmission.extensionUntil) : new Date(assignment.dueDate);
+  
+  if (now > effectiveDueDate) {
+    return res.status(403).json({ message: "Submission deadline has passed" });
+  }
+
+  // Evaluate using AI
+  try {
+    const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const model = genAI.models.get('gemini-3-flash-preview');
+    
+    const prompt = `
+      You are an expert academic grader. Evaluate the following student submission based on the provided question, master solution, and rubric.
+      
+      QUESTION:
+      ${assignment.question}
+      
+      MASTER SOLUTION:
+      ${assignment.masterSolution}
+      
+      RUBRIC:
+      ${assignment.rubric}
+      
+      STUDENT SUBMISSION:
+      ${req.body.studentCode}
+      
+      CUSTOM INSTRUCTIONS:
+      ${assignment.customInstructions || 'None'}
+      
+      Return a JSON object with:
+      1. "score": a number from 0 to 100
+      2. "feedback": a detailed string explaining the grade and how to improve.
+    `;
+
+    const result = await model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      config: { responseMimeType: 'application/json' }
+    });
+    
+    const evaluation = JSON.parse(result.text);
+
+    if (existingSubmission) {
+      existingSubmission.studentCode = req.body.studentCode;
+      existingSubmission.score = evaluation.score;
+      existingSubmission.feedback = evaluation.feedback;
+      existingSubmission.timestamp = now;
+      existingSubmission.status = 'evaluated';
+      await existingSubmission.save();
+      res.json(existingSubmission);
+    } else {
+      const submission = await Submission.create({
+        assignmentId: req.params.id,
+        courseId: assignment.courseId,
+        studentId: req.user.googleId,
+        studentName: req.user.name,
+        studentCode: req.body.studentCode,
+        score: evaluation.score,
+        feedback: evaluation.feedback,
+        status: 'evaluated',
+        timestamp: now
+      });
+      res.json(submission);
+    }
+  } catch (err) {
+    console.error('Auto-Evaluation Error:', err);
+    res.status(500).json({ message: "Automatic evaluation failed, but your submission was saved. Please contact your lecturer." });
   }
 });
 

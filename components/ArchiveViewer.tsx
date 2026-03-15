@@ -4,9 +4,10 @@ import { Archive } from '../types';
 
 interface ArchiveViewerProps {
   archives: Archive[];
+  onRestore: (archive: Archive) => void;
 }
 
-const ArchiveViewer: React.FC<ArchiveViewerProps> = ({ archives }) => {
+const ArchiveViewer: React.FC<ArchiveViewerProps> = ({ archives, onRestore }) => {
   return (
     <div className="h-full space-y-8 overflow-y-auto custom-scrollbar pb-20">
       <header>
@@ -44,7 +45,10 @@ const ArchiveViewer: React.FC<ArchiveViewerProps> = ({ archives }) => {
               </div>
             </div>
 
-            <button className="w-full mt-8 py-3 bg-zinc-50 dark:bg-slate-800 hover:bg-brand-600 hover:text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all">
+            <button 
+              onClick={() => onRestore(archive)}
+              className="w-full mt-8 py-3 bg-zinc-50 dark:bg-slate-800 hover:bg-brand-600 hover:text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all"
+            >
               Restore Logic Snapshot
             </button>
           </div>

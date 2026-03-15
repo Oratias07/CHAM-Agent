@@ -1,5 +1,5 @@
 
-import { User, GradingInputs, GradingResult, Material, Course, Student, UserRole, DirectMessage, Archive } from "../types";
+import { User, GradingInputs, GradingResult, Material, Course, Student, UserRole, DirectMessage, Archive, Assignment, Submission } from "../types";
 
 const handleResponse = async (res: Response) => {
   if (!res.ok) {
@@ -63,12 +63,33 @@ export const apiService = {
     return handleResponse(res);
   },
 
-  async sendMessage(receiverId: string, text: string): Promise<DirectMessage> {
+  async sendMessage(receiverId: string, text: string, replyTo?: string, replyText?: string): Promise<DirectMessage> {
     const res = await fetch(`/api/messages`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ receiverId, text })
+      body: JSON.stringify({ receiverId, text, replyTo, replyText })
     });
+    return handleResponse(res);
+  },
+
+  async editMessage(messageId: string, text: string): Promise<DirectMessage> {
+    const res = await fetch(`/api/messages/${messageId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    });
+    return handleResponse(res);
+  },
+
+  async deleteMessage(messageId: string, forEveryone: boolean): Promise<void> {
+    const res = await fetch(`/api/messages/${messageId}?forEveryone=${forEveryone}`, {
+      method: 'DELETE'
+    });
+    await handleResponse(res);
+  },
+
+  async getAllUsers(): Promise<Student[]> {
+    const res = await fetch(`/api/users/all`);
     return handleResponse(res);
   },
 
@@ -207,5 +228,61 @@ export const apiService = {
       body: JSON.stringify(data)
     });
     await handleResponse(res);
+  },
+
+  // ASSIGNMENTS
+  async createAssignment(data: Partial<Assignment>): Promise<Assignment> {
+    const res = await fetch(`/api/lecturer/assignments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return handleResponse(res);
+  },
+
+  async getLecturerAssignments(courseId: string): Promise<Assignment[]> {
+    const res = await fetch(`/api/lecturer/courses/${courseId}/assignments`);
+    return handleResponse(res);
+  },
+
+  async updateAssignment(id: string, data: Partial<Assignment>): Promise<Assignment> {
+    const res = await fetch(`/api/lecturer/assignments/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return handleResponse(res);
+  },
+
+  async deleteAssignment(id: string): Promise<void> {
+    await fetch(`/api/lecturer/assignments/${id}`, { method: 'DELETE' });
+  },
+
+  async getAssignmentSubmissions(assignmentId: string): Promise<Submission[]> {
+    const res = await fetch(`/api/lecturer/assignments/${assignmentId}/submissions`);
+    return handleResponse(res);
+  },
+
+  async grantExtension(submissionId: string, extensionUntil: Date): Promise<Submission> {
+    const res = await fetch(`/api/lecturer/submissions/${submissionId}/extension`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ extensionUntil })
+    });
+    return handleResponse(res);
+  },
+
+  async getStudentAssignments(courseId: string): Promise<{ assignments: Assignment[], submissions: Submission[] }> {
+    const res = await fetch(`/api/student/courses/${courseId}/assignments`);
+    return handleResponse(res);
+  },
+
+  async submitAssignment(assignmentId: string, studentCode: string): Promise<Submission> {
+    const res = await fetch(`/api/student/assignments/${assignmentId}/submit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ studentCode })
+    });
+    return handleResponse(res);
   }
 };
