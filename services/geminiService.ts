@@ -20,3 +20,16 @@ export const sendChatMessage = async (
   const data = await res.json();
   return data.text || "I'm having trouble connecting to the server.";
 };
+
+export const sendStudentChatMessage = async (
+  message: string,
+  courseId: string
+): Promise<string> => {
+  const res = await fetch("/api/student/chat", {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, courseId })
+  });
+  const data = await res.json();
+  return data.text || "I'm having trouble connecting to the server.";
+};

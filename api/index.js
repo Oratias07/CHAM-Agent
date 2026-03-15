@@ -708,6 +708,30 @@ router.get('/lecturer/courses/:id/waitlist', async (req, res) => {
   res.json({ pending, enrolled });
 });
 
+router.get('/lecturer/courses/:id/waitlist-history', async (req, res) => {
+  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
+  await connectDB();
+  const history = await WaitlistHistory.find({ courseId: req.params.id }).sort({ timestamp: -1 });
+  const studentIds = history.map(h => h.studentId);
+  const students = await User.find({ googleId: { $in: studentIds } });
+  const studentMap = students.reduce((acc, s) => ({ ...acc, [s.googleId]: s }), {});
+  
+  const enrichedHistory = history.map(h => ({
+    ...h.toJSON(),
+    studentName: studentMap[h.studentId]?.name || 'Unknown Student',
+    studentPicture: studentMap[h.studentId]?.picture || ''
+  }));
+  
+  res.json(enrichedHistory);
+});
+
+router.get('/lecturer/courses/:id/all-submissions', async (req, res) => {
+  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
+  await connectDB();
+  const submissions = await Submission.find({ courseId: req.params.id, status: 'evaluated' }).sort({ timestamp: -1 });
+  res.json(submissions);
+});
+
 router.post('/lecturer/courses/:id/approve', async (req, res) => {
   if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
   await connectDB();

@@ -134,6 +134,16 @@ export const apiService = {
     return handleResponse(res);
   },
 
+  async getLecturerWaitlistHistory(courseId: string): Promise<any[]> {
+    const res = await fetch(`/api/lecturer/courses/${courseId}/waitlist-history`);
+    return handleResponse(res);
+  },
+
+  async getLecturerAllSubmissions(courseId: string): Promise<Submission[]> {
+    const res = await fetch(`/api/lecturer/courses/${courseId}/all-submissions`);
+    return handleResponse(res);
+  },
+
   async approveStudent(courseId: string, studentId: string): Promise<void> {
     const res = await fetch(`/api/lecturer/courses/${courseId}/approve`, {
       method: 'POST',

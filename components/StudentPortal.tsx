@@ -4,6 +4,7 @@ import { User, Material } from '../types';
 import { apiService } from '../services/apiService';
 import DirectChat from './DirectChat';
 import StudentAssignments from './StudentAssignments';
+import ChatBot from './ChatBot';
 
 interface StudentPortalProps {
   user: User;
@@ -289,12 +290,12 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
             <div className="p-12 overflow-y-auto custom-scrollbar">
               <h2 className="text-3xl font-black uppercase tracking-tighter text-slate-800 dark:text-slate-100 mb-10">Evaluation Library</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {submissions.filter(s => s.grade !== undefined).map(s => (
+                {submissions.filter(s => s.score !== undefined).map(s => (
                   <div key={s.id} className="bg-white dark:bg-slate-850 p-8 rounded-[2.5rem] border border-zinc-200 dark:border-slate-800">
                     <div className="flex justify-between items-start mb-6">
                       <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-950/20 rounded-xl flex items-center justify-center text-emerald-600"><Icons.Material /></div>
                       <div className="text-right">
-                        <span className="text-2xl font-black text-emerald-600">{s.grade}</span>
+                        <span className="text-2xl font-black text-emerald-600">{s.score}</span>
                         <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Final Score</p>
                       </div>
                     </div>
@@ -306,7 +307,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
                     </div>
                   </div>
                 ))}
-                {submissions.filter(s => s.grade !== undefined).length === 0 && (
+                {submissions.filter(s => s.score !== undefined).length === 0 && (
                   <div className="col-span-full py-20 text-center">
                     <p className="font-black uppercase text-slate-400 tracking-widest text-[10px]">No evaluations found in library</p>
                   </div>
@@ -364,6 +365,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
           </div>
         )}
       </main>
+      {course && <ChatBot mode="student" courseId={course.id} />}
     </div>
   );
 };
