@@ -45,6 +45,11 @@ export const apiService = {
     return handleResponse(res);
   },
 
+  async getStudentSync(): Promise<{ unreadMessages: number, unseenApprovals: number, alert?: { text: string, senderId: string } }> {
+    const res = await fetch(`/api/student/sync`);
+    return handleResponse(res);
+  },
+
   async archiveSession(payload: Partial<Archive>): Promise<Archive> {
     const res = await fetch(`/api/lecturer/archive`, {
       method: 'POST',

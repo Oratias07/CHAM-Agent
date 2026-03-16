@@ -70,7 +70,7 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
       } catch (e) {}
     };
     fetchSync();
-    const interval = setInterval(fetchSync, 8000);
+    const interval = setInterval(fetchSync, 5000);
     return () => clearInterval(interval);
   }, [messageAlert]);
 

@@ -331,7 +331,31 @@ router.get('/student/course-contacts/:courseId', async (req, res) => {
   const lecturer = await User.findOne({ googleId: course.lecturerId });
   const students = await User.find({ googleId: { $in: course.enrolledStudentIds, $ne: req.user.googleId } });
   
-  res.json({ lecturer, students });
+  res.json({ 
+    lecturer: lecturer ? { id: lecturer.googleId, name: lecturer.name, picture: lecturer.picture } : null, 
+    students: students.map(u => ({ id: u.googleId, name: u.name, picture: u.picture }))
+  });
+});
+
+router.get('/student/sync', async (req, res) => {
+  if (!req.user || req.user.role !== 'student') return res.status(401).send();
+  await connectDB();
+  
+  const unreadMessages = await DirectMessage.countDocuments({ receiverId: req.user.googleId, isRead: false });
+  const lastMessage = await DirectMessage.findOne({ receiverId: req.user.googleId, isRead: false }).sort({ timestamp: -1 });
+  
+  res.json({ 
+    unreadMessages,
+    unseenApprovals: req.user.unseenApprovals || 0,
+    alert: lastMessage ? { text: lastMessage.text, senderId: lastMessage.senderId } : null 
+  });
+});
+
+router.post('/student/clear-notifications', async (req, res) => {
+  if (!req.user) return res.status(401).send();
+  await connectDB();
+  await User.updateOne({ googleId: req.user.googleId }, { unseenApprovals: 0 });
+  res.json({ success: true });
 });
 
 router.get('/student/submissions', async (req, res) => {
