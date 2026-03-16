@@ -44,6 +44,8 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
   const [waitlistHistory, setWaitlistHistory] = useState<any[]>([]);
   const [showAddMaterial, setShowAddMaterial] = useState(false);
   const [newMaterial, setNewMaterial] = useState({ title: '', content: '' });
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  const [messageAlert, setMessageAlert] = useState<{ text: string, senderId: string } | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const course = localUser.activeCourse;
@@ -54,6 +56,21 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
       apiService.getCourseContacts(course.id).then(setContacts);
     }
   }, [course?.id, localUser.id]);
+
+  useEffect(() => {
+    const fetchSync = async () => {
+      try {
+        const sync = await apiService.getStudentSync();
+        setUnreadMessages(sync.unreadMessages);
+        if (sync.alert && sync.alert.text !== messageAlert?.text) {
+          setMessageAlert(sync.alert);
+        }
+      } catch (e) {}
+    };
+    fetchSync();
+    const interval = setInterval(fetchSync, 5000);
+    return () => clearInterval(interval);
+  }, [messageAlert]);
 
   useEffect(() => {
     if (viewMode === 'LIBRARY') {
@@ -122,6 +139,28 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
 
   return (
     <div className="h-screen flex bg-zinc-100 dark:bg-slate-900 transition-colors overflow-hidden">
+      {messageAlert && (
+        <div className="fixed top-6 right-6 z-[300] w-80 bg-white dark:bg-slate-850 border border-brand-500 rounded-3xl shadow-2xl p-6 animate-in slide-in-from-right duration-500">
+           <div className="flex justify-between items-start mb-3">
+             <span className="text-[10px] font-black text-brand-500 uppercase tracking-widest">New Academy Message</span>
+             <button onClick={() => setMessageAlert(null)} className="text-slate-400 hover:text-rose-500 transition-colors">
+               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+             </button>
+           </div>
+           <p className="text-xs font-bold text-slate-700 dark:text-slate-200 line-clamp-2 italic">"{messageAlert.text}"</p>
+           <button 
+            onClick={() => { 
+              const sender = contacts?.students.find(s => s.id === messageAlert.senderId) || (contacts?.lecturer?.id === messageAlert.senderId ? contacts.lecturer : null);
+              if (sender) setSelectedContact(sender);
+              setViewMode('DIRECT_CHAT'); 
+              setMessageAlert(null); 
+            }} 
+            className="mt-4 w-full py-2 bg-brand-50 dark:bg-slate-800 text-[10px] font-black uppercase text-brand-600 dark:text-brand-400 rounded-xl hover:bg-brand-100 dark:hover:bg-slate-700 transition-all"
+           >
+             Open Transmission
+           </button>
+        </div>
+      )}
       <aside className="w-80 border-r dark:border-slate-800 flex flex-col bg-white dark:bg-slate-850 shadow-xl z-20 transition-colors">
         <div className="p-8 border-b dark:border-slate-800 flex flex-col space-y-4">
           <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em]">Knowledge Vault</h3>
@@ -148,7 +187,15 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
           <button onClick={() => setViewMode('MATERIALS')} className={`w-full flex items-center space-x-3 p-4 rounded-2xl transition-all ${viewMode === 'MATERIALS' ? 'bg-brand-600 text-white shadow-lg' : 'hover:bg-zinc-50 dark:hover:bg-slate-800 text-slate-500'}`}><Icons.Book /> <span className="text-xs font-black uppercase tracking-widest">Documents</span></button>
           <button onClick={() => setViewMode('ASSIGNMENTS')} className={`w-full flex items-center space-x-3 p-4 rounded-2xl transition-all ${viewMode === 'ASSIGNMENTS' ? 'bg-brand-600 text-white shadow-lg' : 'hover:bg-zinc-50 dark:hover:bg-slate-800 text-slate-500'}`}><Icons.Material /> <span className="text-xs font-black uppercase tracking-widest">Assignments</span></button>
           <button onClick={() => setViewMode('AI_CHAT')} className={`w-full flex items-center space-x-3 p-4 rounded-2xl transition-all ${viewMode === 'AI_CHAT' ? 'bg-brand-600 text-white shadow-lg' : 'hover:bg-zinc-50 dark:hover:bg-slate-800 text-slate-500'}`}><Icons.Robot /> <span className="text-xs font-black uppercase tracking-widest">Strict Assistant</span></button>
-          <button onClick={() => setViewMode('INBOX')} className={`w-full flex items-center space-x-3 p-4 rounded-2xl transition-all ${viewMode === 'INBOX' || viewMode === 'DIRECT_CHAT' ? 'bg-brand-600 text-white shadow-lg' : 'hover:bg-zinc-50 dark:hover:bg-slate-800 text-slate-500'}`}><Icons.Chat /> <span className="text-xs font-black uppercase tracking-widest">Inbox</span></button>
+          <button onClick={() => setViewMode('INBOX')} className={`w-full flex items-center space-x-3 p-4 rounded-2xl transition-all relative ${viewMode === 'INBOX' || viewMode === 'DIRECT_CHAT' ? 'bg-brand-600 text-white shadow-lg' : 'hover:bg-zinc-50 dark:hover:bg-slate-800 text-slate-500'}`}>
+            <Icons.Chat /> 
+            <span className="text-xs font-black uppercase tracking-widest">Inbox</span>
+            {unreadMessages > 0 && (
+              <span className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-black text-white animate-pulse">
+                {unreadMessages}
+              </span>
+            )}
+          </button>
           <button onClick={() => setViewMode('LIBRARY')} className={`w-full flex items-center space-x-3 p-4 rounded-2xl transition-all ${viewMode === 'LIBRARY' ? 'bg-brand-600 text-white shadow-lg' : 'hover:bg-zinc-50 dark:hover:bg-slate-800 text-slate-500'}`}><Icons.Library /> <span className="text-xs font-black uppercase tracking-widest">Library Zone</span></button>
           <button onClick={() => setViewMode('WAITLIST')} className={`w-full flex items-center space-x-3 p-4 rounded-2xl transition-all ${viewMode === 'WAITLIST' ? 'bg-brand-600 text-white shadow-lg' : 'hover:bg-zinc-50 dark:hover:bg-slate-800 text-slate-500'}`}><Icons.Waitlist /> <span className="text-xs font-black uppercase tracking-widest">Waitlist</span></button>
         </div>

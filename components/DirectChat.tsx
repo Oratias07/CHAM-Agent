@@ -29,7 +29,7 @@ const DirectChat: React.FC<DirectChatProps> = ({ currentUser, targetUser, onClos
 
   useEffect(() => {
     fetchMessages();
-    const interval = setInterval(fetchMessages, 4000);
+    const interval = setInterval(fetchMessages, 3000);
     return () => clearInterval(interval);
   }, [targetUser.id]);
 
