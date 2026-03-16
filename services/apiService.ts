@@ -181,6 +181,20 @@ export const apiService = {
     return handleResponse(res);
   },
 
+  async getStudentMaterials(courseId: string): Promise<{ lecturerMaterials: Material[], studentMaterials: Material[] }> {
+    const res = await fetch(`/api/student/courses/${courseId}/materials`);
+    return handleResponse(res);
+  },
+
+  async addPrivateMaterial(payload: Partial<Material>): Promise<Material> {
+    const res = await fetch(`/api/student/private-materials`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    return handleResponse(res);
+  },
+
   async addMaterial(data: Partial<Material>): Promise<Material> {
     const res = await fetch(`/api/lecturer/materials`, {
       method: 'POST',
@@ -313,15 +327,6 @@ export const apiService = {
 
   async getWaitlistHistory(): Promise<any[]> {
     const res = await fetch(`/api/student/waitlist-history`);
-    return handleResponse(res);
-  },
-
-  async addPrivateMaterial(data: { title: string, content: string }): Promise<Material> {
-    const res = await fetch(`/api/student/private-materials`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
     return handleResponse(res);
   },
 

@@ -47,12 +47,14 @@ export interface Course {
   lecturerPicture?: string;
   name: string;
   code: string;
-  description?: string;
+  description: string;
   schedule?: string;
   instructorName?: string;
   enrolledStudentIds: string[];
   pendingStudentIds: string[];
   createdAt: Date;
+  enrolledCount?: number;
+  materialsCount?: number;
 }
 
 export interface Material {
@@ -67,6 +69,9 @@ export interface Material {
   ownerId?: string;
   timestamp: Date;
   viewedBy?: string[]; // Track student IDs who opened the file
+  fileName?: string;
+  fileType?: string;
+  fileSize?: number;
 }
 
 export interface GradingResult {

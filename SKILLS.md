@@ -25,6 +25,9 @@ Auth: Session-based via `express-session`. Requires Google OAuth 2.0 authenticat
 | Save a grade | `POST /api/grades/save` |
 | Send direct message | `POST /api/messages` |
 | Fetch course materials | `GET /api/lecturer/courses/:id/materials` |
+| Upload private material | `POST /api/student/private-materials` |
+| Get evaluation history | `GET /api/student/submissions` |
+| Create gradebook snapshot | `POST /api/lecturer/archive` |
 
 ---
 
@@ -104,7 +107,22 @@ GET /api/messages/:otherId
   "email": "john@university.edu",
   "role": "lecturer | student",
   "enrolledCourseIds": ["string"],
-  "activeCourseId": "string"
+  "activeCourse": { "id": "string", "name": "string" },
+  "unseenApprovals": 0
+}
+```
+
+### Material Object
+```json
+{
+  "id": "mat_123",
+  "courseId": "course_abc",
+  "title": "string",
+  "content": "string",
+  "type": "lecturer_shared | student_private",
+  "fileName": "string",
+  "fileType": "string",
+  "fileSize": 1024
 }
 ```
 

@@ -207,17 +207,15 @@ const InputSection: React.FC<InputSectionProps> = ({
       </div>
 
       <div className="flex-grow relative flex overflow-hidden border-b dark:border-slate-800">
-        <div ref={gutterRef} className="w-16 bg-zinc-50/50 dark:bg-slate-900/40 border-r dark:border-slate-800 text-[10px] font-mono text-slate-300 dark:text-slate-600 py-10 text-right pr-5 overflow-hidden select-none" style={{ lineHeight: '1.8rem' }}>
-          {Array.from({ length: Math.max(lineCount, 30) }).map((_, i) => <div key={i} className={i < lineCount ? 'text-slate-400 dark:text-slate-500' : ''}>{i + 1}</div>)}
-        </div>
         <textarea 
           ref={textareaRef}
           onScroll={handleScroll}
-          className="flex-grow p-10 text-sm font-mono bg-white dark:bg-slate-850 text-slate-800 dark:text-slate-200 outline-none resize-none overflow-y-auto custom-scrollbar selection:bg-brand-100 dark:selection:bg-brand-900/50 placeholder:text-slate-300 dark:placeholder:text-slate-700" 
-          style={{ lineHeight: '1.8rem' }}
+          className="flex-grow p-10 text-sm font-mono bg-white dark:bg-slate-850 text-slate-800 dark:text-slate-200 outline-none resize-none overflow-y-auto custom-scrollbar selection:bg-brand-100 dark:selection:bg-brand-900/50 placeholder:text-slate-300 dark:placeholder:text-slate-700 whitespace-pre-wrap break-words" 
+          style={{ lineHeight: '1.8rem', minHeight: '18rem' }}
           value={currentVal} 
           onChange={(e) => handleChange(e.target.value)} 
           placeholder={`Input ${tabs.find(t => t.id === activeTab)?.label.toLowerCase()} data for the evaluation engine...`} 
+          rows={10}
         />
       </div>
 
