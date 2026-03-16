@@ -1,5 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { sendChatMessage, sendStudentChatMessage } from '../services/geminiService';
 
 interface Message {
@@ -85,7 +86,9 @@ const ChatBot: React.FC<ChatBotProps> = ({ context, mode = 'lecturer', courseId 
                 <div className={`max-w-[85%] rounded-2xl px-5 py-3 text-xs font-bold leading-relaxed ${
                   msg.role === 'user' ? 'bg-slate-800 dark:bg-brand-600 text-white shadow-md' : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-zinc-100 dark:border-slate-700 shadow-sm'
                 }`}>
-                  {msg.text}
+                  <div className="prose dark:prose-invert prose-xs max-w-none">
+                    <ReactMarkdown>{msg.text}</ReactMarkdown>
+                  </div>
                 </div>
               </div>
             ))}

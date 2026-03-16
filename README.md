@@ -1,6 +1,6 @@
-# 🤖 AI Code Grader Enterprise (v1.2.0)
+# 🤖 AI Code Grader Enterprise (v1.3.0)
 
-![Version](https://img.shields.io/badge/version-1.2.0-indigo.svg)
+![Version](https://img.shields.io/badge/version-1.3.0-indigo.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Platform](https://img.shields.io/badge/Platform-Vercel-black)
 ![Database](https://img.shields.io/badge/Database-MongoDB%20Atlas-emerald)
@@ -21,8 +21,8 @@ This application is built as a **Full-Stack SaaS** using a decoupled architectur
 
 *   **Frontend**: React 19 (Vite) with Tailwind CSS for a high-performance, responsive UI.
 *   **Backend**: Node.js / Express.js deployed as **Vercel Serverless Functions**.
-*   **Persistence**: MongoDB Atlas (Cloud) for user data and grade book history.
-*   **Intelligence**: Google Gemini API (`gemini-3-flash-preview`) for sub-second code analysis.
+*   **Persistence**: MongoDB Atlas (Cloud) for user data, grade book history, and real-time messaging.
+*   **Intelligence**: Google Gemini API (`gemini-3-flash-preview`) with **RAG** for course-grounded assistance.
 *   **Security**: 
     *   **OAuth 2.0**: Google Identity Services for secure teacher authentication.
     *   **Session Management**: Encrypted sessions stored in MongoDB with a **strict 2-hour sliding expiration policy**.
@@ -34,10 +34,12 @@ This application is built as a **Full-Stack SaaS** using a decoupled architectur
 
 *   **⚡ Ultra-Low Latency Grading**: Optimized prompt engineering using the Gemini 3 Flash model for near-instant results.
 *   **📊 Dynamic Gradebook (Sheets View)**: A collaborative-style grid for managing entire classrooms, featuring real-time editing and auto-save.
+*   **📚 Library & Snapshot Zones**: Centralized material management and historical evaluation archives for lecturers.
+*   **🛡️ Private Research Vault**: Secure student-only storage for personal study materials used as AI context.
+*   **💬 Real-Time Messaging**: Integrated direct chat between lecturers and students with instant notifications.
 *   **🇮🇱 Hebrew Feedback Engine**: Proprietary system instructions ensuring professional, pedagogically sound feedback in Hebrew.
-*   **📥 Smart Export**: Advanced CSV generation with BOM encoding for seamless integration with Microsoft Excel and Google Sheets.
 *   **⚙️ Custom Constraints**: Ability to define forbidden logic (e.g., "No 'break' statements") which the AI enforces during evaluation.
-*   **🤖 Integrated AI Assistant**: A real-time chat bot to help instructors refine rubrics or debug complex student submissions.
+*   **🤖 RAG-Powered AI Assistant**: A real-time chat bot grounded in course materials to help students and instructors.
 
 ---
 

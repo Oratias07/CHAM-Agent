@@ -20,7 +20,7 @@ interface LecturerDashboardProps {
   onSignOut: () => void;
 }
 
-type ViewMode = 'EVALUATION' | 'SHEETS' | 'STUDENTS' | 'COURSES' | 'MESSAGES' | 'ARCHIVES' | 'ASSIGNMENTS' | 'EVALUATIONS';
+type ViewMode = 'EVALUATION' | 'SHEETS' | 'STUDENTS' | 'COURSES' | 'MESSAGES' | 'ARCHIVES' | 'ASSIGNMENTS' | 'SNAPSHOTS' | 'LIBRARY';
 
 const Icons = {
   Evaluation: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>,
@@ -75,17 +75,16 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
   }, [messageAlert]);
 
   useEffect(() => {
-    apiService.getLecturerDashboardData().then(data => {
-      setCourses(data.courses);
-      setArchives(data.archives);
-    });
-  }, []);
+    if (viewMode === 'ARCHIVES') {
+      apiService.getLecturerDashboardData().then(data => setArchives(data.archives));
+    }
+  }, [viewMode]);
 
   useEffect(() => {
     if (viewMode === 'MESSAGES') {
       apiService.getAllUsers().then(setAllUsers);
     }
-    if (viewMode === 'EVALUATIONS' && activeCourse) {
+    if (viewMode === 'ARCHIVES' && activeCourse) {
       apiService.getLecturerAllSubmissions(activeCourse.id).then(setAllSubmissions);
     }
   }, [viewMode, activeCourse]);
@@ -262,8 +261,9 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
     { id: 'STUDENTS', label: 'Waitlist', icon: <Icons.Students />, badge: pendingCount },
     { id: 'MESSAGES', label: 'Inbox', icon: <Icons.Messages />, badge: unreadMessages, pulsing: true },
     { id: 'ASSIGNMENTS', label: 'Tasks', icon: <Icons.Solution /> },
-    { id: 'EVALUATIONS', label: 'Library Zone', icon: <Icons.Library /> },
-    { id: 'ARCHIVES', label: 'Snapshots', icon: <Icons.Archives /> },
+    { id: 'LIBRARY', label: 'Library Zone', icon: <Icons.Library /> },
+    { id: 'ARCHIVES', label: 'Snapshot Zone', icon: <Icons.Archives /> },
+    { id: 'SNAPSHOTS', label: 'Gradebook Snapshots', icon: <Icons.Solution /> },
     { id: 'EVALUATION', label: 'Core', icon: <Icons.Evaluation /> },
     { id: 'SHEETS', label: 'Grid', icon: <Icons.Gradebook /> }
   ];
@@ -312,11 +312,62 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
 
         <main className="flex-grow p-8 overflow-y-auto custom-scrollbar relative">
           {viewMode === 'ASSIGNMENTS' && activeCourse && <AssignmentManager course={activeCourse} />}
-          {viewMode === 'EVALUATIONS' && activeCourse && (
+          {viewMode === 'LIBRARY' && (
+            <div className="space-y-12 pb-20">
+              <header className="flex justify-between items-end">
+                <div>
+                  <h3 className="text-4xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Academy Library</h3>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">Comprehensive Course Repository</p>
+                </div>
+              </header>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {courses.map(course => (
+                  <div key={course.id} className="bg-white dark:bg-slate-850 p-8 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-2xl transition-all group">
+                    <div className="flex justify-between items-start mb-6">
+                      <div className="p-4 bg-brand-50 dark:bg-brand-900/20 rounded-2xl text-brand-600">
+                        <Icons.Courses />
+                      </div>
+                      <span className="px-4 py-1 bg-emerald-50 dark:bg-emerald-900/20 rounded-full text-[8px] font-black uppercase tracking-widest text-emerald-600">Active Node</span>
+                    </div>
+                    <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2">{course.name}</h3>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm mb-6 line-clamp-3 font-medium leading-relaxed">{course.description || 'No description provided for this node.'}</p>
+                    
+                    <div className="space-y-4 mb-8">
+                      <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Enrolled Units</span>
+                        <span className="text-sm font-black text-slate-900 dark:text-white">{course.enrolledCount || 0}</span>
+                      </div>
+                      <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Stored Objects</span>
+                        <span className="text-sm font-black text-slate-900 dark:text-white">{course.materialsCount || 0}</span>
+                      </div>
+                    </div>
+
+                      <div className="flex space-x-3">
+                        <button 
+                          onClick={() => { setActiveCourse(course); setViewMode('COURSES'); }}
+                          className="flex-1 py-4 bg-brand-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-brand-500/20 hover:bg-brand-500 transition-all"
+                        >
+                          Manage
+                        </button>
+                        <button 
+                          onClick={() => { setActiveCourse(course); setViewMode('ARCHIVES'); }}
+                          className="px-6 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+                        >
+                          History
+                        </button>
+                      </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {viewMode === 'ARCHIVES' && activeCourse && (
             <div className="space-y-8 overflow-y-auto custom-scrollbar pb-20">
               <header>
-                <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tighter">Evaluation Library</h3>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Historical Submissions & Feedback</p>
+                <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tighter">Snapshot Zone</h3>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Historical Submissions & Feedback (Archive)</p>
               </header>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {allSubmissions.map(s => (
@@ -350,7 +401,7 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
               </div>
             </div>
           )}
-          {viewMode === 'ARCHIVES' && <ArchiveViewer archives={archives} onRestore={onRestoreArchive} />}
+          {viewMode === 'SNAPSHOTS' && <ArchiveViewer archives={archives} onRestore={onRestoreArchive} />}
           {viewMode === 'COURSES' && <CourseManager courses={courses} onCourseUpdate={() => apiService.getLecturerDashboardData().then(d => setCourses(d.courses))} onSelectCourse={setActiveCourse} />}
           {viewMode === 'STUDENTS' && activeCourse && <StudentManagement courseId={activeCourse.id} />}
           {viewMode === 'MESSAGES' && (

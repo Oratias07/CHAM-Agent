@@ -15,7 +15,7 @@ The application utilizes a **Decoupled Full-Stack Architecture**:
 *   **Frontend Layer**: A specialized Single Page Application (SPA) built with **React 19** and **Vite**. It handles state management for the grading session and provides a real-time "Sheets" view for class management.
 *   **API Layer (Backend)**: An **Express.js** engine deployed as **Vercel Serverless Functions**. This layer acts as a secure gateway, managing authentication, database transactions, and AI orchestration.
 *   **Persistence Layer**: A distributed **MongoDB Atlas** cluster storing teacher profiles, encrypted session tokens, and the student gradebook.
-*   **Intelligence Layer**: **Google Gemini API** (Gemini 3 Flash), accessed via the `@google/genai` SDK on the server-side to ensure API key security.
+*   **Intelligence Layer**: **Google Gemini API** (Gemini 3 Flash), accessed via the `@google/genai` SDK. Implements **RAG (Retrieval-Augmented Generation)** by injecting course materials and student research into the prompt context.
 
 ---
 
@@ -35,8 +35,11 @@ The system implements **OAuth 2.0** via Google Identity Services.
 - **CSRF & Proxy Protection**: `app.set('trust proxy', 1)` is enabled to allow secure cookie transmission through Vercel's load balancers.
 
 ### 🛡️ Secret Protection
-- **Zero-Exposure Policy**: The Gemini `API_KEY` and Google Client Secrets are stored exclusively in Vercel's encrypted Environment Variables.
-- **Backend Proxying**: All AI evaluations are proxied through the `/api/evaluate` endpoint. The frontend never communicates directly with Google’s servers, preventing API key extraction from the browser's network tab.
+- **Zero-Exposure Policy**: The Gemini `API_KEY` and Google Client Secrets are stored exclusively in encrypted Environment Variables.
+- **Backend Proxying**: All AI evaluations and RAG queries are proxied through secure endpoints. The frontend never communicates directly with Google’s servers.
+
+### 📡 Real-Time Synchronization
+- **Polling Engine**: The system uses a high-frequency polling mechanism (5s intervals) for direct messaging and notification synchronization, ensuring a responsive multi-user experience without the overhead of WebSockets in a serverless environment.
 
 ---
 
@@ -46,16 +49,15 @@ The diagram below illustrates the lifecycle of a single grading request:
 
 ```mermaid
 graph TD
-    User((Teacher)) -->|1. Paste Code| FE[React Frontend]
-    FE -->|2. POST /api/evaluate| BE[Express Serverless]
-    BE -->|3. Auth Check| Session[(MongoDB Session Store)]
-    Session -->|Valid| BE
-    BE -->|4. Inject API_KEY| SecretManager[Env Variables]
-    BE -->|5. Structured Prompt| AI[Gemini 3 Flash]
-    AI -->|6. JSON Output| BE
-    BE -->|7. Auto-Save| DB[(MongoDB Gradebook)]
-    BE -->|8. Final Response| FE
-    FE -->|9. Hebrew UI Render| User
+    User((User)) -->|1. Interaction| FE[React Frontend]
+    FE -->|2. API Call| BE[Express Backend]
+    BE -->|3. Context Retrieval| DB[(MongoDB Atlas)]
+    DB -->|4. Materials/History| BE
+    BE -->|5. RAG Prompt| AI[Gemini 3 Flash]
+    AI -->|6. Intelligence| BE
+    BE -->|7. Persistence| DB
+    BE -->|8. Response| FE
+    FE -->|9. UI Update| User
 ```
 
 ---

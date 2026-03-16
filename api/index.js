@@ -49,7 +49,7 @@ const CourseSchema = new mongoose.Schema({
   lecturerPicture: String,
   name: String,
   code: { type: String, unique: true },
-  description: String,
+  description: { type: String, default: '' },
   enrolledStudentIds: [String],
   pendingStudentIds: [String],
   createdAt: { type: Date, default: Date.now }
@@ -70,6 +70,9 @@ const MaterialSchema = new mongoose.Schema({
   courseId: String,
   title: String,
   content: String,
+  fileName: String,
+  fileType: String,
+  fileSize: Number,
   folder: { type: String, default: 'General' },
   isVisible: { type: Boolean, default: true },
   type: { type: String, enum: ['lecturer_shared', 'student_private'] },
@@ -372,6 +375,14 @@ router.get('/student/waitlist-history', async (req, res) => {
   res.json(history);
 });
 
+router.get('/student/courses/:courseId/materials', async (req, res) => {
+  if (!req.user) return res.status(401).send();
+  await connectDB();
+  const lecturerMaterials = await Material.find({ courseId: req.params.courseId, isVisible: true, type: 'lecturer_shared' });
+  const studentMaterials = await Material.find({ ownerId: req.user.googleId, type: 'student_private' });
+  res.json({ lecturerMaterials, studentMaterials });
+});
+
 router.post('/student/private-materials', async (req, res) => {
   if (!req.user) return res.status(401).send();
   await connectDB();
@@ -381,13 +392,6 @@ router.post('/student/private-materials', async (req, res) => {
     type: 'student_private' 
   });
   res.json(material);
-});
-
-router.get('/student/private-materials', async (req, res) => {
-  if (!req.user) return res.status(401).send();
-  await connectDB();
-  const materials = await Material.find({ ownerId: req.user.googleId, type: 'student_private' });
-  res.json(materials);
 });
 
 // STRICT RAG STUDENT CHAT
@@ -408,9 +412,11 @@ router.post('/student/chat', async (req, res) => {
   const ai = new GoogleGenAI({ apiKey: aiKey });
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: `You are a specialized Course Assistant. 
-    POLICY: You only answer using the provided documents. If the answer is not in documents, say: "I apologize, but this information is not present in your course materials. Please reach out to your instructor for clarification."
-    DO NOT use external world knowledge or programming knowledge not found in the documents.
+    contents: `You are a helpful and specialized Course Assistant. 
+    POLICY: 
+    1. Prioritize answering using the provided course documents.
+    2. If the answer is not directly in the documents, you SHOULD still provide a helpful solution or explanation based on your general knowledge, but explicitly state that this information was not found in the official course materials.
+    3. Be encouraging and provide code examples or step-by-step solutions when appropriate.
     
     COURSE DOCUMENTS:
     ${context}
@@ -727,9 +733,15 @@ router.get('/lecturer/courses/:id/waitlist', async (req, res) => {
   if (!req.user) return res.status(401).send();
   await connectDB();
   const course = await Course.findById(req.params.id);
+  if (!course) return res.status(404).send();
+  
   const pending = await User.find({ googleId: { $in: course.pendingStudentIds } });
   const enrolled = await User.find({ googleId: { $in: course.enrolledStudentIds } });
-  res.json({ pending, enrolled });
+  
+  // Also get the history for this course to show previous decisions
+  const history = await WaitlistHistory.find({ courseId: req.params.id }).sort({ timestamp: -1 });
+  
+  res.json({ pending, enrolled, history });
 });
 
 router.get('/lecturer/courses/:id/waitlist-history', async (req, res) => {
@@ -804,14 +816,18 @@ router.post('/lecturer/courses/:id/remove-student', async (req, res) => {
 router.get('/lecturer/courses/:id/materials', async (req, res) => {
   if (!req.user) return res.status(401).send();
   await connectDB();
-  const materials = await Material.find({ courseId: req.params.id });
+  const materials = await Material.find({ courseId: req.params.id, type: 'lecturer_shared' });
   res.json(materials);
 });
 
 router.post('/lecturer/materials', async (req, res) => {
   if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
   await connectDB();
-  const material = await Material.create({ ...req.body });
+  const material = await Material.create({ 
+    ...req.body,
+    ownerId: req.user.googleId,
+    type: 'lecturer_shared'
+  });
   res.json(material);
 });
 

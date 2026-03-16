@@ -13,7 +13,7 @@ interface StudentPortalProps {
   onSignOut: () => void;
 }
 
-type ViewMode = 'AI_CHAT' | 'DIRECT_CHAT' | 'MATERIALS' | 'ASSIGNMENTS' | 'INBOX' | 'LIBRARY' | 'WAITLIST';
+type ViewMode = 'AI_CHAT' | 'DIRECT_CHAT' | 'MATERIALS' | 'ASSIGNMENTS' | 'INBOX' | 'LIBRARY';
 
 const Icons = {
   Send: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>,
@@ -32,7 +32,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
   const [localUser, setLocalUser] = useState<User>(user);
   const [messages, setMessages] = useState<{ role: 'user' | 'model', text: string }[]>([]);
   const [input, setInput] = useState('');
-  const [materials, setMaterials] = useState<Material[]>([]);
+  const [materials, setMaterials] = useState<{ lecturerMaterials: Material[], studentMaterials: Material[] }>({ lecturerMaterials: [], studentMaterials: [] });
   const [activeMaterial, setActiveMaterial] = useState<Material | null>(null);
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('MATERIALS');
@@ -41,18 +41,16 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
   const [contacts, setContacts] = useState<{ lecturer: User, students: User[] } | null>(null);
   const [selectedContact, setSelectedContact] = useState<User | null>(null);
   const [submissions, setSubmissions] = useState<any[]>([]);
-  const [waitlistHistory, setWaitlistHistory] = useState<any[]>([]);
-  const [showAddMaterial, setShowAddMaterial] = useState(false);
-  const [newMaterial, setNewMaterial] = useState({ title: '', content: '' });
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [messageAlert, setMessageAlert] = useState<{ text: string, senderId: string } | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const course = localUser.activeCourse;
 
   useEffect(() => {
     if (course) {
-      apiService.getMaterials(course.id).then(list => setMaterials(list.filter(m => m.isVisible || m.ownerId === localUser.id)));
+      apiService.getStudentMaterials(course.id).then(setMaterials);
       apiService.getCourseContacts(course.id).then(setContacts);
     }
   }, [course?.id, localUser.id]);
@@ -75,9 +73,6 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
   useEffect(() => {
     if (viewMode === 'LIBRARY') {
       apiService.getStudentSubmissions().then(setSubmissions);
-    }
-    if (viewMode === 'WAITLIST') {
-      apiService.getWaitlistHistory().then(setWaitlistHistory);
     }
   }, [viewMode]);
 
@@ -120,16 +115,32 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
     } finally { setLoading(false); }
   };
 
-  const handleAddPrivateMaterial = async () => {
-    if (!newMaterial.title || !newMaterial.content) return;
-    try {
-      const m = await apiService.addPrivateMaterial(newMaterial);
-      setMaterials(prev => [...prev, m]);
-      setNewMaterial({ title: '', content: '' });
-      setShowAddMaterial(false);
-    } catch (e) {
-      alert("Failed to add material");
-    }
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !course) return;
+
+    setIsUploading(true);
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const content = event.target?.result as string;
+      try {
+        await apiService.addPrivateMaterial({
+          courseId: course.id,
+          title: file.name,
+          content: content,
+          fileName: file.name,
+          fileType: file.type,
+          fileSize: file.size
+        });
+        const updated = await apiService.getStudentMaterials(course.id);
+        setMaterials(updated);
+      } catch (err) {
+        console.error("Upload failed:", err);
+      } finally {
+        setIsUploading(false);
+      }
+    };
+    reader.readAsText(file);
   };
 
   const openMaterial = async (m: Material) => {
@@ -197,7 +208,6 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
             )}
           </button>
           <button onClick={() => setViewMode('LIBRARY')} className={`w-full flex items-center space-x-3 p-4 rounded-2xl transition-all ${viewMode === 'LIBRARY' ? 'bg-brand-600 text-white shadow-lg' : 'hover:bg-zinc-50 dark:hover:bg-slate-800 text-slate-500'}`}><Icons.Library /> <span className="text-xs font-black uppercase tracking-widest">Library Zone</span></button>
-          <button onClick={() => setViewMode('WAITLIST')} className={`w-full flex items-center space-x-3 p-4 rounded-2xl transition-all ${viewMode === 'WAITLIST' ? 'bg-brand-600 text-white shadow-lg' : 'hover:bg-zinc-50 dark:hover:bg-slate-800 text-slate-500'}`}><Icons.Waitlist /> <span className="text-xs font-black uppercase tracking-widest">Waitlist</span></button>
         </div>
         <div className="mt-auto border-t dark:border-slate-800 p-4 space-y-2">
            <button onClick={() => setDarkMode(!darkMode)} className="w-full flex items-center space-x-3 p-4 rounded-2xl text-slate-500 hover:bg-zinc-50 dark:hover:bg-slate-800 transition-colors">{Icons.Theme(darkMode)} <span className="text-[10px] font-black uppercase tracking-widest">Toggle Theme</span></button>
@@ -215,36 +225,84 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
 
         <div className="flex-grow overflow-hidden flex flex-col">
           {viewMode === 'MATERIALS' && (
-             <div className="p-12 overflow-y-auto custom-scrollbar">
-                <div className="flex justify-between items-center mb-10">
-                  <h2 className="text-3xl font-black uppercase tracking-tighter text-slate-800 dark:text-slate-100">Course Materials</h2>
-                  <button onClick={() => setShowAddMaterial(true)} className="flex items-center space-x-2 bg-brand-600 text-white px-6 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg hover:bg-brand-500 transition-all"><Icons.Plus /> <span>Add Private</span></button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                  {materials.map(m => (
-                    <button key={m.id} onClick={() => openMaterial(m)} className="bg-white dark:bg-slate-850 p-8 rounded-[2.5rem] border border-zinc-200 dark:border-slate-800 text-left hover:shadow-2xl transition-all group">
-                      <div className="w-10 h-10 bg-brand-50 dark:bg-slate-800 rounded-xl flex items-center justify-center text-brand-500 mb-6 group-hover:scale-110 transition-transform"><Icons.Material /></div>
-                      <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-tighter">{m.title}</h4>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase mt-2">{m.ownerId === localUser.id ? 'Private Object' : 'Vault Stored Object'}</p>
-                    </button>
-                  ))}
-                </div>
-                
-                {showAddMaterial && (
-                  <div className="fixed inset-0 z-[200] bg-slate-900/90 backdrop-blur-xl flex items-center justify-center p-6">
-                    <div className="w-full max-w-2xl bg-white dark:bg-slate-850 p-10 rounded-[2.5rem] shadow-2xl border dark:border-slate-800 transition-colors">
-                      <h2 className="text-3xl font-black mb-4 uppercase tracking-tighter text-slate-800 dark:text-slate-100">Store Private Data</h2>
-                      <div className="space-y-6">
-                        <input value={newMaterial.title} onChange={e => setNewMaterial({...newMaterial, title: e.target.value})} placeholder="Title" className="w-full p-4 rounded-xl bg-zinc-50 dark:bg-slate-800 border-none font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-brand-500 dark:text-white" />
-                        <textarea value={newMaterial.content} onChange={e => setNewMaterial({...newMaterial, content: e.target.value})} placeholder="Content" rows={6} className="w-full p-4 rounded-xl bg-zinc-50 dark:bg-slate-800 border-none font-bold outline-none focus:ring-2 focus:ring-brand-500 dark:text-white resize-none" />
-                        <div className="flex space-x-4">
-                          <button onClick={handleAddPrivateMaterial} className="flex-grow py-4 bg-brand-600 text-white rounded-xl font-black uppercase tracking-widest shadow-lg hover:bg-brand-500 transition-all">Store Object</button>
-                          <button onClick={() => setShowAddMaterial(false)} className="px-8 py-4 bg-zinc-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-xl font-black uppercase tracking-widest">Cancel</button>
-                        </div>
-                      </div>
-                    </div>
+            <div className="flex-1 overflow-y-auto p-12 custom-scrollbar">
+              <div className="max-w-4xl mx-auto">
+                <div className="flex justify-between items-end mb-12">
+                  <div>
+                    <h2 className="text-4xl font-black text-slate-900 dark:text-white mb-2">Knowledge Vault</h2>
+                    <p className="text-slate-500 dark:text-slate-400 font-medium">Access course materials and your private research.</p>
                   </div>
-                )}
+                  <div className="flex space-x-4">
+                    <label className={`flex items-center space-x-2 px-6 py-3 bg-brand-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-brand-500/20 hover:scale-105 transition-all cursor-pointer ${isUploading ? 'opacity-50 cursor-wait' : ''}`}>
+                      <Icons.Plus />
+                      <span>{isUploading ? 'Uploading...' : 'Store Object'}</span>
+                      <input type="file" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="space-y-12">
+                  {/* Lecturer Materials */}
+                  <section>
+                    <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] mb-6 flex items-center">
+                      <span className="w-8 h-[1px] bg-slate-200 dark:bg-slate-800 mr-4"></span>
+                      Lecturer Shared
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {materials.lecturerMaterials.map((material) => (
+                        <div key={material.id} className="group bg-white dark:bg-slate-850 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 hover:border-brand-500/30 transition-all shadow-sm hover:shadow-xl">
+                          <div className="flex justify-between items-start mb-6">
+                            <div className="p-3 bg-brand-50 dark:bg-brand-900/20 rounded-2xl text-brand-600">
+                              <Icons.Book />
+                            </div>
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{material.folder || 'General'}</span>
+                          </div>
+                          <h4 className="text-lg font-bold text-slate-900 dark:text-white mb-2">{material.title}</h4>
+                          <p className="text-slate-500 dark:text-slate-400 text-sm line-clamp-2 mb-6">{material.content}</p>
+                          <button 
+                            onClick={() => openMaterial(material)}
+                            className="w-full py-3 bg-slate-50 dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 rounded-xl group-hover:bg-brand-600 group-hover:text-white transition-all"
+                          >
+                            View Document
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+
+                  {/* Private Materials */}
+                  <section>
+                    <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] mb-6 flex items-center">
+                      <span className="w-8 h-[1px] bg-slate-200 dark:bg-slate-800 mr-4"></span>
+                      Private Research
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {materials.studentMaterials.map((material) => (
+                        <div key={material.id} className="group bg-white dark:bg-slate-850 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 hover:border-emerald-500/30 transition-all shadow-sm hover:shadow-xl">
+                          <div className="flex justify-between items-start mb-6">
+                            <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl text-emerald-600">
+                              <Icons.Material />
+                            </div>
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Private</span>
+                          </div>
+                          <h4 className="text-lg font-bold text-slate-900 dark:text-white mb-2">{material.title}</h4>
+                          <p className="text-slate-500 dark:text-slate-400 text-sm line-clamp-2 mb-6">{material.content}</p>
+                          <button 
+                            onClick={() => openMaterial(material)}
+                            className="w-full py-3 bg-slate-50 dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 rounded-xl group-hover:bg-emerald-600 group-hover:text-white transition-all"
+                          >
+                            View Document
+                          </button>
+                        </div>
+                      ))}
+                      {materials.studentMaterials.length === 0 && (
+                        <div className="col-span-full py-12 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl">
+                          <p className="text-slate-400 font-medium">No private documents yet. Upload files to ground your AI assistant.</p>
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                </div>
 
                 {activeMaterial && (
                   <div className="fixed inset-0 z-[100] bg-slate-900/90 backdrop-blur-xl flex items-center justify-center p-6">
@@ -254,7 +312,8 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
                     </div>
                   </div>
                 )}
-             </div>
+              </div>
+            </div>
           )}
           {viewMode === 'ASSIGNMENTS' && (
             <div className="flex-grow overflow-hidden">{course ? <StudentAssignments course={course} /> : <div className="h-full flex items-center justify-center font-black uppercase text-slate-400 tracking-widest text-[10px]">Vault locked</div>}</div>
@@ -357,34 +416,6 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
                 {submissions.filter(s => s.score !== undefined).length === 0 && (
                   <div className="col-span-full py-20 text-center">
                     <p className="font-black uppercase text-slate-400 tracking-widest text-[10px]">No evaluations found in library</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-          {viewMode === 'WAITLIST' && (
-            <div className="p-12 overflow-y-auto custom-scrollbar">
-              <h2 className="text-3xl font-black uppercase tracking-tighter text-slate-800 dark:text-slate-100 mb-10">Waitlist History</h2>
-              <div className="space-y-4 max-w-4xl">
-                {waitlistHistory.map(h => (
-                  <div key={h.id} className="bg-white dark:bg-slate-850 p-6 rounded-3xl border border-zinc-200 dark:border-slate-800 flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${h.status === 'approved' ? 'bg-emerald-50 text-emerald-600' : h.status === 'rejected' ? 'bg-rose-50 text-rose-600' : 'bg-amber-50 text-amber-600'}`}>
-                        {h.status === 'approved' ? '✓' : h.status === 'rejected' ? '✕' : '?'}
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-tighter">{h.courseName}</h4>
-                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Requested on {new Date(h.requestedAt).toLocaleDateString()}</p>
-                      </div>
-                    </div>
-                    <div className={`px-4 py-2 rounded-full text-[9px] font-black uppercase tracking-widest ${h.status === 'approved' ? 'bg-emerald-100 text-emerald-700' : h.status === 'rejected' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
-                      {h.status}
-                    </div>
-                  </div>
-                ))}
-                {waitlistHistory.length === 0 && (
-                  <div className="py-20 text-center">
-                    <p className="font-black uppercase text-slate-400 tracking-widest text-[10px]">No waitlist history found</p>
                   </div>
                 )}
               </div>

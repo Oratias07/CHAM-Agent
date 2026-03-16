@@ -1,5 +1,5 @@
 {
   "name": "AI Code Grader",
-  "description": "An automated evaluation tool for student code submissions, providing scores and professional feedback in Hebrew using Gemini 2.5 Flash.",
+  "description": "A full-stack AI-powered Code Grading SaaS with lecturer and student dashboards, real-time messaging, RAG-based course assistance, and automated evaluation.",
   "requestFramePermissions": []
 }
