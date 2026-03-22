@@ -766,11 +766,11 @@ router.get('/lecturer/courses/:id/waitlist', async (req, res) => {
   
   const pending = await User.find({ googleId: { $in: course.pendingStudentIds } });
   const enrolled = await User.find({ googleId: { $in: course.enrolledStudentIds } });
-  
-  // Also get the history for this course to show previous decisions
-  const history = await WaitlistHistory.find({ courseId: req.params.id }).sort({ timestamp: -1 });
-  
-  res.json({ pending, enrolled, history });
+
+  res.json({
+    pending: pending.map(u => ({ id: u.googleId, name: u.name, picture: u.picture })),
+    enrolled: enrolled.map(u => ({ id: u.googleId, name: u.name, picture: u.picture }))
+  });
 });
 
 router.get('/lecturer/courses/:id/waitlist-history', async (req, res) => {
