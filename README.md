@@ -22,7 +22,7 @@ This application is built as a **Full-Stack SaaS** using a decoupled architectur
 *   **Frontend**: React 19 (Vite) with Tailwind CSS for a high-performance, responsive UI.
 *   **Backend**: Node.js / Express.js deployed as **Vercel Serverless Functions**.
 *   **Persistence**: MongoDB Atlas (Cloud) for user data, grade book history, and real-time messaging.
-*   **Intelligence**: Google Gemini API (`gemini-3-flash-preview`) with **RAG** for course-grounded assistance.
+*   **Intelligence**: Google Gemini API (`gemini-2.0-flash`) with **RAG** for course-grounded assistance.
 *   **Security**: 
     *   **OAuth 2.0**: Google Identity Services for secure teacher authentication.
     *   **Session Management**: Encrypted sessions stored in MongoDB with a **strict 2-hour sliding expiration policy**.

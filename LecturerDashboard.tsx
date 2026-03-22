@@ -61,6 +61,13 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
   const [activeTab, setActiveTab] = useState<TabOption>(TabOption.QUESTION);
 
   useEffect(() => {
+    apiService.getLecturerDashboardData().then(d => {
+      setCourses(d.courses);
+      setArchives(d.archives);
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     const fetchSync = async () => {
       try {
         const sync = await apiService.getLecturerSync();
@@ -311,7 +318,7 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
         </header>
 
         <main className="flex-grow p-8 overflow-y-auto custom-scrollbar relative">
-          {viewMode === 'ASSIGNMENTS' && activeCourse && <AssignmentManager course={activeCourse} />}
+          {viewMode === 'ASSIGNMENTS' && (activeCourse ? <AssignmentManager course={activeCourse} /> : <div className="h-full flex items-center justify-center text-slate-400 font-black text-[10px] uppercase tracking-widest border-2 border-dashed dark:border-slate-800 rounded-[3rem]">Select a course from the header dropdown to manage assignments</div>)}
           {viewMode === 'LIBRARY' && (
             <div className="space-y-12 pb-20">
               <header className="flex justify-between items-end">
@@ -402,8 +409,8 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
             </div>
           )}
           {viewMode === 'SNAPSHOTS' && <ArchiveViewer archives={archives} onRestore={onRestoreArchive} />}
-          {viewMode === 'COURSES' && <CourseManager courses={courses} onCourseUpdate={() => apiService.getLecturerDashboardData().then(d => setCourses(d.courses))} onSelectCourse={setActiveCourse} />}
-          {viewMode === 'STUDENTS' && activeCourse && <StudentManagement courseId={activeCourse.id} />}
+          {viewMode === 'COURSES' && <CourseManager courses={courses} onCourseUpdate={() => apiService.getLecturerDashboardData().then(d => { setCourses(d.courses); })} onSelectCourse={(c) => { setActiveCourse(c); }} />}
+          {viewMode === 'STUDENTS' && (activeCourse ? <StudentManagement courseId={activeCourse.id} /> : <div className="h-full flex items-center justify-center text-slate-400 font-black text-[10px] uppercase tracking-widest border-2 border-dashed dark:border-slate-800 rounded-[3rem]">Select a course from the header dropdown to manage students</div>)}
           {viewMode === 'MESSAGES' && (
              <div className="h-full min-h-[600px] flex space-x-8">
                <div className="w-80 bg-white dark:bg-slate-850 rounded-[2.5rem] border border-zinc-200 dark:border-slate-800 p-6 flex flex-col transition-colors">

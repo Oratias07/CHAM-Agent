@@ -94,7 +94,7 @@ const DirectChat: React.FC<DirectChatProps> = ({ currentUser, targetUser, onClos
           </div>
           <div className="flex flex-col">
             <span className="text-sm font-black text-slate-800 dark:text-slate-100">{targetUser.name}</span>
-            <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Active Connection</span>
+            <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">מחובר</span>
           </div>
         </div>
         {onClose && (
@@ -142,11 +142,11 @@ const DirectChat: React.FC<DirectChatProps> = ({ currentUser, targetUser, onClos
                   {/* Dropdown Menu */}
                   {isMenuOpen && (
                     <div className={`absolute z-50 top-8 ${isMe ? 'left-0' : 'right-0'} w-40 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-2xl shadow-2xl p-2 animate-in zoom-in-95 duration-100`}>
-                      <button onClick={() => { setReplyingTo(m); setActiveMenu(null); }} className="w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:bg-zinc-50 dark:hover:bg-slate-700 rounded-lg transition-colors">Reply</button>
-                      <button onClick={() => handleCopy(m.text)} className="w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:bg-zinc-50 dark:hover:bg-slate-700 rounded-lg transition-colors">Copy</button>
-                      {isMe && <button onClick={() => startEdit(m)} className="w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:bg-zinc-50 dark:hover:bg-slate-700 rounded-lg transition-colors">Edit</button>}
-                      <button onClick={() => handleDelete(m.id, false)} className="w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-lg transition-colors">Delete for me</button>
-                      {isMe && <button onClick={() => handleDelete(m.id, true)} className="w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-900/40 rounded-lg transition-colors">Delete for everyone</button>}
+                      <button onClick={() => { setReplyingTo(m); setActiveMenu(null); }} className="w-full text-right px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:bg-zinc-50 dark:hover:bg-slate-700 rounded-lg transition-colors" dir="rtl">השב</button>
+                      <button onClick={() => handleCopy(m.text)} className="w-full text-right px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:bg-zinc-50 dark:hover:bg-slate-700 rounded-lg transition-colors" dir="rtl">העתק</button>
+                      {isMe && <button onClick={() => startEdit(m)} className="w-full text-right px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:bg-zinc-50 dark:hover:bg-slate-700 rounded-lg transition-colors" dir="rtl">ערוך</button>}
+                      <button onClick={() => handleDelete(m.id, false)} className="w-full text-right px-3 py-2 text-[10px] font-black uppercase tracking-widest text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-lg transition-colors" dir="rtl">מחק עבורי</button>
+                      {isMe && <button onClick={() => handleDelete(m.id, true)} className="w-full text-right px-3 py-2 text-[10px] font-black uppercase tracking-widest text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-900/40 rounded-lg transition-colors" dir="rtl">מחק לכולם</button>}
                     </div>
                   )}
                 </div>
@@ -162,8 +162,8 @@ const DirectChat: React.FC<DirectChatProps> = ({ currentUser, targetUser, onClos
         {(replyingTo || editingMessage) && (
           <div className="mb-4 p-4 bg-zinc-50 dark:bg-slate-900/40 rounded-2xl border-l-4 border-brand-500 flex items-center justify-between animate-in slide-in-from-bottom-2 duration-300">
             <div className="flex flex-col">
-              <span className="text-[8px] font-black text-brand-500 uppercase tracking-[0.2em] mb-1">
-                {editingMessage ? 'Editing Message' : `Replying to ${replyingTo?.senderId === currentUser.id ? 'yourself' : targetUser.name}`}
+              <span className="text-[8px] font-black text-brand-500 uppercase tracking-[0.2em] mb-1" dir="rtl">
+                {editingMessage ? 'עריכת הודעה' : `משיב ל${replyingTo?.senderId === currentUser.id ? 'עצמך' : targetUser.name}`}
               </span>
               <p className="text-[10px] font-bold text-slate-500 italic line-clamp-1">"{editingMessage?.text || replyingTo?.text}"</p>
             </div>
@@ -179,7 +179,7 @@ const DirectChat: React.FC<DirectChatProps> = ({ currentUser, targetUser, onClos
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            placeholder={editingMessage ? "Edit your message..." : "Type a message..."}
+            placeholder={editingMessage ? "ערוך הודעה..." : "כתוב הודעה..."}
             className="flex-grow bg-transparent outline-none text-xs py-3 font-bold text-slate-700 dark:text-slate-200"
           />
           <button 

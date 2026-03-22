@@ -30,6 +30,11 @@ const Icons = {
 
 const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMode, onSignOut }) => {
   const [localUser, setLocalUser] = useState<User>(user);
+  const [courseNames, setCourseNames] = useState<Record<string, string>>(() => {
+    const names: Record<string, string> = {};
+    if (user.activeCourse) names[user.activeCourse.id] = user.activeCourse.name;
+    return names;
+  });
   const [messages, setMessages] = useState<{ role: 'user' | 'model', text: string }[]>([]);
   const [input, setInput] = useState('');
   const [materials, setMaterials] = useState<{ lecturerMaterials: Material[], studentMaterials: Material[] }>({ lecturerMaterials: [], studentMaterials: [] });
@@ -44,6 +49,8 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [messageAlert, setMessageAlert] = useState<{ text: string, senderId: string } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [joinError, setJoinError] = useState('');
+  const [joinSuccess, setJoinSuccess] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const course = localUser.activeCourse;
@@ -80,23 +87,26 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
     try {
       const updated = await apiService.switchCourse(courseId);
       setLocalUser(updated);
+      if (updated.activeCourse) {
+        setCourseNames(prev => ({ ...prev, [updated.activeCourse!.id]: updated.activeCourse!.name }));
+      }
     } catch (e) {
-      alert("Failed to switch course");
+      console.error("Failed to switch course", e);
     }
   };
 
   const handleJoinCourse = async () => {
     if (!joinCode.trim()) return;
+    setJoinError('');
+    setJoinSuccess('');
     try {
       const res = await apiService.joinCourseRequest(joinCode);
-      alert(res.message);
+      setJoinSuccess(res.message || 'בקשתך נשלחה בהצלחה');
       setJoinCode('');
-      setShowJoinModal(false);
-      // Refresh user data to show pending courses if needed
       const updated = await apiService.getCurrentUser();
       if (updated) setLocalUser(updated);
     } catch (e: any) {
-      alert(e.message);
+      setJoinError(e.message || 'שגיאה בהצטרפות לקורס');
     }
   };
 
@@ -153,7 +163,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
       {messageAlert && (
         <div className="fixed top-6 right-6 z-[300] w-80 bg-white dark:bg-slate-850 border border-brand-500 rounded-3xl shadow-2xl p-6 animate-in slide-in-from-right duration-500">
            <div className="flex justify-between items-start mb-3">
-             <span className="text-[10px] font-black text-brand-500 uppercase tracking-widest">New Academy Message</span>
+             <span className="text-[10px] font-black text-brand-500 uppercase tracking-widest" dir="rtl">הודעה חדשה</span>
              <button onClick={() => setMessageAlert(null)} className="text-slate-400 hover:text-rose-500 transition-colors">
                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
              </button>
@@ -168,13 +178,13 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
             }} 
             className="mt-4 w-full py-2 bg-brand-50 dark:bg-slate-800 text-[10px] font-black uppercase text-brand-600 dark:text-brand-400 rounded-xl hover:bg-brand-100 dark:hover:bg-slate-700 transition-all"
            >
-             Open Transmission
+             פתח שיחה
            </button>
         </div>
       )}
       <aside className="w-80 border-r dark:border-slate-800 flex flex-col bg-white dark:bg-slate-850 shadow-xl z-20 transition-colors">
         <div className="p-8 border-b dark:border-slate-800 flex flex-col space-y-4">
-          <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em]">Knowledge Vault</h3>
+          <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em]" dir="rtl">ארון ידע</h3>
           {localUser.enrolledCourseIds && localUser.enrolledCourseIds.length > 1 && (
             <select 
               value={course?.id} 
@@ -183,35 +193,36 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
             >
               {/* Note: We'd ideally need the course names here, but for now we'll use IDs or fetch names */}
               {localUser.enrolledCourseIds.map(id => (
-                <option key={id} value={id}>{id === course?.id ? course.name : `Course ${id.substring(0, 5)}...`}</option>
+                <option key={id} value={id}>{courseNames[id] || (id === course?.id ? course.name : `Course ${id.substring(0, 6)}`)}</option>
               ))}
             </select>
           )}
           <button 
             onClick={() => setShowJoinModal(true)}
-            className="text-[9px] font-black uppercase tracking-widest text-brand-600 hover:underline text-left"
+            className="text-[9px] font-black uppercase tracking-widest text-brand-600 hover:underline text-right"
+            dir="rtl"
           >
-            + Join Another Course
+            + הצטרף לקורס נוסף
           </button>
         </div>
         <div className="p-4 space-y-2">
-          <button onClick={() => setViewMode('MATERIALS')} className={`w-full flex items-center space-x-3 p-4 rounded-2xl transition-all ${viewMode === 'MATERIALS' ? 'bg-brand-600 text-white shadow-lg' : 'hover:bg-zinc-50 dark:hover:bg-slate-800 text-slate-500'}`}><Icons.Book /> <span className="text-xs font-black uppercase tracking-widest">Documents</span></button>
-          <button onClick={() => setViewMode('ASSIGNMENTS')} className={`w-full flex items-center space-x-3 p-4 rounded-2xl transition-all ${viewMode === 'ASSIGNMENTS' ? 'bg-brand-600 text-white shadow-lg' : 'hover:bg-zinc-50 dark:hover:bg-slate-800 text-slate-500'}`}><Icons.Material /> <span className="text-xs font-black uppercase tracking-widest">Assignments</span></button>
-          <button onClick={() => setViewMode('AI_CHAT')} className={`w-full flex items-center space-x-3 p-4 rounded-2xl transition-all ${viewMode === 'AI_CHAT' ? 'bg-brand-600 text-white shadow-lg' : 'hover:bg-zinc-50 dark:hover:bg-slate-800 text-slate-500'}`}><Icons.Robot /> <span className="text-xs font-black uppercase tracking-widest">Strict Assistant</span></button>
-          <button onClick={() => setViewMode('INBOX')} className={`w-full flex items-center space-x-3 p-4 rounded-2xl transition-all relative ${viewMode === 'INBOX' || viewMode === 'DIRECT_CHAT' ? 'bg-brand-600 text-white shadow-lg' : 'hover:bg-zinc-50 dark:hover:bg-slate-800 text-slate-500'}`}>
-            <Icons.Chat /> 
-            <span className="text-xs font-black uppercase tracking-widest">Inbox</span>
+          <button onClick={() => setViewMode('MATERIALS')} dir="rtl" className={`w-full flex items-center space-x-3 space-x-reverse p-4 rounded-2xl transition-all ${viewMode === 'MATERIALS' ? 'bg-brand-600 text-white shadow-lg' : 'hover:bg-zinc-50 dark:hover:bg-slate-800 text-slate-500'}`}><Icons.Book /> <span className="text-xs font-black uppercase tracking-widest">מסמכים</span></button>
+          <button onClick={() => setViewMode('ASSIGNMENTS')} dir="rtl" className={`w-full flex items-center space-x-3 space-x-reverse p-4 rounded-2xl transition-all ${viewMode === 'ASSIGNMENTS' ? 'bg-brand-600 text-white shadow-lg' : 'hover:bg-zinc-50 dark:hover:bg-slate-800 text-slate-500'}`}><Icons.Material /> <span className="text-xs font-black uppercase tracking-widest">משימות</span></button>
+          <button onClick={() => setViewMode('AI_CHAT')} dir="rtl" className={`w-full flex items-center space-x-3 space-x-reverse p-4 rounded-2xl transition-all ${viewMode === 'AI_CHAT' ? 'bg-brand-600 text-white shadow-lg' : 'hover:bg-zinc-50 dark:hover:bg-slate-800 text-slate-500'}`}><Icons.Robot /> <span className="text-xs font-black uppercase tracking-widest">עוזר AI</span></button>
+          <button onClick={() => setViewMode('INBOX')} dir="rtl" className={`w-full flex items-center space-x-3 space-x-reverse p-4 rounded-2xl transition-all relative ${viewMode === 'INBOX' || viewMode === 'DIRECT_CHAT' ? 'bg-brand-600 text-white shadow-lg' : 'hover:bg-zinc-50 dark:hover:bg-slate-800 text-slate-500'}`}>
+            <Icons.Chat />
+            <span className="text-xs font-black uppercase tracking-widest">הודעות</span>
             {unreadMessages > 0 && (
               <span className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-black text-white animate-pulse">
                 {unreadMessages}
               </span>
             )}
           </button>
-          <button onClick={() => setViewMode('LIBRARY')} className={`w-full flex items-center space-x-3 p-4 rounded-2xl transition-all ${viewMode === 'LIBRARY' ? 'bg-brand-600 text-white shadow-lg' : 'hover:bg-zinc-50 dark:hover:bg-slate-800 text-slate-500'}`}><Icons.Library /> <span className="text-xs font-black uppercase tracking-widest">Library Zone</span></button>
+          <button onClick={() => setViewMode('LIBRARY')} dir="rtl" className={`w-full flex items-center space-x-3 space-x-reverse p-4 rounded-2xl transition-all ${viewMode === 'LIBRARY' ? 'bg-brand-600 text-white shadow-lg' : 'hover:bg-zinc-50 dark:hover:bg-slate-800 text-slate-500'}`}><Icons.Library /> <span className="text-xs font-black uppercase tracking-widest">ספרייה</span></button>
         </div>
         <div className="mt-auto border-t dark:border-slate-800 p-4 space-y-2">
-           <button onClick={() => setDarkMode(!darkMode)} className="w-full flex items-center space-x-3 p-4 rounded-2xl text-slate-500 hover:bg-zinc-50 dark:hover:bg-slate-800 transition-colors">{Icons.Theme(darkMode)} <span className="text-[10px] font-black uppercase tracking-widest">Toggle Theme</span></button>
-           <button onClick={onSignOut} className="w-full flex items-center space-x-3 p-4 rounded-2xl text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors"><Icons.SignOut /> <span className="text-[10px] font-black uppercase tracking-widest">Sign Out</span></button>
+           <button onClick={() => setDarkMode(!darkMode)} dir="rtl" className="w-full flex items-center space-x-3 space-x-reverse p-4 rounded-2xl text-slate-500 hover:bg-zinc-50 dark:hover:bg-slate-800 transition-colors">{Icons.Theme(darkMode)} <span className="text-[10px] font-black uppercase tracking-widest">שנה ערכת נושא</span></button>
+           <button onClick={onSignOut} dir="rtl" className="w-full flex items-center space-x-3 space-x-reverse p-4 rounded-2xl text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors"><Icons.SignOut /> <span className="text-[10px] font-black uppercase tracking-widest">התנתק</span></button>
         </div>
       </aside>
 
@@ -229,13 +240,13 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
               <div className="max-w-4xl mx-auto">
                 <div className="flex justify-between items-end mb-12">
                   <div>
-                    <h2 className="text-4xl font-black text-slate-900 dark:text-white mb-2">Knowledge Vault</h2>
-                    <p className="text-slate-500 dark:text-slate-400 font-medium">Access course materials and your private research.</p>
+                    <h2 className="text-4xl font-black text-slate-900 dark:text-white mb-2" dir="rtl">חומרי לימוד</h2>
+                    <p className="text-slate-500 dark:text-slate-400 font-medium" dir="rtl">גישה לחומרי הקורס ולמחקר הפרטי שלך</p>
                   </div>
                   <div className="flex space-x-4">
                     <label className={`flex items-center space-x-2 px-6 py-3 bg-brand-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-brand-500/20 hover:scale-105 transition-all cursor-pointer ${isUploading ? 'opacity-50 cursor-wait' : ''}`}>
                       <Icons.Plus />
-                      <span>{isUploading ? 'Uploading...' : 'Store Object'}</span>
+                      <span dir="rtl">{isUploading ? 'מעלה...' : 'העלה קובץ'}</span>
                       <input type="file" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
                     </label>
                   </div>
@@ -246,7 +257,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
                   <section>
                     <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] mb-6 flex items-center">
                       <span className="w-8 h-[1px] bg-slate-200 dark:bg-slate-800 mr-4"></span>
-                      Lecturer Shared
+                      חומרי מרצה
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {materials.lecturerMaterials.map((material) => (
@@ -263,7 +274,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
                             onClick={() => openMaterial(material)}
                             className="w-full py-3 bg-slate-50 dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 rounded-xl group-hover:bg-brand-600 group-hover:text-white transition-all"
                           >
-                            View Document
+                            צפה במסמך
                           </button>
                         </div>
                       ))}
@@ -274,7 +285,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
                   <section>
                     <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] mb-6 flex items-center">
                       <span className="w-8 h-[1px] bg-slate-200 dark:bg-slate-800 mr-4"></span>
-                      Private Research
+                      חומרים פרטיים
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {materials.studentMaterials.map((material) => (
@@ -291,13 +302,13 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
                             onClick={() => openMaterial(material)}
                             className="w-full py-3 bg-slate-50 dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 rounded-xl group-hover:bg-emerald-600 group-hover:text-white transition-all"
                           >
-                            View Document
+                            צפה במסמך
                           </button>
                         </div>
                       ))}
                       {materials.studentMaterials.length === 0 && (
-                        <div className="col-span-full py-12 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl">
-                          <p className="text-slate-400 font-medium">No private documents yet. Upload files to ground your AI assistant.</p>
+                        <div className="col-span-full py-12 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl" dir="rtl">
+                          <p className="text-slate-400 font-medium">אין מסמכים פרטיים עדיין. העלה קבצים להרחבת הידע של העוזר.</p>
                         </div>
                       )}
                     </div>
@@ -307,7 +318,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
                 {activeMaterial && (
                   <div className="fixed inset-0 z-[100] bg-slate-900/90 backdrop-blur-xl flex items-center justify-center p-6">
                     <div className="w-full max-w-4xl h-[80vh] bg-white dark:bg-slate-850 rounded-[3rem] flex flex-col overflow-hidden border border-white/5 shadow-2xl">
-                      <div className="p-8 border-b dark:border-slate-800 flex justify-between items-center"><h3 className="text-xl font-black uppercase tracking-tighter text-slate-800 dark:text-white">{activeMaterial.title}</h3><button onClick={() => setActiveMaterial(null)} className="p-2 text-slate-400 hover:text-white transition-colors font-black uppercase text-[10px] tracking-widest">Exit Reader</button></div>
+                      <div className="p-8 border-b dark:border-slate-800 flex justify-between items-center"><h3 className="text-xl font-black uppercase tracking-tighter text-slate-800 dark:text-white">{activeMaterial.title}</h3><button onClick={() => setActiveMaterial(null)} className="p-2 text-slate-400 hover:text-white transition-colors font-black uppercase text-[10px] tracking-widest">סגור</button></div>
                       <div className="flex-grow p-12 overflow-y-auto custom-scrollbar text-slate-700 dark:text-slate-200 font-bold text-lg leading-relaxed whitespace-pre-wrap">{activeMaterial.content}</div>
                     </div>
                   </div>
@@ -321,7 +332,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
           {viewMode === 'AI_CHAT' && (
             <>
               <div className="flex-grow overflow-y-auto p-12 space-y-8 custom-scrollbar">
-                 <div className="bg-brand-50 dark:bg-brand-950/20 border border-brand-200 dark:border-brand-900/40 p-6 rounded-3xl text-center mb-10"><p className="text-[10px] font-black uppercase text-brand-600 dark:text-brand-400 tracking-widest">Strict Context Mode: Assistant can only reason using Course Documents.</p></div>
+                 <div className="bg-brand-50 dark:bg-brand-950/20 border border-brand-200 dark:border-brand-900/40 p-6 rounded-3xl text-center mb-10"><p className="text-[10px] font-black uppercase text-brand-600 dark:text-brand-400 tracking-widest">מצב הקשר מוגבל: העוזר יכול להשתמש רק בחומרי הקורס.</p></div>
                  {messages.map((m, i) => (
                    <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                      <div className={`p-6 rounded-[2rem] max-w-[80%] shadow-sm border ${m.role === 'user' ? 'bg-slate-900 dark:bg-brand-600 text-white border-transparent' : 'bg-white dark:bg-slate-850 border-zinc-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 font-bold'}`}>
@@ -333,7 +344,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
               </div>
               <div className="p-10 border-t dark:border-slate-800">
                  <div className="max-w-4xl mx-auto flex space-x-4 bg-white dark:bg-slate-900 p-4 rounded-2xl border dark:border-slate-800 shadow-2xl">
-                    <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleChat()} placeholder="Ask strictly grounded questions..." className="flex-grow bg-transparent border-none outline-none py-2 text-sm font-bold dark:text-white" />
+                    <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleChat()} placeholder="שאל שאלה מבוססת חומרי קורס..." className="flex-grow bg-transparent border-none outline-none py-2 text-sm font-bold dark:text-white" />
                     <button onClick={handleChat} disabled={loading} className="bg-brand-600 hover:bg-brand-500 text-white p-3 rounded-xl transition-all shadow-lg active:scale-95"><Icons.Send /></button>
                  </div>
               </div>
@@ -341,7 +352,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
           )}
           {viewMode === 'INBOX' && (
             <div className="p-12 overflow-y-auto custom-scrollbar">
-              <h2 className="text-3xl font-black uppercase tracking-tighter text-slate-800 dark:text-slate-100 mb-10">Academy Inbox</h2>
+              <h2 className="text-3xl font-black uppercase tracking-tighter text-slate-800 dark:text-slate-100 mb-10" dir="rtl">תיבת הודעות</h2>
               <div className="space-y-4 max-w-4xl">
                 {contacts?.lecturer && (
                   <button 
@@ -352,7 +363,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
                       <div className="w-12 h-12 bg-brand-600 rounded-2xl flex items-center justify-center font-black text-white">L</div>
                       <div className="text-left">
                         <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-tighter">{contacts.lecturer.name}</h4>
-                        <p className="text-[10px] text-brand-600 font-black uppercase tracking-widest">Course Lecturer</p>
+                        <p className="text-[10px] text-brand-600 font-black uppercase tracking-widest">מרצה הקורס</p>
                       </div>
                     </div>
                     <div className="p-3 rounded-xl bg-zinc-50 dark:bg-slate-800 text-slate-400 group-hover:text-brand-600 transition-colors"><Icons.Chat /></div>
@@ -368,7 +379,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
                       <div className="w-12 h-12 bg-zinc-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center font-black text-slate-500">S</div>
                       <div className="text-left">
                         <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-tighter">{s.name}</h4>
-                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Fellow Student</p>
+                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">סטודנט</p>
                       </div>
                     </div>
                     <div className="p-3 rounded-xl bg-zinc-50 dark:bg-slate-800 text-slate-400 group-hover:text-brand-600 transition-colors"><Icons.Chat /></div>
@@ -385,8 +396,8 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
                 ) : (
                   <div className="h-full flex flex-col items-center justify-center space-y-4">
                     <div className="w-20 h-20 bg-zinc-100 dark:bg-slate-800 rounded-[2rem] flex items-center justify-center text-slate-400"><Icons.Chat /></div>
-                    <p className="font-black uppercase text-slate-400 tracking-widest text-[10px]">Select a contact to start transmission</p>
-                    <button onClick={() => setViewMode('INBOX')} className="px-6 py-2 bg-brand-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest">Open Contacts</button>
+                    <p className="font-black uppercase text-slate-400 tracking-widest text-[10px]" dir="rtl">בחר איש קשר להתחלת שיחה</p>
+                    <button onClick={() => setViewMode('INBOX')} className="px-6 py-2 bg-brand-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest" dir="rtl">פתח אנשי קשר</button>
                   </div>
                 )}
               </div>
@@ -394,7 +405,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
           )}
           {viewMode === 'LIBRARY' && (
             <div className="p-12 overflow-y-auto custom-scrollbar">
-              <h2 className="text-3xl font-black uppercase tracking-tighter text-slate-800 dark:text-slate-100 mb-10">Evaluation Library</h2>
+              <h2 className="text-3xl font-black uppercase tracking-tighter text-slate-800 dark:text-slate-100 mb-10" dir="rtl">ספריית הערכות</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {submissions.filter(s => s.score !== undefined).map(s => (
                   <div key={s.id} className="bg-white dark:bg-slate-850 p-8 rounded-[2.5rem] border border-zinc-200 dark:border-slate-800">
@@ -402,20 +413,20 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
                       <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-950/20 rounded-xl flex items-center justify-center text-emerald-600"><Icons.Material /></div>
                       <div className="text-right">
                         <span className="text-2xl font-black text-emerald-600">{s.score}</span>
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Final Score</p>
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest" dir="rtl">ציון סופי</p>
                       </div>
                     </div>
-                    <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-tighter mb-2">{s.assignmentTitle || 'Assignment'}</h4>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-6">Evaluated on {new Date(s.submittedAt).toLocaleDateString()}</p>
+                    <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-tighter mb-2">Assignment #{s.assignmentId?.substring(0, 6) || '—'}</h4>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-6" dir="rtl">הוערך ב-{new Date(s.timestamp).toLocaleDateString('he-IL')}</p>
                     <div className="p-4 bg-zinc-50 dark:bg-slate-900/40 rounded-2xl border border-zinc-100 dark:border-slate-800">
-                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Feedback</p>
-                      <p className="text-xs text-slate-600 dark:text-slate-300 font-bold italic leading-relaxed">{s.feedback || 'No feedback provided.'}</p>
+                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2" dir="rtl">משוב</p>
+                      <p className="text-xs text-slate-600 dark:text-slate-300 font-bold italic leading-relaxed text-right" dir="rtl">{s.feedback || 'No feedback provided.'}</p>
                     </div>
                   </div>
                 ))}
                 {submissions.filter(s => s.score !== undefined).length === 0 && (
                   <div className="col-span-full py-20 text-center">
-                    <p className="font-black uppercase text-slate-400 tracking-widest text-[10px]">No evaluations found in library</p>
+                    <p className="font-black uppercase text-slate-400 tracking-widest text-[10px]" dir="rtl">לא נמצאו הערכות בספרייה</p>
                   </div>
                 )}
               </div>
@@ -426,18 +437,21 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
         {showJoinModal && (
           <div className="fixed inset-0 z-[200] bg-slate-900/90 backdrop-blur-xl flex items-center justify-center p-6">
             <div className="w-full max-w-md bg-white dark:bg-slate-850 p-10 rounded-[2.5rem] shadow-2xl text-center border dark:border-slate-800 transition-colors">
-              <h2 className="text-3xl font-black mb-4 uppercase tracking-tighter text-slate-800 dark:text-slate-100">Join Academy</h2>
-              <p className="text-slate-500 font-bold mb-8 text-sm">Enter the course code provided by your instructor.</p>
-              <input 
+              <h2 className="text-3xl font-black mb-4 uppercase tracking-tighter text-slate-800 dark:text-slate-100" dir="rtl">הצטרף לקורס</h2>
+              <p className="text-slate-500 font-bold mb-8 text-sm" dir="rtl">הכנס את קוד הקורס שסיפק לך המרצה</p>
+              <input
                 value={joinCode}
-                onChange={e => setJoinCode(e.target.value)}
-                placeholder="Course Code" 
-                className="w-full p-4 rounded-xl bg-zinc-50 dark:bg-slate-800 border-none mb-6 text-center font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-brand-500 dark:text-white" 
+                onChange={e => { setJoinCode(e.target.value); setJoinError(''); setJoinSuccess(''); }}
+                placeholder="קוד קורס"
+                className="w-full p-4 rounded-xl bg-zinc-50 dark:bg-slate-800 border-none mb-4 text-center font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
                 onKeyDown={(e) => e.key === 'Enter' && handleJoinCourse()}
+                dir="rtl"
               />
+              {joinError && <p className="text-rose-500 text-xs font-bold mb-4" dir="rtl">{joinError}</p>}
+              {joinSuccess && <p className="text-emerald-600 text-xs font-bold mb-4" dir="rtl">{joinSuccess}</p>}
               <div className="flex flex-col space-y-4">
-                <button onClick={handleJoinCourse} className="w-full py-4 bg-brand-600 text-white rounded-xl font-black uppercase tracking-widest shadow-lg hover:bg-brand-500 transition-all">Submit Request</button>
-                <button onClick={() => setShowJoinModal(false)} className="text-xs font-black text-slate-400 uppercase tracking-widest hover:underline">Cancel</button>
+                <button onClick={handleJoinCourse} className="w-full py-4 bg-brand-600 text-white rounded-xl font-black uppercase tracking-widest shadow-lg hover:bg-brand-500 transition-all" dir="rtl">שלח בקשה</button>
+                <button onClick={() => { setShowJoinModal(false); setJoinError(''); setJoinSuccess(''); }} className="text-xs font-black text-slate-400 uppercase tracking-widest hover:underline" dir="rtl">ביטול</button>
               </div>
             </div>
           </div>

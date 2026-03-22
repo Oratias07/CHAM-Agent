@@ -111,7 +111,7 @@ const ResultSection: React.FC<ResultSectionProps> = ({ result, error, isEvaluati
               <span>Saved</span>
             </div>
           )}
-          <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 border border-zinc-200 dark:border-slate-700 px-3 py-1 rounded-lg uppercase tracking-widest shadow-sm">Flash 3.0 Core</span>
+          <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 border border-zinc-200 dark:border-slate-700 px-3 py-1 rounded-lg uppercase tracking-widest shadow-sm">Gemini 2.0 Flash</span>
         </div>
       </div>
       

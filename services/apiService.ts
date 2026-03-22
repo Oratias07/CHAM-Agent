@@ -17,11 +17,11 @@ export const apiService = {
     } catch { return null; }
   },
 
-  async devLogin(passcode: string): Promise<User> {
-    const res = await fetch(`/api/auth/dev`, { 
+  async devLogin(role: string): Promise<User> {
+    const res = await fetch(`/api/auth/dev`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ passcode })
+      body: JSON.stringify({ role })
     });
     return handleResponse(res);
   },
