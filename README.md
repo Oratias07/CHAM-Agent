@@ -216,13 +216,12 @@ GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
 | Screen | Preview |
 |---|---|
-| Login Page | `[Screenshot: Login Page]` |
-| Lecturer Dashboard | `[Screenshot: Lecturer Dashboard]` |
-| Assignment Submission | `[Screenshot: Assignment Submission]` |
-| AI Grading Result | `[Screenshot: AI Grading Result]` |
-| Gradebook View | `[Screenshot: Gradebook View]` |
-| Student Portal | `[Screenshot: Student Portal]` |
-| Real-time Chat | `[Screenshot: Real-time Chat]` |
+| Login Page | ![Login Page](screenshots/01_login.jpg) |
+| Lecturer Dashboard | ![Lecturer Dashboard](screenshots/02_lecturer_dashboard.jpg) |
+| Student Portal — Join Academy | ![Student Portal](screenshots/03_student_portal.jpg) |
+| Assignment Submission | ![Assignment Submission](screenshots/04_assignment_submission.jpg) |
+| AI Grading Result | ![AI Grading Result](screenshots/05_ai_grading_result.jpg) |
+| Gradebook / Grid View | ![Gradebook](screenshots/06_gradebook.jpg) |
 
 ---
 
