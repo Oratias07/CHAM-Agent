@@ -107,11 +107,11 @@ const InputSection: React.FC<InputSectionProps> = ({
   };
 
   const tabs = [
-    { id: TabOption.QUESTION, label: 'Problem', sub: 'Prompt', icon: <Icons.Problem /> },
-    { id: TabOption.SOLUTION, label: 'Standard', sub: 'Reference', icon: <Icons.Solution /> },
-    { id: TabOption.RUBRIC, label: 'Rubric', sub: 'Criteria', icon: <Icons.Rubric /> },
-    { id: TabOption.STUDENT_ANSWER, label: 'Submission', sub: 'Student', icon: <Icons.Submission /> },
-    { id: TabOption.CUSTOM, label: 'Advanced', sub: 'AI Config', icon: <Icons.Advanced /> },
+    { id: TabOption.QUESTION, label: 'שאלה', sub: 'תיאור המשימה', icon: <Icons.Problem /> },
+    { id: TabOption.SOLUTION, label: 'פתרון', sub: 'פתרון מרצה', icon: <Icons.Solution /> },
+    { id: TabOption.RUBRIC, label: 'רובריקה', sub: 'קריטריונים', icon: <Icons.Rubric /> },
+    { id: TabOption.STUDENT_ANSWER, label: 'הגשה', sub: 'קוד סטודנט', icon: <Icons.Submission /> },
+    { id: TabOption.CUSTOM, label: 'מתקדם', sub: 'הגדרות AI', icon: <Icons.Advanced /> },
   ];
 
   const lineCount = currentVal.split('\n').length;
@@ -122,7 +122,7 @@ const InputSection: React.FC<InputSectionProps> = ({
         <div className="flex items-center space-x-6">
           <div className="w-10 h-10 bg-brand-600 rounded-2xl flex items-center justify-center font-black text-white text-sm shadow-lg shadow-brand-500/20 shrink-0">ST</div>
           <div className="flex flex-col">
-            <span className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">Active Context</span>
+            <span className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1" dir="rtl">הקשר פעיל</span>
             <select 
               value={activeExercise.id} 
               onChange={(e) => setActiveExerciseId(e.target.value)} 
@@ -132,17 +132,17 @@ const InputSection: React.FC<InputSectionProps> = ({
             </select>
           </div>
           <div className="h-8 w-[1px] bg-slate-200 dark:bg-slate-700"></div>
-          <button onClick={onAddExercise} className="group flex items-center space-x-2 text-[10px] font-black uppercase tracking-widest text-brand-600 dark:text-brand-400 hover:text-brand-500 transition-colors">
+          <button onClick={onAddExercise} className="group flex items-center space-x-2 text-[10px] font-black uppercase tracking-widest text-brand-600 dark:text-brand-400 hover:text-brand-500 transition-colors" dir="rtl">
             <span className="w-5 h-5 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center group-hover:scale-110 transition-transform">+</span>
-            <span>New Exercise</span>
+            <span>תרגיל חדש</span>
           </button>
         </div>
         
         <div className="flex items-center space-x-8">
           <div className="flex flex-col items-end">
-             <span className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">Workflow Mode</span>
-             <label className="flex items-center space-x-3 cursor-pointer group">
-               <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 group-hover:text-slate-800 dark:group-hover:text-slate-200 transition-colors">Auto-Advance</span>
+             <span className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1" dir="rtl">מצב עבודה</span>
+             <label className="flex items-center space-x-3 cursor-pointer group" dir="rtl">
+               <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 group-hover:text-slate-800 dark:group-hover:text-slate-200 transition-colors">מעבר אוטומטי</span>
                <div className="relative">
                  <input type="checkbox" checked={autoAdvance} onChange={(e) => setAutoAdvance(e.target.checked)} className="sr-only" />
                  <div className={`w-10 h-5 rounded-full transition-colors ${autoAdvance ? 'bg-brand-500' : 'bg-slate-300 dark:bg-slate-700'}`}></div>
@@ -179,7 +179,7 @@ const InputSection: React.FC<InputSectionProps> = ({
               className="flex items-center space-x-2 text-[9px] font-black text-emerald-600 uppercase tracking-widest border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 px-5 py-2.5 rounded-xl hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-all shadow-sm active:scale-95"
             >
               <Icons.Light />
-              <span>Load {tabs.find(t => t.id === activeTab)?.label} Template</span>
+              <span dir="rtl">טען דוגמה: {tabs.find(t => t.id === activeTab)?.label}</span>
             </button>
           )}
         </div>
@@ -214,7 +214,7 @@ const InputSection: React.FC<InputSectionProps> = ({
           style={{ lineHeight: '1.8rem', minHeight: '18rem' }}
           value={currentVal} 
           onChange={(e) => handleChange(e.target.value)} 
-          placeholder={`Input ${tabs.find(t => t.id === activeTab)?.label.toLowerCase()} data for the evaluation engine...`} 
+          placeholder={`הכנס ${tabs.find(t => t.id === activeTab)?.label} כאן...`}
           rows={10}
         />
       </div>
@@ -222,16 +222,16 @@ const InputSection: React.FC<InputSectionProps> = ({
       <div className="px-10 py-6 bg-zinc-50/30 dark:bg-slate-900/20 flex items-center justify-between shrink-0">
         <div className="flex items-center space-x-6">
           <div className="flex flex-col">
-            <span className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">Editor Status</span>
-            <div className="flex items-center space-x-2">
+            <span className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1" dir="rtl">סטטוס עורך</span>
+            <div className="flex items-center space-x-2 space-x-reverse" dir="rtl">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Live Sync Active</span>
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">סנכרון פעיל</span>
             </div>
           </div>
           <div className="h-6 w-[1px] bg-slate-200 dark:bg-slate-700"></div>
           <div className="flex flex-col">
-            <span className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">Line Count</span>
-            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{lineCount} Lines</span>
+            <span className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1" dir="rtl">שורות</span>
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{lineCount}</span>
           </div>
         </div>
 
@@ -247,12 +247,12 @@ const InputSection: React.FC<InputSectionProps> = ({
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                Processing Node...
+                מעריך...
               </>
             ) : (
               <>
                 <Icons.Light />
-                <span className="ml-4">Execute Evaluation</span>
+                <span className="ml-4" dir="rtl">הפעל הערכה</span>
               </>
             )}
           </div>

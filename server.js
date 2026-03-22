@@ -90,7 +90,7 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'fallback-secret',
   resave: false,
   saveUninitialized: false,
-  store: MONGODB_URI ? MongoStore.create({ mongoUrl: MONGODB_URI }) : undefined,
+  store: process.env.MONGODB_URI ? MongoStore.create({ mongoUrl: process.env.MONGODB_URI }) : undefined,
   cookie: { 
     maxAge: 1000 * 60 * 60 * 24 * 7,
     secure: process.env.NODE_ENV === 'production',
@@ -105,7 +105,7 @@ if (process.env.GOOGLE_CLIENT_ID) {
   passport.use(new GoogleStrategy({
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: "/api/auth/google/callback",
+      callbackURL: process.env.GOOGLE_CALLBACK_URL || "/api/auth/google/callback",
       proxy: true
     },
     async (accessToken, refreshToken, profile, done) => {
@@ -422,7 +422,7 @@ app.post('/api/evaluate', async (req, res) => {
   const ai = new GoogleGenAI({ apiKey: aiKey });
     
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview', 
+      model: 'gemini-2.0-flash',
       contents: `You are a Senior Academic Code Reviewer and Pedagogical Expert.
       Your task is to evaluate a student's code submission with extreme precision based on the provided rubric.
       
@@ -482,8 +482,9 @@ app.get('/api/grades', async (req, res) => {
 });
 
 // For local development only
-if (process.env.NODE_ENV !== 'production' && process.env.PORT) {
-  app.listen(process.env.PORT, () => console.log(`Server running on ${process.env.PORT}`));
+if (process.env.NODE_ENV !== 'production') {
+  const port = process.env.PORT || 3000;
+  app.listen(port, () => console.log(`Server running on ${port}`));
 }
 
 // THIS IS THE VERCEL REQUIREMENT: 

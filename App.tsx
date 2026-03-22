@@ -26,9 +26,9 @@ const App: React.FC = () => {
     }).catch(() => setLoading(false));
   }, []);
 
-  const handleDevLogin = async (passcode: string) => {
+  const handleDevLogin = async (role: string) => {
     try {
-      const u = await apiService.devLogin(passcode);
+      const u = await apiService.devLogin(role);
       setUser(u);
     } catch (e) { alert("Login failed."); }
   };

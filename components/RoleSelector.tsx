@@ -8,31 +8,47 @@ interface RoleSelectorProps {
 
 const RoleSelector: React.FC<RoleSelectorProps> = ({ onSelect }) => {
   return (
-    <div className="h-screen bg-slate-900 flex flex-col items-center justify-center p-6 text-white text-center">
-      <div className="max-w-xl w-full">
-        <div className="w-20 h-20 bg-brand-500 rounded-3xl mx-auto mb-8 flex items-center justify-center text-4xl shadow-2xl shadow-brand-500/20">🚀</div>
-        <h1 className="text-4xl font-black mb-4 uppercase tracking-tighter">Welcome to AI Grader</h1>
-        <p className="text-slate-400 mb-12 text-lg">Choose your primary path to get started with the platform.</p>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <button 
+    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-white relative overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-b from-brand-500/5 via-transparent to-transparent pointer-events-none" />
+
+      <div className="z-10 w-full max-w-lg text-center">
+        <div className="w-16 h-16 bg-gradient-to-br from-brand-500 to-brand-700 rounded-2xl mx-auto mb-8 flex items-center justify-center font-black text-2xl shadow-2xl shadow-brand-500/30">
+          ST
+        </div>
+        <h1 className="text-3xl sm:text-4xl font-black mb-3 uppercase tracking-tighter" dir="rtl">ברוך הבא למערכת</h1>
+        <p className="text-slate-400 mb-10 text-sm font-medium" dir="rtl">בחר את תפקידך להמשיך לפלטפורמה</p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <button
             onClick={() => onSelect('lecturer')}
-            className="group p-8 bg-slate-800 border border-slate-700 rounded-[2.5rem] text-left hover:border-brand-500 transition-all transform hover:scale-[1.02]"
+            className="group p-8 bg-slate-900 border border-slate-800 hover:border-brand-500/60 rounded-3xl text-right transition-all hover:scale-[1.02] hover:shadow-2xl hover:shadow-brand-500/10 active:scale-[0.98]"
+            dir="rtl"
           >
-            <span className="text-4xl mb-6 block">👨‍🏫</span>
-            <h3 className="text-xl font-bold mb-2">Lecturer</h3>
-            <p className="text-slate-500 text-sm">Create exercises, evaluate student code, and manage class gradebooks.</p>
+            <div className="text-4xl mb-5 block transition-transform group-hover:scale-110">👨‍🏫</div>
+            <h3 className="text-lg font-black mb-2 uppercase tracking-tight">מרצה</h3>
+            <p className="text-slate-500 text-xs leading-relaxed font-medium">ניהול קורסים, הערכת קוד בינה מלאכותית, וניהול ציונים</p>
+            <div className="mt-6 flex items-center space-x-2 space-x-reverse">
+              <div className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse" />
+              <span className="text-[10px] font-black text-brand-400 uppercase tracking-widest">גישה מלאה</span>
+            </div>
           </button>
 
-          <button 
+          <button
             onClick={() => onSelect('student')}
-            className="group p-8 bg-slate-800 border border-slate-700 rounded-[2.5rem] text-left hover:border-brand-500 transition-all transform hover:scale-[1.02]"
+            className="group p-8 bg-slate-900 border border-slate-800 hover:border-purple-500/60 rounded-3xl text-right transition-all hover:scale-[1.02] hover:shadow-2xl hover:shadow-purple-500/10 active:scale-[0.98]"
+            dir="rtl"
           >
-            <span className="text-4xl mb-6 block">🧑‍🎓</span>
-            <h3 className="text-xl font-bold mb-2">Student</h3>
-            <p className="text-slate-500 text-sm">Access course materials, use the AI study notebook, and track your progress.</p>
+            <div className="text-4xl mb-5 block transition-transform group-hover:scale-110">🧑‍🎓</div>
+            <h3 className="text-lg font-black mb-2 uppercase tracking-tight">סטודנט</h3>
+            <p className="text-slate-500 text-xs leading-relaxed font-medium">גישה לחומרי לימוד, הגשת משימות ומעקב אחר הישגים</p>
+            <div className="mt-6 flex items-center space-x-2 space-x-reverse">
+              <div className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
+              <span className="text-[10px] font-black text-purple-400 uppercase tracking-widest">פורטל סטודנט</span>
+            </div>
           </button>
         </div>
+
+        <p className="mt-10 text-slate-700 text-[9px] font-black uppercase tracking-widest" dir="rtl">בחירה זו קבועה לחשבון שלך</p>
       </div>
     </div>
   );

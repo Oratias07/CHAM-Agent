@@ -38,7 +38,8 @@ const UserSchema = new mongoose.Schema({
   picture: String,
   role: { type: String, enum: ['lecturer', 'student'], default: null },
   enrolledCourseIds: [String],
-  unseenApprovals: { type: Number, default: 0 } 
+  unseenApprovals: { type: Number, default: 0 },
+  activeCourseId: { type: String, default: null }
 });
 // Ensure virtual 'id' is included in JSON responses
 UserSchema.set('toJSON', { virtuals: true });
@@ -202,7 +203,8 @@ router.get('/auth/me', async (req, res) => {
     let activeCourse = null;
     await connectDB();
     if (req.user.role === 'student' && req.user.enrolledCourseIds?.length > 0) {
-      activeCourse = await Course.findById(req.user.enrolledCourseIds[0]);
+      const courseId = req.user.activeCourseId || req.user.enrolledCourseIds[0];
+      activeCourse = await Course.findById(courseId);
     }
     res.json({
       id: req.user.googleId,
@@ -221,8 +223,8 @@ router.get('/auth/me', async (req, res) => {
 
 router.post('/auth/dev', async (req, res) => {
   await connectDB();
-  const { passcode } = req.body;
-  let role = passcode === '12345' ? 'lecturer' : 'student';
+  const { role } = req.body;
+  if (role !== 'lecturer' && role !== 'student') return res.status(400).json({ message: 'Invalid role' });
   let googleId = `dev-${role}`;
   let user = await User.findOne({ googleId });
   if (!user) {
@@ -361,6 +363,27 @@ router.post('/student/clear-notifications', async (req, res) => {
   res.json({ success: true });
 });
 
+router.post('/student/switch-course', async (req, res) => {
+  if (!req.user || req.user.role !== 'student') return res.status(401).send();
+  await connectDB();
+  const { courseId } = req.body;
+  if (!req.user.enrolledCourseIds.includes(courseId)) {
+    return res.status(403).json({ message: "Not enrolled in this course" });
+  }
+  await User.findOneAndUpdate({ googleId: req.user.googleId }, { activeCourseId: courseId });
+  const activeCourse = await Course.findById(courseId);
+  res.json({
+    id: req.user.googleId,
+    name: req.user.name,
+    email: req.user.email,
+    picture: req.user.picture,
+    role: req.user.role,
+    enrolledCourseIds: req.user.enrolledCourseIds,
+    unseenApprovals: req.user.unseenApprovals,
+    activeCourse
+  });
+});
+
 router.get('/student/submissions', async (req, res) => {
   if (!req.user) return res.status(401).send();
   await connectDB();
@@ -411,7 +434,7 @@ router.post('/student/chat', async (req, res) => {
   }
   const ai = new GoogleGenAI({ apiKey: aiKey });
   const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
+    model: 'gemini-2.0-flash',
     contents: `You are a helpful and specialized Course Assistant. 
     POLICY: 
     1. Prioritize answering using the provided course documents.
@@ -517,6 +540,25 @@ router.get('/grades', async (req, res) => {
   res.json(grades);
 });
 
+// LECTURER GENERAL CHAT
+router.post('/chat', async (req, res) => {
+  if (!req.user) return res.status(401).send();
+  const { message, context } = req.body;
+  const aiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+  if (!aiKey) return res.json({ text: "AI engine not configured. Please set GEMINI_API_KEY." });
+  try {
+    const ai = new GoogleGenAI({ apiKey: aiKey });
+    const contextStr = context ? `\nCurrent context:\n- Question: ${context.question || ''}\n- Rubric: ${context.rubric || ''}\n- Student Code: ${context.studentCode || ''}` : '';
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.0-flash',
+      contents: `You are a helpful grading assistant for an academic lecturer.${contextStr}\n\nLecturer asks: ${message}`
+    });
+    res.json({ text: response.text });
+  } catch (err) {
+    res.json({ text: "Assistant unavailable: " + err.message });
+  }
+});
+
 // EVALUATE
 router.post('/evaluate', async (req, res) => {
   if (!req.user) return res.status(401).send();
@@ -529,7 +571,7 @@ router.post('/evaluate', async (req, res) => {
     const ai = new GoogleGenAI({ apiKey: aiKey });
     
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.0-flash',
       contents: `You are a Senior Academic Code Reviewer.
       Evaluate this student submission.
       
@@ -644,37 +686,24 @@ router.post('/student/assignments/:id/submit', async (req, res) => {
 
   // Evaluate using AI
   try {
-    const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-    const model = genAI.models.get('gemini-3-flash-preview');
-    
-    const prompt = `
-      You are an expert academic grader. Evaluate the following student submission based on the provided question, master solution, and rubric.
-      
-      QUESTION:
-      ${assignment.question}
-      
-      MASTER SOLUTION:
-      ${assignment.masterSolution}
-      
-      RUBRIC:
-      ${assignment.rubric}
-      
-      STUDENT SUBMISSION:
-      ${req.body.studentCode}
-      
-      CUSTOM INSTRUCTIONS:
-      ${assignment.customInstructions || 'None'}
-      
-      Return a JSON object with:
-      1. "score": a number from 0 to 100
-      2. "feedback": a detailed string explaining the grade and how to improve.
-    `;
+    const aiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+    if (!aiKey) throw new Error("AI engine not configured");
+    const genAI = new GoogleGenAI({ apiKey: aiKey });
 
-    const result = await model.generateContent({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      config: { responseMimeType: 'application/json' }
+    const result = await genAI.models.generateContent({
+      model: 'gemini-2.0-flash',
+      contents: `You are an expert academic grader. Evaluate this student submission.
+
+QUESTION: ${assignment.question}
+MASTER SOLUTION: ${assignment.masterSolution}
+RUBRIC: ${assignment.rubric}
+CUSTOM INSTRUCTIONS: ${assignment.customInstructions || 'None'}
+STUDENT SUBMISSION: ${req.body.studentCode}
+
+Return ONLY valid JSON: { "score": number (0-100), "feedback": "detailed feedback in Hebrew" }`,
+      config: { responseMimeType: 'application/json', temperature: 0.2 }
     });
-    
+
     const evaluation = JSON.parse(result.text);
 
     if (existingSubmission) {
@@ -804,7 +833,7 @@ router.post('/lecturer/courses/:id/reject', async (req, res) => {
 });
 
 router.post('/lecturer/courses/:id/remove-student', async (req, res) => {
-  if (!req.user) return res.status(401).send();
+  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
   await connectDB();
   const { studentId } = req.body;
   await Course.updateOne({ _id: req.params.id }, { $pull: { enrolledStudentIds: studentId } });
@@ -849,5 +878,4 @@ app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile',
 app.get('/api/auth/google/callback', passport.authenticate('google', { failureRedirect: '/login' }), (req, res) => res.redirect('/'));
 app.get('/api/auth/logout', (req, res) => req.logout(() => res.redirect('/')));
 app.use('/api', router);
-app.use('/', router);
 export default app;

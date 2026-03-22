@@ -118,7 +118,7 @@ app.post('/api/evaluate', isAuthenticated, async (req, res) => {
     
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.0-flash',
       contents: `Evaluate this code based on rubric: ${rubric}. Question: ${question}. Student: ${studentCode}`,
       config: { responseMimeType: "application/json" }
     });
