@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(find C:UsersatiasST-System -name *.png -o -name *.jpg -o -name *.jpeg -o -name *.webp)",
+      "Bash(ls C:/Users/atias/ST-System/*.env*)",
+      "Bash(ls C:/Users/atias/ST-System/.env*)",
+      "Bash(ls C:/Users/atias/ST-System/docker*)",
+      "Bash(ls C:/Users/atias/ST-System/Dockerfile*)",
+      "Bash(npx vite:*)",
+      "Bash(npm install:*)",
+      "Bash(npx vitest:*)"
+    ]
+  }
+}

@@ -108,6 +108,17 @@ export interface GradeEntry {
   feedback: string;
 }
 
+export type QuestionType = 'objective' | 'creative' | 'open-ended' | 'algorithmic';
+export type CodeLanguage = 'python' | 'javascript' | 'java' | 'c' | 'cpp';
+export type AssessmentStatus = 'pending' | 'testing' | 'semantic_analysis' | 'awaiting_review' | 'graded';
+
+export interface UnitTest {
+  input: string;
+  expected_output: string;
+  test_type: 'equality' | 'contains' | 'range' | 'regex' | 'exception';
+  description: string;
+}
+
 export interface Assignment {
   id: string;
   courseId: string;
@@ -120,6 +131,30 @@ export interface Assignment {
   openDate: Date;
   dueDate: Date;
   createdAt: Date;
+  // CHAM fields
+  language?: CodeLanguage;
+  question_type?: QuestionType;
+  requires_human_review?: boolean;
+  unit_tests?: UnitTest[];
+}
+
+export interface RoutingTrigger {
+  type: string;
+  reason?: string;
+  [key: string]: any;
+}
+
+export interface CHAMResult {
+  status: AssessmentStatus;
+  layer1?: {
+    score: number | null;
+    total_tests: number;
+    passed: number;
+    security_blocked?: boolean;
+  };
+  layer2_score?: number | null;
+  final_score?: number;
+  feedback?: string;
 }
 
 export interface Submission {
@@ -133,7 +168,80 @@ export interface Submission {
   feedback?: string;
   timestamp: Date;
   status: 'pending' | 'evaluated';
-  extensionUntil?: Date; // For special permission
+  extensionUntil?: Date;
+  // CHAM fields
+  assessment_status?: AssessmentStatus;
+  final_score?: number;
+  routing_decision?: {
+    requires_human: boolean;
+    triggers: RoutingTrigger[];
+    decided_at?: Date;
+  };
+  cham?: CHAMResult;
+}
+
+export interface CriterionScore {
+  score: number;
+  feedback: string;
+  big_o?: string;
+}
+
+export interface AssessmentLayerData {
+  id: string;
+  submission_id: string;
+  layer1?: {
+    score: number | null;
+    test_results: any[];
+    total_tests: number;
+    passed: number;
+    execution_time?: number;
+    errors: string[];
+    security_blocked: boolean;
+  };
+  layer2?: {
+    score: number | null;
+    criteria_breakdown?: {
+      code_quality: CriterionScore;
+      documentation: CriterionScore;
+      complexity: CriterionScore;
+      error_handling: CriterionScore;
+      best_practices: CriterionScore;
+    };
+    confidence: number;
+    feedback: string;
+    flags_for_human_review: string[];
+    model_used: string;
+    injection_detected?: boolean;
+  };
+  layer3?: {
+    required: boolean;
+    triggers: RoutingTrigger[];
+    human_score?: number;
+    reviewer_id?: string;
+    reviewed_at?: Date;
+    comments?: string;
+  };
+  final_score?: number;
+  auto_score?: number;
+  created_at: Date;
+}
+
+export interface ReviewQueueItem {
+  id: string;
+  submission_id: string;
+  student_id: string;
+  question_id: string;
+  course_id: string;
+  added_at: Date;
+  priority: number;
+  auto_score: number;
+  triggers: RoutingTrigger[];
+  reviewed: boolean;
+  // Enriched fields from API
+  submission?: Submission;
+  assignment?: { title: string; question: string };
+  assessment?: AssessmentLayerData;
+  student?: { name: string; picture?: string };
 }
 
 export interface Exercise {

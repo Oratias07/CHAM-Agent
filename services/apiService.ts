@@ -1,5 +1,5 @@
 
-import { User, GradingInputs, GradingResult, Material, Course, Student, UserRole, DirectMessage, Archive, Assignment, Submission } from "../types";
+import { User, GradingInputs, GradingResult, Material, Course, Student, UserRole, DirectMessage, Archive, Assignment, Submission, ReviewQueueItem, AssessmentLayerData } from "../types";
 
 const handleResponse = async (res: Response) => {
   if (!res.ok) {
@@ -333,5 +333,41 @@ export const apiService = {
   async getPrivateMaterials(): Promise<Material[]> {
     const res = await fetch(`/api/student/private-materials`);
     return handleResponse(res);
-  }
+  },
+
+  // ── CHAM: Teacher Review Queue ──
+  async getReviewQueue(): Promise<ReviewQueueItem[]> {
+    const res = await fetch(`/api/teacher/review-queue`);
+    return handleResponse(res);
+  },
+
+  async getReviewQueueStats(): Promise<{ pending: number; reviewed: number; total: number; review_rate: number }> {
+    const res = await fetch(`/api/teacher/review-queue/stats`);
+    return handleResponse(res);
+  },
+
+  async getReviewDetail(submissionId: string): Promise<{
+    submission: Submission;
+    assignment: Assignment;
+    assessment: AssessmentLayerData;
+    student: { name: string; email: string; picture: string };
+    queueItem: ReviewQueueItem;
+  }> {
+    const res = await fetch(`/api/teacher/review/${submissionId}`);
+    return handleResponse(res);
+  },
+
+  async submitReview(data: {
+    submission_id: string;
+    human_score: number;
+    comments: string;
+    override_auto_score: boolean;
+  }): Promise<{ success: boolean; final_score: number }> {
+    const res = await fetch(`/api/teacher/submit-review`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return handleResponse(res);
+  },
 };
