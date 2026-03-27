@@ -7,6 +7,7 @@ import session from 'express-session';
 import MongoStore from 'connect-mongo';
 import { GoogleGenAI, Type } from '@google/genai';
 import dotenv from 'dotenv';
+import { assessSubmission } from '../services/chamAssessment.js';
 
 dotenv.config();
 
@@ -117,7 +118,17 @@ const AssignmentSchema = new mongoose.Schema({
   maxScore: { type: Number, default: 100 },
   openDate: Date,
   dueDate: Date,
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now },
+  // CHAM fields
+  language: { type: String, enum: ['python', 'javascript', 'java', 'c', 'cpp'], default: 'python' },
+  question_type: { type: String, enum: ['objective', 'creative', 'open-ended', 'algorithmic'], default: 'objective' },
+  requires_human_review: { type: Boolean, default: false },
+  unit_tests: [{
+    input: String,
+    expected_output: String,
+    test_type: { type: String, enum: ['equality', 'contains', 'range', 'regex', 'exception'], default: 'equality' },
+    description: String,
+  }],
 });
 AssignmentSchema.set('toJSON', { virtuals: true });
 
@@ -131,7 +142,19 @@ const SubmissionSchema = new mongoose.Schema({
   feedback: String,
   timestamp: { type: Date, default: Date.now },
   status: { type: String, enum: ['pending', 'evaluated'], default: 'pending' },
-  extensionUntil: Date
+  extensionUntil: Date,
+  // CHAM fields
+  assessment_status: {
+    type: String,
+    enum: ['pending', 'testing', 'semantic_analysis', 'awaiting_review', 'graded'],
+    default: 'pending',
+  },
+  final_score: Number,
+  routing_decision: {
+    requires_human: Boolean,
+    triggers: [mongoose.Schema.Types.Mixed],
+    decided_at: Date,
+  },
 });
 SubmissionSchema.set('toJSON', { virtuals: true });
 
@@ -153,6 +176,70 @@ const WaitlistHistorySchema = new mongoose.Schema({
 });
 WaitlistHistorySchema.set('toJSON', { virtuals: true });
 const WaitlistHistory = mongoose.models.WaitlistHistory || mongoose.model('WaitlistHistory', WaitlistHistorySchema);
+
+// CHAM SCHEMAS
+const AssessmentLayerSchema = new mongoose.Schema({
+  submission_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Submission', index: true },
+  layer1: {
+    score: Number,
+    test_results: [mongoose.Schema.Types.Mixed],
+    total_tests: Number,
+    passed: Number,
+    execution_time: Number,
+    errors: [String],
+    security_blocked: Boolean,
+    filter_violations: [mongoose.Schema.Types.Mixed],
+  },
+  layer2: {
+    score: Number,
+    criteria_breakdown: {
+      code_quality: { score: Number, feedback: String },
+      documentation: { score: Number, feedback: String },
+      complexity: { score: Number, feedback: String, big_o: String },
+      error_handling: { score: Number, feedback: String },
+      best_practices: { score: Number, feedback: String },
+    },
+    confidence: Number,
+    feedback: String,
+    flags_for_human_review: [String],
+    model_used: String,
+    injection_detected: Boolean,
+  },
+  layer3: {
+    required: Boolean,
+    triggers: [mongoose.Schema.Types.Mixed],
+    human_score: Number,
+    reviewer_id: String,
+    reviewed_at: Date,
+    comments: String,
+  },
+  final_score: Number,
+  auto_score: Number,
+  score_calculation: {
+    formula: String,
+    weights: mongoose.Schema.Types.Mixed,
+  },
+  created_at: { type: Date, default: Date.now },
+});
+AssessmentLayerSchema.set('toJSON', { virtuals: true });
+
+const HumanReviewQueueSchema = new mongoose.Schema({
+  submission_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Submission', index: true },
+  student_id: String,
+  question_id: String, // assignmentId
+  course_id: String,
+  added_at: { type: Date, default: Date.now },
+  priority: { type: Number, default: 0 },
+  auto_score: Number,
+  triggers: [mongoose.Schema.Types.Mixed],
+  reviewed: { type: Boolean, default: false },
+  reviewer_id: String,
+  reviewed_at: Date,
+});
+HumanReviewQueueSchema.set('toJSON', { virtuals: true });
+
+const AssessmentLayer = mongoose.models.AssessmentLayer || mongoose.model('AssessmentLayer', AssessmentLayerSchema);
+const HumanReviewQueue = mongoose.models.HumanReviewQueue || mongoose.model('HumanReviewQueue', HumanReviewQueueSchema);
 
 // AUTH CONFIG
 const sessionConfig = {
@@ -665,12 +752,12 @@ router.get('/student/courses/:courseId/assignments', async (req, res) => {
 router.post('/student/assignments/:id/submit', async (req, res) => {
   if (!req.user) return res.status(401).send();
   await connectDB();
-  
+
   const assignment = await Assignment.findById(req.params.id);
   if (!assignment) return res.status(404).json({ message: "Assignment not found" });
 
   const now = new Date();
-  
+
   // Check if open
   if (now < new Date(assignment.openDate)) {
     return res.status(403).json({ message: "Submission period has not started yet" });
@@ -679,58 +766,65 @@ router.post('/student/assignments/:id/submit', async (req, res) => {
   // Check if past due
   let existingSubmission = await Submission.findOne({ assignmentId: req.params.id, studentId: req.user.googleId });
   const effectiveDueDate = existingSubmission?.extensionUntil ? new Date(existingSubmission.extensionUntil) : new Date(assignment.dueDate);
-  
+
   if (now > effectiveDueDate) {
     return res.status(403).json({ message: "Submission deadline has passed" });
   }
 
-  // Evaluate using AI
+  // Save/update submission immediately, then run CHAM async
+  let submission;
+  if (existingSubmission) {
+    existingSubmission.studentCode = req.body.studentCode;
+    existingSubmission.timestamp = now;
+    existingSubmission.status = 'pending';
+    existingSubmission.assessment_status = 'pending';
+    await existingSubmission.save();
+    submission = existingSubmission;
+  } else {
+    submission = await Submission.create({
+      assignmentId: req.params.id,
+      courseId: assignment.courseId,
+      studentId: req.user.googleId,
+      studentName: req.user.name,
+      studentCode: req.body.studentCode,
+      status: 'pending',
+      assessment_status: 'pending',
+      timestamp: now,
+    });
+  }
+
+  // Run CHAM assessment pipeline
   try {
-    const aiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
-    if (!aiKey) throw new Error("AI engine not configured");
-    const genAI = new GoogleGenAI({ apiKey: aiKey });
-
-    const result = await genAI.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: `You are an expert academic grader. Evaluate this student submission.
-
-QUESTION: ${assignment.question}
-MASTER SOLUTION: ${assignment.masterSolution}
-RUBRIC: ${assignment.rubric}
-CUSTOM INSTRUCTIONS: ${assignment.customInstructions || 'None'}
-STUDENT SUBMISSION: ${req.body.studentCode}
-
-Return ONLY valid JSON: { "score": number (0-100), "feedback": "detailed feedback in Hebrew" }`,
-      config: { responseMimeType: 'application/json', temperature: 0.2 }
+    const chamResult = await assessSubmission({
+      submission,
+      assignment,
+      models: { Submission, AssessmentLayer, HumanReviewQueue },
     });
 
-    const evaluation = JSON.parse(result.text);
-
-    if (existingSubmission) {
-      existingSubmission.studentCode = req.body.studentCode;
-      existingSubmission.score = evaluation.score;
-      existingSubmission.feedback = evaluation.feedback;
-      existingSubmission.timestamp = now;
-      existingSubmission.status = 'evaluated';
-      await existingSubmission.save();
-      res.json(existingSubmission);
-    } else {
-      const submission = await Submission.create({
-        assignmentId: req.params.id,
-        courseId: assignment.courseId,
-        studentId: req.user.googleId,
-        studentName: req.user.name,
-        studentCode: req.body.studentCode,
-        score: evaluation.score,
-        feedback: evaluation.feedback,
-        status: 'evaluated',
-        timestamp: now
-      });
-      res.json(submission);
-    }
+    // Return enriched response to student
+    const updatedSubmission = await Submission.findById(submission._id);
+    res.json({
+      ...updatedSubmission.toJSON(),
+      cham: {
+        status: chamResult.status,
+        layer1: chamResult.layer1 ? {
+          score: chamResult.layer1.score,
+          total_tests: chamResult.layer1.total_tests,
+          passed: chamResult.layer1.passed,
+          security_blocked: chamResult.layer1.security_blocked,
+        } : null,
+        layer2_score: chamResult.layer2?.overall_score,
+        final_score: chamResult.final_score,
+        feedback: chamResult.feedback || chamResult.layer2?.feedback,
+      },
+    });
   } catch (err) {
-    console.error('Auto-Evaluation Error:', err);
-    res.status(500).json({ message: "Automatic evaluation failed, but your submission was saved. Please contact your lecturer." });
+    console.error('[CHAM] Pipeline error:', err);
+    // Fallback: submission is saved, but assessment failed
+    res.status(500).json({
+      message: "הגשה נשמרה אך ההערכה האוטומטית נכשלה. המרצה יעריך ידנית.",
+      submission: submission.toJSON(),
+    });
   }
 });
 
@@ -793,8 +887,145 @@ router.get('/lecturer/courses/:id/waitlist-history', async (req, res) => {
 router.get('/lecturer/courses/:id/all-submissions', async (req, res) => {
   if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
   await connectDB();
-  const submissions = await Submission.find({ courseId: req.params.id, status: 'evaluated' }).sort({ timestamp: -1 });
+  // Include both old 'evaluated' and new CHAM 'graded' submissions
+  const submissions = await Submission.find({
+    courseId: req.params.id,
+    $or: [{ status: 'evaluated' }, { assessment_status: 'graded' }, { assessment_status: 'awaiting_review' }]
+  }).sort({ timestamp: -1 });
   res.json(submissions);
+});
+
+// ── CHAM: Teacher Review Queue ──
+router.get('/teacher/review-queue', async (req, res) => {
+  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
+  await connectDB();
+
+  // Get lecturer's course IDs
+  const courses = await Course.find({ lecturerId: req.user.googleId });
+  const courseIds = courses.map(c => c._id.toString());
+
+  // Fetch pending reviews for lecturer's courses
+  const queue = await HumanReviewQueue.find({
+    course_id: { $in: courseIds },
+    reviewed: false,
+  }).sort({ priority: -1, added_at: 1 });
+
+  // Enrich with submission + assignment data
+  const enriched = await Promise.all(queue.map(async (item) => {
+    const submission = await Submission.findById(item.submission_id);
+    const assignment = await Assignment.findById(item.question_id);
+    const assessment = await AssessmentLayer.findOne({ submission_id: item.submission_id });
+    const student = await User.findOne({ googleId: item.student_id });
+
+    return {
+      ...item.toJSON(),
+      submission: submission?.toJSON(),
+      assignment: assignment ? { title: assignment.title, question: assignment.question } : null,
+      assessment: assessment?.toJSON(),
+      student: student ? { name: student.name, picture: student.picture } : null,
+    };
+  }));
+
+  res.json(enriched);
+});
+
+router.get('/teacher/review-queue/stats', async (req, res) => {
+  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
+  await connectDB();
+
+  const courses = await Course.find({ lecturerId: req.user.googleId });
+  const courseIds = courses.map(c => c._id.toString());
+
+  const pending = await HumanReviewQueue.countDocuments({ course_id: { $in: courseIds }, reviewed: false });
+  const reviewed = await HumanReviewQueue.countDocuments({ course_id: { $in: courseIds }, reviewed: true });
+  const total = pending + reviewed;
+
+  res.json({
+    pending,
+    reviewed,
+    total,
+    review_rate: total > 0 ? Math.round((reviewed / total) * 100) : 0,
+  });
+});
+
+router.get('/teacher/review/:submissionId', async (req, res) => {
+  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
+  await connectDB();
+
+  const submission = await Submission.findById(req.params.submissionId);
+  if (!submission) return res.status(404).json({ message: 'Submission not found' });
+
+  const assignment = await Assignment.findById(submission.assignmentId);
+  const assessment = await AssessmentLayer.findOne({ submission_id: submission._id });
+  const student = await User.findOne({ googleId: submission.studentId });
+  const queueItem = await HumanReviewQueue.findOne({ submission_id: submission._id });
+
+  res.json({
+    submission: submission.toJSON(),
+    assignment: assignment?.toJSON(),
+    assessment: assessment?.toJSON(),
+    student: student ? { name: student.name, email: student.email, picture: student.picture } : null,
+    queueItem: queueItem?.toJSON(),
+  });
+});
+
+router.post('/teacher/submit-review', async (req, res) => {
+  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
+  await connectDB();
+
+  const { submission_id, human_score, comments, override_auto_score } = req.body;
+
+  if (human_score == null || human_score < 0 || human_score > 100) {
+    return res.status(400).json({ message: 'Score must be between 0 and 100' });
+  }
+
+  const submission = await Submission.findById(submission_id);
+  if (!submission) return res.status(404).json({ message: 'Submission not found' });
+
+  const assessment = await AssessmentLayer.findOne({ submission_id });
+
+  // Determine final score
+  let finalScore;
+  if (override_auto_score || !assessment?.auto_score) {
+    finalScore = human_score;
+  } else {
+    // Blend: 70% human, 30% auto (human has authority)
+    finalScore = Math.round(human_score * 0.7 + assessment.auto_score * 0.3);
+  }
+
+  // Update assessment layer with human review
+  if (assessment) {
+    await AssessmentLayer.updateOne(
+      { _id: assessment._id },
+      {
+        'layer3.human_score': human_score,
+        'layer3.reviewer_id': req.user.googleId,
+        'layer3.reviewed_at': new Date(),
+        'layer3.comments': comments,
+        final_score: finalScore,
+      }
+    );
+  }
+
+  // Update submission
+  await Submission.updateOne(
+    { _id: submission_id },
+    {
+      score: finalScore,
+      final_score: finalScore,
+      feedback: comments || submission.feedback,
+      status: 'evaluated',
+      assessment_status: 'graded',
+    }
+  );
+
+  // Mark queue item as reviewed
+  await HumanReviewQueue.updateOne(
+    { submission_id },
+    { reviewed: true, reviewer_id: req.user.googleId, reviewed_at: new Date() }
+  );
+
+  res.json({ success: true, final_score: finalScore });
 });
 
 router.post('/lecturer/courses/:id/approve', async (req, res) => {

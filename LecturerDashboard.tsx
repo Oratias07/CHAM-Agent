@@ -9,6 +9,7 @@ import StudentManagement from './components/StudentManagement';
 import DirectChat from './components/DirectChat';
 import ArchiveViewer from './components/ArchiveViewer';
 import AssignmentManager from './components/AssignmentManager';
+import ReviewQueue from './components/ReviewQueue';
 import { apiService } from './services/apiService';
 import { GradingResult, TabOption, GradeBookState, User, Course, Student, Exercise, Archive, GradeEntry, Submission } from './types';
 import { INITIAL_GRADEBOOK_STATE } from './constants';
@@ -20,7 +21,7 @@ interface LecturerDashboardProps {
   onSignOut: () => void;
 }
 
-type ViewMode = 'EVALUATION' | 'SHEETS' | 'STUDENTS' | 'COURSES' | 'MESSAGES' | 'ARCHIVES' | 'ASSIGNMENTS' | 'SNAPSHOTS' | 'LIBRARY';
+type ViewMode = 'EVALUATION' | 'SHEETS' | 'STUDENTS' | 'COURSES' | 'MESSAGES' | 'ARCHIVES' | 'ASSIGNMENTS' | 'SNAPSHOTS' | 'LIBRARY' | 'REVIEW_QUEUE';
 
 const Icons = {
   Evaluation: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>,
@@ -44,6 +45,7 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
   const [courses, setCourses] = useState<Course[]>([]);
   const [archives, setArchives] = useState<Archive[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
+  const [reviewQueueCount, setReviewQueueCount] = useState(0);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [messageAlert, setMessageAlert] = useState<{ text: string, senderId: string } | null>(null);
   const [chatTarget, setChatTarget] = useState<Student | null>(null);
@@ -74,6 +76,11 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
         setPendingCount(sync.pendingCount);
         setUnreadMessages(sync.unreadMessages);
         if (sync.alert && sync.alert.text !== messageAlert?.text) setMessageAlert(sync.alert);
+        // CHAM: fetch review queue count
+        try {
+          const rqStats = await apiService.getReviewQueueStats();
+          setReviewQueueCount(rqStats.pending);
+        } catch {};
       } catch (e) {}
     };
     fetchSync();
@@ -268,6 +275,7 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
     { id: 'STUDENTS', label: 'Waitlist', icon: <Icons.Students />, badge: pendingCount },
     { id: 'MESSAGES', label: 'Inbox', icon: <Icons.Messages />, badge: unreadMessages, pulsing: true },
     { id: 'ASSIGNMENTS', label: 'Tasks', icon: <Icons.Solution /> },
+    { id: 'REVIEW_QUEUE', label: 'Review Queue', icon: <Icons.Evaluation />, badge: reviewQueueCount },
     { id: 'LIBRARY', label: 'Library Zone', icon: <Icons.Library /> },
     { id: 'ARCHIVES', label: 'Snapshot Zone', icon: <Icons.Archives /> },
     { id: 'SNAPSHOTS', label: 'Gradebook Snapshots', icon: <Icons.Solution /> },
@@ -319,6 +327,7 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
 
         <main className="flex-grow p-8 overflow-y-auto custom-scrollbar relative">
           {viewMode === 'ASSIGNMENTS' && (activeCourse ? <AssignmentManager course={activeCourse} /> : <div className="h-full flex items-center justify-center text-slate-400 font-black text-[10px] uppercase tracking-widest border-2 border-dashed dark:border-slate-800 rounded-[3rem]">Select a course from the header dropdown to manage assignments</div>)}
+          {viewMode === 'REVIEW_QUEUE' && <ReviewQueue />}
           {viewMode === 'LIBRARY' && (
             <div className="space-y-12 pb-20">
               <header className="flex justify-between items-end">

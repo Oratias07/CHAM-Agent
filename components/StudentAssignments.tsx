@@ -45,7 +45,18 @@ const StudentAssignments: React.FC<StudentAssignmentsProps> = ({ course }) => {
     setSubmitSuccess(null);
     try {
       const result = await apiService.submitAssignment(selectedAssignment.id, studentCode);
-      setSubmitSuccess({ score: result?.score ?? 0, feedback: result?.feedback ?? 'הוערך בהצלחה' });
+      // Handle CHAM response
+      const cham = (result as any)?.cham;
+      if (cham?.status === 'awaiting_review') {
+        setSubmitSuccess({
+          score: -1, // sentinel: awaiting review
+          feedback: 'ההגשה נשמרה ונשלחה לסקירה ע"י המרצה. תקבל ציון בקרוב.',
+        });
+      } else {
+        const score = cham?.final_score ?? result?.score ?? 0;
+        const feedback = cham?.feedback ?? result?.feedback ?? 'הוערך בהצלחה';
+        setSubmitSuccess({ score, feedback });
+      }
       setStudentCode('');
       fetchData();
     } catch (e: any) {
@@ -130,11 +141,37 @@ const StudentAssignments: React.FC<StudentAssignmentsProps> = ({ course }) => {
 
                     {submission && (
                       <div className="mb-4 sm:mb-6 p-4 bg-zinc-50 dark:bg-slate-900/40 rounded-2xl border border-zinc-100 dark:border-slate-800" dir="rtl">
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">הערכת AI</span>
-                          <span className="text-sm font-black text-brand-600">{submission.score}%</span>
-                        </div>
-                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold italic line-clamp-2">"{submission.feedback}"</p>
+                        {(submission as any).assessment_status === 'awaiting_review' ? (
+                          <>
+                            <div className="flex justify-between items-center mb-2">
+                              <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest">ממתין לסקירת מרצה</span>
+                              {(submission as any).final_score != null && (
+                                <span className="text-xs font-bold text-slate-400">ציון ראשוני: {Math.round((submission as any).final_score)}%</span>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold italic">ההגשה שלך נבדקת. תקבל ציון סופי בקרוב.</p>
+                          </>
+                        ) : (submission as any).assessment_status === 'testing' || (submission as any).assessment_status === 'semantic_analysis' ? (
+                          <>
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest">בתהליך הערכה...</span>
+                              <svg className="animate-spin w-3 h-3 text-blue-500" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                              </svg>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="flex justify-between items-center mb-2">
+                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">הערכת CHAM</span>
+                              <span className="text-sm font-black text-brand-600">{(submission as any).final_score ?? submission.score}%</span>
+                            </div>
+                            {submission.feedback && (
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold italic line-clamp-2">"{submission.feedback}"</p>
+                            )}
+                          </>
+                        )}
                       </div>
                     )}
 
@@ -170,12 +207,16 @@ const StudentAssignments: React.FC<StudentAssignmentsProps> = ({ course }) => {
                     </div>
 
                     {submitSuccess && (
-                      <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-500/30 rounded-2xl p-4 space-y-2" dir="rtl">
+                      <div className={`${submitSuccess.score === -1 ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-500/30' : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-500/30'} border rounded-2xl p-4 space-y-2`} dir="rtl">
                         <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">הוגש בהצלחה!</span>
-                          <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">{submitSuccess.score}%</span>
+                          <span className={`text-[10px] font-black uppercase tracking-widest ${submitSuccess.score === -1 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                            {submitSuccess.score === -1 ? 'נשלח לסקירה' : 'הוגש בהצלחה!'}
+                          </span>
+                          {submitSuccess.score !== -1 && (
+                            <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">{submitSuccess.score}%</span>
+                          )}
                         </div>
-                        <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300 leading-relaxed">"{submitSuccess.feedback}"</p>
+                        <p className={`text-xs font-bold leading-relaxed ${submitSuccess.score === -1 ? 'text-amber-700 dark:text-amber-300' : 'text-emerald-700 dark:text-emerald-300'}`}>"{submitSuccess.feedback}"</p>
                       </div>
                     )}
 
