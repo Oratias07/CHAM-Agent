@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import InputSection from './components/InputSection';
 import ResultSection from './components/ResultSection';
 import GradeBook from './components/GradeBook';
@@ -48,6 +48,7 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
   const [reviewQueueCount, setReviewQueueCount] = useState(0);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [messageAlert, setMessageAlert] = useState<{ text: string, senderId: string } | null>(null);
+  const dismissedAlertRef = useRef<string | null>(null);
   const [chatTarget, setChatTarget] = useState<Student | null>(null);
   const [allUsers, setAllUsers] = useState<Student[]>([]);
   const [allSubmissions, setAllSubmissions] = useState<Submission[]>([]);
@@ -75,7 +76,9 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
         const sync = await apiService.getLecturerSync();
         setPendingCount(sync.pendingCount);
         setUnreadMessages(sync.unreadMessages);
-        if (sync.alert && sync.alert.text !== messageAlert?.text) setMessageAlert(sync.alert);
+        if (sync.alert && sync.alert.text !== dismissedAlertRef.current) {
+          setMessageAlert(sync.alert);
+        }
         // CHAM: fetch review queue count
         try {
           const rqStats = await apiService.getReviewQueueStats();
@@ -86,7 +89,7 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
     fetchSync();
     const interval = setInterval(fetchSync, 5000);
     return () => clearInterval(interval);
-  }, [messageAlert]);
+  }, []);
 
   useEffect(() => {
     if (viewMode === 'ARCHIVES') {
@@ -289,10 +292,10 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
         <div className="fixed top-6 right-6 z-[100] w-80 bg-white dark:bg-slate-800 border border-brand-500 rounded-2xl shadow-2xl p-4 animate-in slide-in-from-right duration-500">
            <div className="flex justify-between items-start mb-2">
              <span className="text-[10px] font-black text-brand-500 uppercase tracking-widest">New Message Arrival</span>
-             <button onClick={() => setMessageAlert(null)}><Icons.Close /></button>
+             <button onClick={() => { dismissedAlertRef.current = messageAlert.text; setMessageAlert(null); }}><Icons.Close /></button>
            </div>
            <p className="text-xs font-bold text-slate-700 dark:text-slate-200 line-clamp-2 italic">"{messageAlert.text}"</p>
-           <button onClick={() => { setViewMode('MESSAGES'); setMessageAlert(null); }} className="mt-4 text-[10px] font-black uppercase text-brand-600 dark:text-brand-400 hover:underline">View Inbox</button>
+           <button onClick={() => { dismissedAlertRef.current = messageAlert.text; setMessageAlert(null); setViewMode('MESSAGES'); }} className="mt-4 text-[10px] font-black uppercase text-brand-600 dark:text-brand-400 hover:underline">View Inbox</button>
         </div>
       )}
 

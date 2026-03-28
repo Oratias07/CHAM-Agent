@@ -636,13 +636,27 @@ router.post('/chat', async (req, res) => {
   try {
     const ai = new GoogleGenAI({ apiKey: aiKey });
     const contextStr = context ? `\nCurrent context:\n- Question: ${context.question || ''}\n- Rubric: ${context.rubric || ''}\n- Student Code: ${context.studentCode || ''}` : '';
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: `You are a helpful grading assistant for an academic lecturer.${contextStr}\n\nLecturer asks: ${message}`
-    });
-    res.json({ text: response.text });
+    const models = ['gemini-2.0-flash', 'gemini-2.0-flash-lite'];
+    let lastErr;
+    for (const model of models) {
+      try {
+        const response = await ai.models.generateContent({
+          model,
+          contents: `You are a helpful grading assistant for an academic lecturer.${contextStr}\n\nLecturer asks: ${message}`
+        });
+        return res.json({ text: response.text });
+      } catch (err) {
+        lastErr = err;
+        if (err.status === 429 || err.status === 403) continue;
+        throw err;
+      }
+    }
+    throw lastErr;
   } catch (err) {
-    res.json({ text: "Assistant unavailable: " + err.message });
+    const msg = err.status === 429
+      ? "מכסת ה-AI נוצלה. נסה שוב מאוחר יותר או פנה למנהל המערכת."
+      : "Assistant unavailable: " + err.message;
+    res.json({ text: msg });
   }
 });
 
@@ -656,42 +670,51 @@ router.post('/evaluate', async (req, res) => {
       return res.status(500).json({ message: "AI Analysis Engine Error: API key is not configured in the environment." });
     }
     const ai = new GoogleGenAI({ apiKey: aiKey });
-    
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: `You are a Senior Academic Code Reviewer.
+
+    const prompt = `You are a Senior Academic Code Reviewer.
       Evaluate this student submission.
-      
+
       CONTEXT:
       - Question: ${question}
       - Master Solution: ${masterSolution || 'Not provided'}
       - Rubric: ${rubric}
       - Instructions: ${customInstructions || 'None'}
-      
+
       STUDENT CODE:
       ${studentCode}
-      
+
       REQUIREMENTS:
       1. Score 0-10.
       2. Feedback in Hebrew.
       3. Return ONLY JSON.
-      
+
       FORMAT:
-      { "score": number, "feedback": "string" }`,
-      config: {
-        responseMimeType: "application/json",
-        temperature: 0.2
+      { "score": number, "feedback": "string" }`;
+
+    const models = ['gemini-2.0-flash', 'gemini-2.0-flash-lite'];
+    let lastErr;
+    for (const model of models) {
+      try {
+        const response = await ai.models.generateContent({
+          model,
+          contents: prompt,
+          config: { responseMimeType: "application/json", temperature: 0.2 }
+        });
+        if (!response.text) throw new Error("Empty response from AI engine");
+        return res.json(JSON.parse(response.text));
+      } catch (err) {
+        lastErr = err;
+        if (err.status === 429 || err.status === 403) continue;
+        throw err;
       }
-    });
-    
-    if (!response.text) {
-      throw new Error("Empty response from AI engine");
     }
-    
-    res.json(JSON.parse(response.text));
+    throw lastErr;
   } catch (err) {
     console.error('AI Evaluation Error:', err);
-    res.status(500).json({ message: "AI Analysis Engine Error: " + err.message });
+    const msg = err.status === 429
+      ? "מכסת ה-AI נוצלה. לא ניתן לבצע הערכה כרגע. נסה שוב מאוחר יותר."
+      : "AI Analysis Engine Error: " + err.message;
+    res.status(err.status === 429 ? 429 : 500).json({ message: msg });
   }
 });
 

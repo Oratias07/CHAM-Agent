@@ -86,86 +86,97 @@ export async function analyzeCodeQuality(code, language, questionContext, master
   });
 
   const ai = new GoogleGenAI({ apiKey: aiKey });
+  const MODELS = ['gemini-2.0-flash', 'gemini-2.0-flash-lite'];
 
-  // Retry up to 2 times on parse failure
+  // Retry up to 2 times on parse failure, try fallback model on quota errors
   let lastError;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-          temperature: 0.2,
-        },
-      });
+  for (const model of MODELS) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const response = await ai.models.generateContent({
+          model,
+          contents: prompt,
+          config: {
+            responseMimeType: 'application/json',
+            temperature: 0.2,
+          },
+        });
 
-      if (!response.text) {
-        throw new Error('Empty response from LLM');
+        if (!response.text) {
+          throw new Error('Empty response from LLM');
+        }
+
+        // Validate output
+        const validation = validateLLMOutput(response.text, REQUIRED_FIELDS);
+
+        if (!validation.valid) {
+          lastError = new Error(`Invalid LLM output: ${validation.errors.join(', ')}`);
+          continue; // retry same model
+        }
+
+        const data = validation.data;
+
+        // Compute weighted overall if LLM's overall seems off
+        const computed = Math.round(
+          (data.code_quality.score || data.code_quality) * CRITERIA_WEIGHTS.code_quality +
+          (data.documentation.score || data.documentation) * CRITERIA_WEIGHTS.documentation +
+          (data.complexity.score || data.complexity) * CRITERIA_WEIGHTS.complexity +
+          (data.error_handling.score || data.error_handling) * CRITERIA_WEIGHTS.error_handling +
+          (data.best_practices.score || data.best_practices) * CRITERIA_WEIGHTS.best_practices
+        );
+
+        // Use computed score if LLM's overall deviates significantly
+        const llmOverall = data.overall_score;
+        const overallScore = Math.abs(computed - llmOverall) > 15 ? computed : llmOverall;
+
+        // If injection was detected, cap confidence and flag for review
+        let confidence = data.confidence;
+        const flags = data.flags_for_human_review || [];
+        if (injectionDetected) {
+          confidence = Math.min(confidence, 50);
+          flags.push('prompt_injection_attempt_detected');
+        }
+
+        return {
+          score: overallScore,
+          criteria_breakdown: {
+            code_quality: extractCriterion(data.code_quality),
+            documentation: extractCriterion(data.documentation),
+            complexity: extractCriterion(data.complexity),
+            error_handling: extractCriterion(data.error_handling),
+            best_practices: extractCriterion(data.best_practices),
+          },
+          overall_score: overallScore,
+          confidence,
+          feedback: buildCombinedFeedback(data),
+          flags_for_human_review: flags,
+          model_used: model,
+          injection_detected: injectionDetected,
+          injection_flags: injectionFlags,
+        };
+      } catch (err) {
+        lastError = err;
+        // Don't retry same model on quota/auth errors — try fallback model instead
+        if (err.status === 429 || err.status === 403) {
+          console.warn(`[SemanticAssessment] ${model} quota/auth error, trying next model`);
+          break;
+        }
       }
-
-      // Validate output
-      const validation = validateLLMOutput(response.text, REQUIRED_FIELDS);
-
-      if (!validation.valid) {
-        lastError = new Error(`Invalid LLM output: ${validation.errors.join(', ')}`);
-        continue; // retry
-      }
-
-      const data = validation.data;
-
-      // Compute weighted overall if LLM's overall seems off
-      const computed = Math.round(
-        (data.code_quality.score || data.code_quality) * CRITERIA_WEIGHTS.code_quality +
-        (data.documentation.score || data.documentation) * CRITERIA_WEIGHTS.documentation +
-        (data.complexity.score || data.complexity) * CRITERIA_WEIGHTS.complexity +
-        (data.error_handling.score || data.error_handling) * CRITERIA_WEIGHTS.error_handling +
-        (data.best_practices.score || data.best_practices) * CRITERIA_WEIGHTS.best_practices
-      );
-
-      // Use computed score if LLM's overall deviates significantly
-      const llmOverall = data.overall_score;
-      const overallScore = Math.abs(computed - llmOverall) > 15 ? computed : llmOverall;
-
-      // If injection was detected, cap confidence and flag for review
-      let confidence = data.confidence;
-      const flags = data.flags_for_human_review || [];
-      if (injectionDetected) {
-        confidence = Math.min(confidence, 50);
-        flags.push('prompt_injection_attempt_detected');
-      }
-
-      return {
-        score: overallScore,
-        criteria_breakdown: {
-          code_quality: extractCriterion(data.code_quality),
-          documentation: extractCriterion(data.documentation),
-          complexity: extractCriterion(data.complexity),
-          error_handling: extractCriterion(data.error_handling),
-          best_practices: extractCriterion(data.best_practices),
-        },
-        overall_score: overallScore,
-        confidence,
-        feedback: buildCombinedFeedback(data),
-        flags_for_human_review: flags,
-        model_used: 'gemini-2.0-flash',
-        injection_detected: injectionDetected,
-        injection_flags: injectionFlags,
-      };
-    } catch (err) {
-      lastError = err;
     }
   }
 
-  // All retries failed — return degraded result
+  // All models/retries failed — return degraded result
+  const isQuotaError = lastError?.status === 429;
   return {
     score: null,
     criteria_breakdown: null,
     overall_score: null,
     confidence: 0,
-    feedback: 'Semantic analysis failed after multiple attempts. Manual review required.',
+    feedback: isQuotaError
+      ? 'מכסת ה-AI נוצלה. נדרשת בדיקה ידנית על ידי המרצה.'
+      : 'הניתוח הסמנטי נכשל. נדרשת בדיקה ידנית.',
     flags_for_human_review: ['llm_analysis_failed'],
-    model_used: 'gemini-2.0-flash',
+    model_used: null,
     error: lastError?.message,
   };
 }
