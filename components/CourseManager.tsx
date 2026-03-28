@@ -73,7 +73,7 @@ const CourseManager: React.FC<{ courses: Course[], onCourseUpdate: () => void, o
       } catch { setError('שגיאה בהעלאת קובץ.'); }
       finally { setUploadLoading(false); e.target.value = ''; }
     };
-    reader.readAsText(file);
+    reader.readAsDataURL(file);
   };
 
   const saveMaterial = async () => {

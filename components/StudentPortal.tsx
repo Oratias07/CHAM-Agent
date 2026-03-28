@@ -74,7 +74,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
       } catch (e) {}
     };
     fetchSync();
-    const interval = setInterval(fetchSync, 5000);
+    const interval = setInterval(fetchSync, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -151,12 +151,33 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
         setIsUploading(false);
       }
     };
-    reader.readAsText(file);
+    reader.readAsDataURL(file);
   };
 
   const openMaterial = async (m: Material) => {
-    setActiveMaterial(m);
     await apiService.markMaterialViewed(m.id);
+    // If content is a data URL (base64-encoded file), open in new tab with correct type
+    if (m.content && m.content.startsWith('data:')) {
+      const newTab = window.open('', '_blank');
+      if (newTab) {
+        if (m.fileType?.startsWith('image/')) {
+          newTab.document.write(`<html><head><title>${m.title}</title></head><body style="margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#111"><img src="${m.content}" style="max-width:100%;max-height:100vh;object-fit:contain" /></body></html>`);
+        } else {
+          // PDF, Word, etc. — convert data URL to blob and open
+          const byteString = atob(m.content.split(',')[1]);
+          const mimeType = m.fileType || m.content.split(';')[0].split(':')[1];
+          const ab = new ArrayBuffer(byteString.length);
+          const ia = new Uint8Array(ab);
+          for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
+          const blob = new Blob([ab], { type: mimeType });
+          const url = URL.createObjectURL(blob);
+          newTab.location.href = url;
+        }
+      }
+    } else {
+      // Plain text content — show in modal
+      setActiveMaterial(m);
+    }
   };
 
   return (
@@ -271,8 +292,8 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{material.folder || 'General'}</span>
                           </div>
                           <h4 className="text-lg font-bold text-slate-900 dark:text-white mb-2">{material.title}</h4>
-                          <p className="text-slate-500 dark:text-slate-400 text-sm line-clamp-2 mb-6">{material.content}</p>
-                          <button 
+                          <p className="text-slate-500 dark:text-slate-400 text-sm line-clamp-2 mb-6">{material.content?.startsWith('data:') ? `${material.fileType || 'File'} — ${material.fileName || material.title}` : material.content}</p>
+                          <button
                             onClick={() => openMaterial(material)}
                             className="w-full py-3 bg-slate-50 dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 rounded-xl group-hover:bg-brand-600 group-hover:text-white transition-all"
                           >
@@ -299,7 +320,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Private</span>
                           </div>
                           <h4 className="text-lg font-bold text-slate-900 dark:text-white mb-2">{material.title}</h4>
-                          <p className="text-slate-500 dark:text-slate-400 text-sm line-clamp-2 mb-6">{material.content}</p>
+                          <p className="text-slate-500 dark:text-slate-400 text-sm line-clamp-2 mb-6">{material.content?.startsWith('data:') ? `${material.fileType || 'File'} — ${material.fileName || material.title}` : material.content}</p>
                           <button 
                             onClick={() => openMaterial(material)}
                             className="w-full py-3 bg-slate-50 dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 rounded-xl group-hover:bg-emerald-600 group-hover:text-white transition-all"
