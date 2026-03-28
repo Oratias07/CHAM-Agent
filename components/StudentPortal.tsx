@@ -48,6 +48,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [messageAlert, setMessageAlert] = useState<{ text: string, senderId: string } | null>(null);
+  const dismissedAlertRef = useRef<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [joinError, setJoinError] = useState('');
   const [joinSuccess, setJoinSuccess] = useState('');
@@ -67,7 +68,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
       try {
         const sync = await apiService.getStudentSync();
         setUnreadMessages(sync.unreadMessages);
-        if (sync.alert && sync.alert.text !== messageAlert?.text) {
+        if (sync.alert && sync.alert.text !== dismissedAlertRef.current) {
           setMessageAlert(sync.alert);
         }
       } catch (e) {}
@@ -75,7 +76,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
     fetchSync();
     const interval = setInterval(fetchSync, 5000);
     return () => clearInterval(interval);
-  }, [messageAlert]);
+  }, []);
 
   useEffect(() => {
     if (viewMode === 'LIBRARY') {
@@ -164,17 +165,18 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
         <div className="fixed top-6 right-6 z-[300] w-80 bg-white dark:bg-slate-850 border border-brand-500 rounded-3xl shadow-2xl p-6 animate-in slide-in-from-right duration-500">
            <div className="flex justify-between items-start mb-3">
              <span className="text-[10px] font-black text-brand-500 uppercase tracking-widest" dir="rtl">הודעה חדשה</span>
-             <button onClick={() => setMessageAlert(null)} className="text-slate-400 hover:text-rose-500 transition-colors">
+             <button onClick={() => { dismissedAlertRef.current = messageAlert.text; setMessageAlert(null); }} className="text-slate-400 hover:text-rose-500 transition-colors">
                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
              </button>
            </div>
            <p className="text-xs font-bold text-slate-700 dark:text-slate-200 line-clamp-2 italic">"{messageAlert.text}"</p>
-           <button 
-            onClick={() => { 
+           <button
+            onClick={() => {
+              dismissedAlertRef.current = messageAlert.text;
               const sender = contacts?.students.find(s => s.id === messageAlert.senderId) || (contacts?.lecturer?.id === messageAlert.senderId ? contacts.lecturer : null);
               if (sender) setSelectedContact(sender);
-              setViewMode('DIRECT_CHAT'); 
-              setMessageAlert(null); 
+              setViewMode('DIRECT_CHAT');
+              setMessageAlert(null);
             }} 
             className="mt-4 w-full py-2 bg-brand-50 dark:bg-slate-800 text-[10px] font-black uppercase text-brand-600 dark:text-brand-400 rounded-xl hover:bg-brand-100 dark:hover:bg-slate-700 transition-all"
            >
