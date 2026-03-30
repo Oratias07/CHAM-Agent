@@ -11,7 +11,15 @@
       "Bash(ls C:/Users/atias/ST-System/Dockerfile*)",
       "Bash(npx vite:*)",
       "Bash(npm install:*)",
-      "Bash(npx vitest:*)"
+      "Bash(npx vitest:*)",
+      "Bash(find /c/Users/atias/ST-System -name *.css -o -name *.scss)",
+      "Bash(node -e \"const pkg = require\\(''./node_modules/@google/genai/package.json''\\); console.log\\(pkg.version\\);\")",
+      "Bash(node -e \":*)",
+      "Read(//c/Users/atias/OneDrive - Braude College of Engineering - EDU/Desktop/Software Engineering/researches//**)",
+      "Read(//c/Users/atias/OneDrive - Braude College of Engineering - EDU/Desktop/Software Engineering/researches/**)",
+      "Bash(npx tsc:*)",
+      "Bash(find C:UsersatiasST-System -type f \\\\\\(-name *.md -o -name *.txt -o -name *.rst \\\\\\))"
     ]
-  }
+  },
+  "outputStyle": "default"
 }

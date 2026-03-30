@@ -10,7 +10,7 @@
 |---|---|---|
 | Google OAuth 2.0 login | ✅ | Via Passport.js; creates user on first login |
 | Session persistence in MongoDB | ✅ | `connect-mongo`; 7-day sliding expiry |
-| Developer bypass login (no password) | ✅ | Single-click role selection; `POST /auth/dev` |
+| Developer bypass login (no password) | ✅ | Single-click role selection; `POST /auth/dev`; disabled in production |
 | Role selection on first login | ✅ | `RoleSelector` component; persisted to DB |
 | Session-aware API guards | ✅ | All routes check `req.user`; role-based for lecturer routes |
 | Logout | ✅ | Destroys session and redirects to `/` |
@@ -41,11 +41,17 @@
 
 | Feature | Status | Notes |
 |---|---|---|
-| AI code evaluation (question + rubric + code) | ✅ | `POST /evaluate`; Gemini 2.0 Flash |
+| AI code evaluation (question + rubric + code) | ✅ | `POST /evaluate`; multi-provider LLM (Groq → Gemini → OpenAI) |
+| Multi-provider LLM fallback | ✅ | `LLMOrchestrator` with automatic failover; each provider has internal model fallback on 429 |
+| Prompt injection protection | ✅ | `buildSafePrompt()` with 30+ regex patterns, XML tag fencing, code truncation |
+| LLM output validation | ✅ | `validateLLMOutput()` with score range enforcement and weighted cross-check |
+| Safe JSON parsing | ✅ | `safeParseLLMResponse()` handles raw JSON, markdown fences, embedded JSON |
+| Rate limiting on evaluation | ✅ | 100 requests/hour per IP via `express-rate-limit` |
 | Master solution reference in prompt | ✅ | Injected into prompt when provided |
 | Custom AI constraints | ✅ | Freeform instructions field; enforced by AI |
-| Hebrew pedagogical feedback | ✅ | Prompt instructs Gemini to respond in Hebrew |
+| Hebrew pedagogical feedback | ✅ | Prompt instructs LLM to respond in Hebrew |
 | Score from 0.0 to 10.0 | ✅ | JSON response `{ score, feedback }` |
+| Prompt version tracking | ✅ | `PROMPT_VERSION = 'v1.1.0'` for audit trail |
 | Auto-advance to next student | ✅ | Toggle in `InputSection`; advances dropdown on save |
 | Load example templates | ✅ | Pre-fills question/solution/rubric with a sample linked-list problem |
 | Save result to gradebook | ✅ | `POST /grades/save` after evaluation |
@@ -139,8 +145,9 @@
 
 | Feature | Status | Notes |
 |---|---|---|
-| Lecturer grading assistant | ✅ | `POST /chat`; context-aware of active exercise |
-| Student RAG study assistant | ✅ | `POST /student/chat`; grounded in course + private materials |
+| Lecturer grading assistant | ✅ | `POST /chat`; context-aware of active exercise; rate limited 100/hr |
+| Student RAG study assistant | ✅ | `POST /student/chat`; grounded in course + private materials; rate limited 100/hr |
+| Message role separation | ✅ | System/model/user turns prevent prompt injection in chat |
 | Animated typing indicator | ✅ | 3-dot bounce animation while waiting for response |
 | Hebrew greeting and UI | ✅ | All chatbot text in Hebrew |
 | Markdown rendering in responses | ✅ | Via `react-markdown` |
@@ -173,14 +180,38 @@
 
 ---
 
+## Module 12 — Security & Infrastructure
+
+| Feature | Status | Notes |
+|---|---|---|
+| Prompt injection detection | ✅ | 30+ regex patterns in `promptGuard.js`; XML tag fencing |
+| Prompt injection escalation | ✅ | Detected → confidence capped at 50%, flagged for human review |
+| LLM output validation | ✅ | Score range enforcement (0-100), weighted cross-check |
+| Safe JSON parsing | ✅ | Handles raw JSON, markdown fences, embedded JSON; never crashes |
+| Rate limiting (LLM endpoints) | ✅ | 100 req/hr per IP on `/evaluate`, `/chat`, `/student/chat` |
+| Rate limiting (submissions) | ✅ | 20 req/15min per IP on assignment submission |
+| Multi-provider LLM orchestration | ✅ | Groq → Gemini → OpenAI with per-provider model fallback |
+| Dev login production lockdown | ✅ | `POST /auth/dev` returns 403 when `NODE_ENV=production` |
+| Admin endpoint RBAC | ✅ | `/admin/db` requires `req.user.role === 'lecturer'` |
+| Code execution sandbox | ✅ | Judge0 with network disabled, 5s CPU, 256MB RAM limits |
+| Pre-execution code filter | ✅ | Blocks network imports, filesystem writes, process execution |
+| Prompt version tracking | ✅ | `PROMPT_VERSION = 'v1.1.0'` for reproducibility |
+
+---
+
 ## Planned Features
 
 | Feature | Status | Notes |
 |---|---|---|
+| Async task queue (BullMQ + Redis) | 📋 | Background evaluation to avoid Vercel 10s timeout |
+| Response caching | 📋 | SHA-256 keyed cache with 1-hour TTL |
+| Dedicated audit trail collection | 📋 | Legal compliance for Israeli Privacy Act + GDPR |
+| Appeal mechanism | 📋 | "Request Human Review" button on graded submissions |
+| Bias monitoring dashboard | 📋 | Track score patterns by code length, comment density, language |
 | Bulk CSV import of student names | 📋 | For populating Gradebook without Google accounts |
 | Assignment file attachments | 📋 | Images and PDFs alongside code submissions |
-| Email notifications for approvals | 📋 | Notify students when enrolled |
-| Lecturer analytics dashboard | 📋 | Class average trends, submission rate over time |
-| Teaching assistant role | 📋 | Limited lecturer access without course ownership |
-| Multi-language feedback | 📋 | Arabic and English in addition to Hebrew |
 | WebSocket-based real-time messaging | 📋 | Replace polling for lower latency |
+| Plagiarism detection | 📋 | Code similarity via embeddings + perplexity analysis |
+| Learning analytics dashboard | 📋 | Class average trends, submission rate over time |
+| Multi-language feedback | 📋 | Arabic and English in addition to Hebrew |
+| LTI 1.3 integration | 📋 | Moodle/Canvas/Blackboard integration |
