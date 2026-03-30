@@ -49,7 +49,7 @@ curl -X POST /api/auth/dev \
   -H "Content-Type: application/json" \
   -d '{"role": "lecturer"}'
 ```
-Valid roles: `"lecturer"` | `"student"`. No passcode required.
+Valid roles: `"lecturer"` | `"student"`. Passcode configurable via `DEV_PASSCODE` env var. **Returns 403 when `NODE_ENV=production`.**
 
 ### Get Current User
 ```bash
@@ -85,6 +85,9 @@ Notes:
 - Score range: 0.0 – 10.0
 - Feedback is always in Hebrew
 - Requires an active session
+- **Rate limited:** 100 requests/hour per IP
+- **Security:** Input is processed by `buildSafePrompt()` for prompt injection detection; output is validated by `validateLLMOutput()` for score range enforcement
+- **Provider:** Uses `LLMOrchestrator` with automatic fallback across Groq → Gemini → OpenAI
 
 ### Lecturer AI Assistant Chat
 ```bash
@@ -463,7 +466,8 @@ POST /api/student/clear-notifications
 | `403` | Wrong role | Verify user role (`lecturer` vs `student`) |
 | `404` | Resource not found | Check course ID or assignment ID |
 | `400` | Invalid request body | Check required fields and format |
-| `500` | Server error | Check Gemini API quota or MongoDB connectivity |
+| `429` | Rate limit exceeded | Wait for the rate limit window to reset (1 hour for LLM, 15 min for submissions) |
+| `500` | Server error | Check LLM API quotas (Groq/Gemini/OpenAI) or MongoDB connectivity |
 
 ---
 
@@ -506,9 +510,11 @@ const { score, feedback } = await result.json();
 
 ## Critical Rules
 
-- **Gemini API key is server-side only** — never expose `GEMINI_API_KEY` to the frontend
+- **All LLM API keys are server-side only** — never expose `GEMINI_API_KEY`, `GROQ_API_KEY`, or `OPENAI_API_KEY` to the frontend
 - **Use `googleId` as student identifier** — not MongoDB `_id` — in all API calls
 - **Rubric is required** for AI evaluation — the model needs grading criteria to produce objective scores
 - **Role isolation** — students cannot access any `/api/lecturer/*` routes
 - **Hebrew is the required feedback language** — all AI-generated feedback must be in Hebrew
-- **Dev bypass sends `{ role }` only** — no passcode; valid values are `"lecturer"` and `"student"`
+- **Dev bypass sends `{ role }` only** — passcode via `DEV_PASSCODE` env var; valid values are `"lecturer"` and `"student"`. **Disabled in production.**
+- **Rate limits** — `/evaluate`, `/chat`, `/student/chat`: 100/hr; `/student/assignments/:id/submit`: 20/15min
+- **Prompt injection protection** — all evaluation endpoints use `buildSafePrompt()` + `validateLLMOutput()`

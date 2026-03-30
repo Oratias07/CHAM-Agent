@@ -4,10 +4,10 @@
 ![License](https://img.shields.io/badge/license-MIT-22c55e.svg)
 ![Platform](https://img.shields.io/badge/platform-Vercel-000000.svg)
 ![Database](https://img.shields.io/badge/database-MongoDB%20Atlas-47A248.svg)
-![AI](https://img.shields.io/badge/AI-Gemini%202.0%20Flash-4285F4.svg)
+![AI](https://img.shields.io/badge/AI-Groq%20%7C%20Gemini%20%7C%20OpenAI-4285F4.svg)
 ![Language](https://img.shields.io/badge/UI%20language-Hebrew%20%2F%20RTL-blue.svg)
 
-> A full-stack academic SaaS platform for automated code evaluation, course management, and student-lecturer communication — powered by Google Gemini AI with Hebrew pedagogical feedback.
+> A full-stack academic SaaS platform for automated code evaluation, course management, and student-lecturer communication — powered by multi-provider AI (Groq/Gemini/OpenAI) with Hebrew pedagogical feedback, prompt injection protection, and intelligent fallback routing.
 
 **Live Demo → [https://stsystem.vercel.app](https://stsystem.vercel.app)**
 
@@ -33,7 +33,9 @@
 
 ## Overview
 
-ST System is a production-grade academic platform built for higher education institutions. Lecturers define exercises with rubrics and master solutions; students submit code; the Gemini 2.0 Flash AI model evaluates submissions and returns detailed pedagogical feedback in Hebrew — instantly.
+ST System is a production-grade academic platform built for higher education institutions. Lecturers define exercises with rubrics and master solutions; students submit code; the AI evaluation engine (with automatic fallback across Groq, Gemini, and OpenAI) evaluates submissions and returns detailed pedagogical feedback in Hebrew — instantly.
+
+The system implements the **CHAM (Contextual Hybrid Assessment Model)** — a three-layer assessment pipeline combining Judge0 sandbox execution, multi-provider LLM semantic analysis, and smart human review routing. Security hardening includes prompt injection detection (30+ patterns), rate limiting, safe JSON parsing, and role-based access control.
 
 The system handles the full lifecycle of a course: enrollment, material sharing, assignment management, AI grading, gradebook management, real-time messaging, and historical archiving.
 
@@ -46,7 +48,7 @@ The system handles the full lifecycle of a course: enrollment, material sharing,
 - 📚 **Course Management** — Create courses with unique join codes; edit or delete courses
 - 👥 **Student Enrollment** — Approve or reject students from a waitlist; remove enrolled students
 - 📄 **Library Zone** — Upload and manage course materials (text/PDF); control visibility per student
-- 🤖 **AI Grading Engine** — Paste a question, master solution, rubric, and student code; receive a score (0–10) and detailed Hebrew feedback from Gemini 2.0 Flash in under 3 seconds
+- 🤖 **AI Grading Engine** — Paste a question, master solution, rubric, and student code; receive a score (0–10) and detailed Hebrew feedback via multi-provider LLM (Groq → Gemini → OpenAI fallback) with prompt injection protection
 - ⚙️ **Custom AI Constraints** — Add freeform instructions enforced during evaluation (e.g. "Penalize use of global variables")
 - 📋 **Assignment Manager** — Create timed assignments with open/due dates; grant per-student deadline extensions
 - 📊 **Gradebook (Sheets View)** — Spreadsheet-style grid for managing scores and feedback across the entire class; export to Hebrew-encoded CSV
@@ -76,7 +78,9 @@ The system handles the full lifecycle of a course: enrollment, material sharing,
 | **Styling** | Tailwind CSS | Loaded from CDN via `index.html` |
 | **Backend** | Express.js | Deployed as a single Vercel Serverless Function (`api/index.js`) |
 | **Database** | MongoDB Atlas + Mongoose | All models defined in `api/index.js` |
-| **AI** | Google Gemini 2.0 Flash | Via `@google/genai` SDK; server-side only |
+| **AI** | Groq / Gemini / OpenAI | Multi-provider fallback via `LLMOrchestrator`; server-side only |
+| **Security** | Prompt injection defense + rate limiting | `promptGuard.js` + `express-rate-limit` |
+| **Code Sandbox** | Judge0 | Isolated execution with network disabled, 5s CPU limit |
 | **Auth** | Google OAuth 2.0 + Passport.js | Sessions via `express-session` + `connect-mongo` |
 | **Real-time** | HTTP Polling (5s) | No WebSockets; compatible with serverless |
 | **Deployment** | Vercel | Frontend on Edge CDN; backend as serverless function |
@@ -99,24 +103,32 @@ graph TD
 
     subgraph External ["External Services"]
         GOOGLE_OAUTH[Google OAuth 2.0]
-        GEMINI[Gemini 2.0 Flash API]
+        ORCH[LLM Orchestrator]
+        GROQ[Groq API\nllama-3.3-70b]
+        GEMINI[Gemini API\n2.0-flash]
+        OPENAI[OpenAI API\ngpt-4o-mini]
+        JUDGE0[Judge0 Sandbox]
         MONGO[(MongoDB Atlas)]
     end
 
     UI --> API_SVC
     API_SVC -->|/api/*| FN
     FN -->|Session auth| GOOGLE_OAUTH
-    FN -->|generateContent| GEMINI
+    FN -->|evaluateWithFallback| ORCH
+    ORCH -->|primary| GROQ
+    ORCH -->|fallback 1| GEMINI
+    ORCH -->|fallback 2| OPENAI
+    FN -->|code execution| JUDGE0
     FN -->|Mongoose| MONGO
     STATIC --> UI
 ```
 
 **Request flow for an AI evaluation:**
 1. Lecturer submits question + rubric + student code from `InputSection`
-2. `apiService.ts` posts to `POST /api/evaluate`
-3. `api/index.js` validates the session, reads `GEMINI_API_KEY` from env
-4. Builds a structured prompt and calls `ai.models.generateContent()`
-5. Parses the JSON response `{ score, feedback }`
+2. `apiService.ts` posts to `POST /api/evaluate` (rate limited: 100 req/hr)
+3. `api/index.js` validates the session, runs `buildSafePrompt()` for injection detection
+4. `LLMOrchestrator.evaluateWithFallback()` tries Groq → Gemini → OpenAI (each with internal model fallback on 429)
+5. `validateLLMOutput()` enforces score ranges and cross-checks weighted scores
 6. Returns result to frontend; `ResultSection` renders the score and Hebrew feedback
 
 ---
@@ -130,6 +142,8 @@ graph TD
 | MongoDB Atlas | Any | Free M0 tier is sufficient for development |
 | Google Cloud Project | — | For OAuth 2.0 credentials |
 | Gemini API Key | — | Free tier supports `gemini-2.0-flash` |
+| Groq API Key | — | Optional; free tier available at console.groq.com |
+| OpenAI API Key | — | Optional; fallback provider |
 
 ---
 
@@ -199,6 +213,12 @@ Create a `.env` file at the project root. **Never commit this file** — it is l
 | `GOOGLE_CALLBACK_URL` | ⚠️ Local only | Full callback URL for local dev: `http://localhost:3000/api/auth/google/callback`. Leave unset in production. |
 | `SESSION_SECRET` | ✅ | Random string used to sign session cookies. Use a long random hex string. |
 | `GEMINI_API_KEY` | ✅ | Gemini API key from [Google AI Studio](https://aistudio.google.com/app/apikey). Free tier supports `gemini-2.0-flash`. |
+| `GROQ_API_KEY` | Optional | Groq API key from [console.groq.com](https://console.groq.com). Primary provider in fallback chain. |
+| `OPENAI_API_KEY` | Optional | OpenAI API key. Last-resort fallback provider. |
+| `LLM_PROVIDER_ORDER` | Optional | Comma-separated provider order. Default: `groq,gemini,openai`. |
+| `JUDGE0_API_URL` | Optional | Judge0 sandbox URL for code execution (CHAM Layer 1). |
+| `JUDGE0_API_KEY` | Optional | Judge0 API authentication key. |
+| `DEV_PASSCODE` | Optional | Passcode for dev login bypass (development only). |
 
 Example `.env`:
 ```env
@@ -208,6 +228,9 @@ GOOGLE_CLIENT_SECRET=GOCSPX-xxxxxxxxxxxxxxxxxxxx
 GOOGLE_CALLBACK_URL=http://localhost:3000/api/auth/google/callback
 SESSION_SECRET=a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0
 GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+GROQ_API_KEY=gsk_XXXXXXXXXXXXXXXXXXXXXXXX
+OPENAI_API_KEY=sk-XXXXXXXXXXXXXXXXXXXXXXXX
+LLM_PROVIDER_ORDER=groq,gemini,openai
 ```
 
 ---
@@ -343,7 +366,10 @@ All endpoints are prefixed with `/api`. All routes except auth require a valid s
    - `GOOGLE_CLIENT_SECRET`
    - `SESSION_SECRET`
    - `GEMINI_API_KEY`
+   - `GROQ_API_KEY` (recommended — primary LLM provider)
+   - `OPENAI_API_KEY` (optional — last-resort fallback)
    - **Do not set** `GOOGLE_CALLBACK_URL` — the relative path is used automatically in production
+   - **Do not set** `DEV_PASSCODE` — dev login is disabled when `NODE_ENV=production`
 4. Deploy. Vercel uses `vercel.json` to route all `/api/*` requests to `api/index.js`
 
 ### Update Google OAuth for Production
@@ -361,18 +387,33 @@ In Atlas → Network Access, add `0.0.0.0/0` to allow connections from Vercel's 
 
 ## Roadmap
 
+### Recently Completed
+- ✅ Multi-provider LLM fallback (Groq → Gemini → OpenAI) via `LLMOrchestrator`
+- ✅ Prompt injection protection on all LLM call sites (`buildSafePrompt()`)
+- ✅ Safe JSON parsing with markdown fence stripping (`safeParseLLMResponse`)
+- ✅ Rate limiting on evaluation (100/hr) and submission (20/15min) endpoints
+- ✅ Dev login disabled in production; admin endpoint RBAC
+- ✅ LLM output validation with score range enforcement and weighted cross-check
+- ✅ Prompt version tracking (`v1.1.0`)
+
 ### Known Issues
 - `server.js` exists for optional local Express mode only; Vercel uses `api/index.js` in production
 - Google OAuth requires authorized redirect URIs to be configured per environment
 - Session duration is set to 7 days; may need tightening for institutional deployments
 
-### Planned Features
-- 📋 Bulk CSV import of student names into the Gradebook
-- 📋 Assignment attachment support (images, PDFs)
-- 📋 Email notifications for enrollment approvals
-- 📋 Lecturer analytics dashboard (class average trends, submission rates)
-- 📋 Multi-language feedback support (Arabic, English in addition to Hebrew)
-- 📋 Role for teaching assistants
+### Planned Features (Phase 1)
+- 📋 Async task queue (BullMQ + Redis) for background evaluation jobs
+- 📋 Response caching keyed by SHA-256(code + rubric + prompt_version)
+- 📋 Dedicated audit trail MongoDB collection
+- 📋 Appeal mechanism ("Request Human Review" button)
+- 📋 Bias monitoring dashboard for instructors
+
+### Planned Features (Phase 2+)
+- 📋 WebSocket messaging (replace polling)
+- 📋 Plagiarism detection via code embeddings
+- 📋 Learning analytics dashboard
+- 📋 Multi-language feedback support (Arabic, English)
+- 📋 LTI 1.3 integration (Moodle/Canvas)
 
 ---
 

@@ -25,7 +25,9 @@
 | Styling | Tailwind CSS (CDN) | `index.html` CDN link — no config file |
 | Backend | Express.js | `api/index.js` (Vercel Serverless Function) |
 | Database | MongoDB Atlas + Mongoose | Models defined in `api/index.js` |
-| AI Model | Google Gemini 2.0 Flash | Via `@google/genai` SDK — server-side only |
+| AI Models | Groq / Gemini / OpenAI | Multi-provider fallback via `LLMOrchestrator` — server-side only |
+| Security | Prompt injection defense + rate limiting | `promptGuard.js` + `express-rate-limit` |
+| Code Sandbox | Judge0 | Isolated execution (CHAM Layer 1) — network disabled |
 | Auth | Google OAuth 2.0 + Passport.js | Sessions via `express-session` + `connect-mongo` |
 | Real-time | HTTP Polling | 5s sync, 3s direct messages — no WebSockets |
 | Deployment | Vercel | Frontend on Edge CDN; backend as serverless function |
@@ -40,6 +42,22 @@
 st-system/
 ├── api/
 │   └── index.js              ← ENTIRE backend: all routes, models, AI, auth
+├── lib/
+│   └── llm/
+│       ├── index.js           ← Barrel exports
+│       ├── orchestrator.js    ← LLMOrchestrator — multi-provider fallback
+│       ├── safeParse.js       ← Safe JSON parsing for LLM responses
+│       ├── types.js           ← Provider name constants
+│       └── providers/
+│           ├── gemini.js      ← GeminiProvider
+│           ├── groq.js        ← GroqProvider
+│           └── openai.js      ← OpenAIProvider
+├── services/
+│   ├── promptGuard.js         ← Prompt injection detection + LLM output validation
+│   ├── semanticAssessment.js  ← CHAM Layer 2 — LLM semantic analysis
+│   ├── codeSandbox.js         ← CHAM Layer 1 — Judge0 sandbox
+│   ├── chamAssessment.js      ← CHAM pipeline orchestration
+│   └── smartRouting.js        ← CHAM Layer 3 — human review routing
 ├── components/
 │   ├── Login.tsx             ← Login screen (Google OAuth + dev bypass)
 │   ├── RoleSelector.tsx      ← First-login role selection
@@ -81,11 +99,18 @@ st-system/
 | `GOOGLE_CALLBACK_URL` | Local only | Full URL for local dev: `http://localhost:3000/api/auth/google/callback` |
 | `SESSION_SECRET` | Yes | Random string for signing session cookies |
 | `GEMINI_API_KEY` | Yes | Gemini API key from Google AI Studio |
+| `GROQ_API_KEY` | Optional | Groq API key — primary LLM provider in fallback chain |
+| `OPENAI_API_KEY` | Optional | OpenAI API key — last-resort fallback provider |
+| `LLM_PROVIDER_ORDER` | Optional | Comma-separated provider order. Default: `groq,gemini,openai` |
+| `JUDGE0_API_URL` | Optional | Judge0 sandbox URL for code execution (CHAM Layer 1) |
+| `JUDGE0_API_KEY` | Optional | Judge0 API authentication key |
+| `DEV_PASSCODE` | Optional | Passcode for dev login bypass (development only) |
 
 **Rules:**
 - `.env` is always gitignored — never commit it
-- Never read `GEMINI_API_KEY` on the frontend
+- Never read API keys (`GEMINI_API_KEY`, `GROQ_API_KEY`, `OPENAI_API_KEY`) on the frontend
 - In production, omit `GOOGLE_CALLBACK_URL` — the relative path is used automatically
+- Dev login (`/auth/dev`) is automatically disabled when `NODE_ENV=production`
 
 ---
 
@@ -131,18 +156,39 @@ Content-Type: application/json
 
 { "role": "lecturer" }
 ```
-or `{ "role": "student" }`. No passcode — role is the only required field.
+or `{ "role": "student" }`. Passcode configurable via `DEV_PASSCODE` env var. **Disabled when `NODE_ENV=production`** — returns 403.
 
 ---
 
 ## 7. AI Integration
 
-- **Model:** `gemini-2.0-flash`
-- **SDK:** `@google/genai` — `ai.models.generateContent()`
-- **Response format:** `responseMimeType: 'application/json'` — always returns `{ score, feedback }`
+### Multi-Provider LLM Fallback
+- **Orchestrator:** `lib/llm/orchestrator.js` — `LLMOrchestrator` singleton with `evaluateWithFallback()`
+- **Provider order:** Configurable via `LLM_PROVIDER_ORDER` env var. Default: `groq → gemini → openai`
+- **Providers:**
+  - **Groq:** `llama-3.3-70b-versatile` → `llama-3.1-8b-instant` (on 429)
+  - **Gemini:** `gemini-2.0-flash` → `gemini-2.0-flash-lite` (on 429/403)
+  - **OpenAI:** `gpt-4o-mini` → `gpt-3.5-turbo` (on 429)
+- **Response format:** JSON mode where supported — always returns `{ score, feedback }`
 - **Score range:** 0.0 – 10.0
 - **Feedback language:** Hebrew (instructed in system prompt)
-- **RAG (Student Chat):** Course materials + private vault content injected into prompt before the student's question
+- **Prompt version:** `v1.1.0` — tracked for audit trail
+
+### Security
+- **Prompt injection:** `buildSafePrompt()` with 30+ regex patterns, XML tag fencing, code truncation
+- **Output validation:** `validateLLMOutput()` with score range enforcement, weighted cross-check
+- **Safe parsing:** `safeParseLLMResponse()` handles raw JSON, markdown fences, embedded JSON
+- **Rate limiting:** 100 req/hr on LLM endpoints, 20 req/15min on submissions
+
+### CHAM Pipeline
+- **Layer 1:** Judge0 sandbox execution (functional correctness)
+- **Layer 2:** LLM semantic analysis via orchestrator (code quality, style, documentation)
+- **Layer 3:** Smart routing to human review (confidence, border zone, anomaly triggers)
+- **Scoring:** `layer1 * 0.6 + layer2 * 0.4`
+
+### RAG (Student Chat)
+- Course materials + private vault content injected into prompt before the student's question
+- Message role separation prevents injection via chat messages
 
 ---
 
@@ -175,7 +221,7 @@ No client-side router. Navigation is controlled by a `viewMode` state string in 
 2. **Extend and enhance** — do not rewrite working logic from scratch.
 3. **Hebrew UI is required** — all user-facing labels, error messages, empty states, and AI feedback must be in Hebrew.
 4. **No `alert()` or `confirm()`** — use inline state for all error and confirmation flows.
-5. **API keys are server-side only** — `GEMINI_API_KEY` never touches the frontend.
+5. **API keys are server-side only** — `GEMINI_API_KEY`, `GROQ_API_KEY`, `OPENAI_API_KEY` never touch the frontend.
 6. **Session-based auth** — all protected routes check `req.user`; lecturer routes additionally check `req.user.role === 'lecturer'`.
 7. **Use `googleId` as the user identifier** — not MongoDB `_id` — in all cross-collection references.
 8. **Tailwind from CDN** — do not install or configure Tailwind as a build dependency.
