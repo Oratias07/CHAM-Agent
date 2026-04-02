@@ -826,6 +826,29 @@ router.post('/lecturer/submissions/:id/extension', async (req, res) => {
   res.json(submission);
 });
 
+router.post('/lecturer/assignments/:id/release-feedback', async (req, res) => {
+  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
+  await connectDB();
+  const assignment = await Assignment.findById(req.params.id);
+  if (!assignment) return res.status(404).json({ message: 'Assignment not found' });
+  const result = await Submission.updateMany(
+    { assignmentId: req.params.id },
+    { $set: { feedback_released: true } }
+  );
+  res.json({ success: true, released: true, count: result.modifiedCount });
+});
+
+router.get('/lecturer/assignments/:id/feedback-status', async (req, res) => {
+  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
+  await connectDB();
+  const assignment = await Assignment.findById(req.params.id);
+  if (!assignment) return res.status(404).json({ message: 'Assignment not found' });
+  const submissions = await Submission.find({ assignmentId: req.params.id });
+  const released = submissions.length > 0 && submissions.every(s => s.feedback_released === true);
+  const pendingReviews = submissions.filter(s => s.assessment_status === 'awaiting_review').length;
+  res.json({ released, pendingReviews, releasedAt: released ? new Date().toISOString() : null });
+});
+
 // STUDENT ASSIGNMENT ROUTES
 router.get('/student/courses/:courseId/assignments', async (req, res) => {
   if (!req.user) return res.status(401).send();
