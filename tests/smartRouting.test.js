@@ -53,18 +53,18 @@ describe('checkConfidenceTrigger', () => {
 
 // ── Trigger 2: Border Zone ──
 describe('checkBorderZoneTrigger', () => {
-  it('triggers at pass boundary (56)', () => {
-    const r = checkBorderZoneTrigger(56);
+  it('triggers at pass boundary (52)', () => {
+    const r = checkBorderZoneTrigger(52);
     expect(r.triggered).toBe(true);
     expect(r.distance).toBe(0);
   });
 
-  it('triggers at lower bound (46)', () => {
-    expect(checkBorderZoneTrigger(46).triggered).toBe(true);
+  it('triggers at lower bound (42)', () => {
+    expect(checkBorderZoneTrigger(42).triggered).toBe(true);
   });
 
-  it('triggers at upper bound (66)', () => {
-    expect(checkBorderZoneTrigger(66).triggered).toBe(true);
+  it('triggers at upper bound (62)', () => {
+    expect(checkBorderZoneTrigger(62).triggered).toBe(true);
   });
 
   it('does not trigger well above (80)', () => {
@@ -75,12 +75,12 @@ describe('checkBorderZoneTrigger', () => {
     expect(checkBorderZoneTrigger(30).triggered).toBe(false);
   });
 
-  it('does not trigger at 67 (distance = 11)', () => {
-    expect(checkBorderZoneTrigger(67).triggered).toBe(false);
+  it('does not trigger at 63 (distance = 11)', () => {
+    expect(checkBorderZoneTrigger(63).triggered).toBe(false);
   });
 
-  it('does not trigger at 45 (distance = 11)', () => {
-    expect(checkBorderZoneTrigger(45).triggered).toBe(false);
+  it('does not trigger at 41 (distance = 11)', () => {
+    expect(checkBorderZoneTrigger(41).triggered).toBe(false);
   });
 });
 
@@ -255,7 +255,7 @@ describe('evaluateRoutingDecision', () => {
   });
 
   it('routes to human on border zone score', async () => {
-    // layer1=50, layer2=60 → combined = 50*0.6+60*0.4 = 54, within ±10 of 56
+    // layer1=50, layer2=60 → combined = 50*0.6+60*0.4 = 54, within ±10 of 52
     const r = await evaluateRoutingDecision(baseParams({
       layer1Score: 50,
       semanticResult: { overall_score: 60, confidence: 90, flags_for_human_review: [], score: 60 },

@@ -49,7 +49,7 @@ The core evaluation pipeline runs 3 layers sequentially:
 Decides auto-grade vs. human review based on 4 triggers:
 
 1. **Low Confidence** - LLM confidence < 70% or LLM flagged issues
-2. **Border Zone** - Score within +/-10 of pass threshold (56)
+2. **Border Zone** - Score within +/-10 of pass threshold (52)
 3. **Question Type** - Creative/open-ended questions always route to human
 4. **Student History Anomaly** - Score deviates > 2 standard deviations from student's history
 

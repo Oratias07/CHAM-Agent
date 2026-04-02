@@ -6,7 +6,7 @@
 // ── Configurable thresholds ──
 const THRESHOLDS = {
   CONFIDENCE_MIN: 70,      // Trigger 1: LLM confidence below this → human review
-  PASS_SCORE: 56,          // Trigger 2: passing grade boundary
+  PASS_SCORE: 52,          // Trigger 2: passing grade boundary
   BORDER_RANGE: 10,        // Trigger 2: ±10 points around pass score
   ANOMALY_STD_FACTOR: 2,   // Trigger 4: score deviates > 2σ from student's history
 };
