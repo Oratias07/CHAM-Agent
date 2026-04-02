@@ -229,6 +229,11 @@ const AssessmentLayerSchema = new mongoose.Schema({
     flags_for_human_review: [String],
     model_used: String,
     injection_detected: Boolean,
+    deductions: [{
+      codeQuote: String,
+      requirement: String,
+      pointsLost: Number,
+    }],
   },
   layer3: {
     required: Boolean,

@@ -107,6 +107,7 @@ export async function assessSubmission({ submission, assignment, models }) {
       flags_for_human_review: layer2Result.flags_for_human_review,
       model_used: layer2Result.model_used || 'gemini-2.0-flash',
       injection_detected: layer2Result.injection_detected,
+      deductions: layer2Result.deductions || [],
     },
     created_at: new Date(),
   });

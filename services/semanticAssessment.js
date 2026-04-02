@@ -42,7 +42,14 @@ const OUTPUT_SCHEMA = `Respond with ONLY valid JSON in this exact structure:
   "best_practices": { "score": 0-100, "feedback": "specific feedback in Hebrew" },
   "overall_score": 0-100,
   "confidence": 0-100,
-  "flags_for_human_review": ["reason1", "reason2"]
+  "flags_for_human_review": ["reason1", "reason2"],
+  "deductions": [
+    {
+      "codeQuote": "exact code snippet from student submission that caused the deduction",
+      "requirement": "the specific requirement or best practice violated (in Hebrew)",
+      "pointsLost": 5
+    }
+  ]
 }
 
 Scoring guidelines:
@@ -52,7 +59,8 @@ Scoring guidelines:
 - error_handling: try-catch, edge cases, input validation
 - best_practices: SOLID/DRY, security, idiomatic patterns
 - confidence: how certain you are in your assessment (lower if code is ambiguous, very short, or hard to evaluate)
-- flags_for_human_review: list reasons if you think a human should review (e.g., "possible plagiarism", "unusual approach", "code seems AI-generated")`;
+- flags_for_human_review: list reasons if you think a human should review (e.g., "possible plagiarism", "unusual approach", "code seems AI-generated")
+- deductions: list EVERY specific point deduction. Each must include the exact code quote from the student's submission, the requirement violated, and points lost. If no deductions, return an empty array.`;
 
 /**
  * Analyze code quality using LLM.
@@ -145,6 +153,10 @@ export async function analyzeCodeQuality(code, language, questionContext, master
       flags.push('prompt_injection_attempt_detected');
     }
 
+    const deductions = Array.isArray(data.deductions) ? data.deductions.filter(
+      d => d && d.codeQuote && d.requirement && typeof d.pointsLost === 'number'
+    ) : [];
+
     return {
       score: overallScore,
       criteria_breakdown: {
@@ -156,12 +168,13 @@ export async function analyzeCodeQuality(code, language, questionContext, master
       },
       overall_score: overallScore,
       confidence,
-      feedback: buildCombinedFeedback(data),
+      feedback: buildCombinedFeedback(data, deductions),
       flags_for_human_review: flags,
       model_used: result.model,
       provider_used: result.provider,
       injection_detected: injectionDetected,
       injection_flags: injectionFlags,
+      deductions,
     };
   } catch (err) {
     // All providers failed — return degraded result
@@ -190,7 +203,7 @@ function extractCriterion(data) {
   };
 }
 
-function buildCombinedFeedback(data) {
+function buildCombinedFeedback(data, deductions = []) {
   const parts = [];
 
   const criteria = [
@@ -207,6 +220,13 @@ function buildCombinedFeedback(data) {
     const feedback = typeof criterion === 'object' ? criterion?.feedback : '';
     if (feedback) {
       parts.push(`${label} (${score}/100): ${feedback}`);
+    }
+  }
+
+  if (deductions.length > 0) {
+    parts.push('\n--- ניכויים ---');
+    for (const d of deductions) {
+      parts.push(`ניכוי: -${d.pointsLost} נקודות\nבעיה: ${d.requirement}\nקוד: ${d.codeQuote}`);
     }
   }
 
