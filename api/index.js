@@ -179,6 +179,7 @@ const SubmissionSchema = new mongoose.Schema({
     triggers: [mongoose.Schema.Types.Mixed],
     decided_at: Date,
   },
+  feedback_released: { type: Boolean, default: false },
 });
 SubmissionSchema.set('toJSON', { virtuals: true });
 
