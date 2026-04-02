@@ -1,4 +1,4 @@
-# ST-System Security Documentation
+# CHAM Agent Security Documentation
 
 ## Threat Model
 

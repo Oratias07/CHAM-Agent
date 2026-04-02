@@ -21,10 +21,10 @@ const Login: React.FC<LoginProps> = ({ onLogin, onDevLogin }) => {
       <div className="z-10 w-full max-w-sm sm:max-w-md bg-white/5 backdrop-blur-3xl border border-white/10 rounded-[2.5rem] p-8 sm:p-12 shadow-2xl text-center">
         {/* Logo */}
         <div className="w-20 h-20 bg-gradient-to-br from-brand-500 to-brand-700 rounded-[1.5rem] flex items-center justify-center text-white font-black text-3xl mx-auto mb-8 shadow-2xl shadow-brand-500/30">
-          ST
+          CH
         </div>
 
-        <h1 className="text-3xl sm:text-4xl font-black text-white mb-2 tracking-tighter uppercase">ST System</h1>
+        <h1 className="text-3xl sm:text-4xl font-black text-white mb-2 tracking-tighter uppercase">CHAM Agent</h1>
         <p className="text-slate-400 mb-10 text-xs font-bold tracking-widest uppercase opacity-70">
           מערכת הערכת קוד אקדמית מבוססת AI
         </p>
@@ -91,7 +91,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onDevLogin }) => {
         </div>
       </div>
 
-      <p className="mt-8 text-slate-700 text-[9px] font-black uppercase tracking-[0.4em]">ST System v2.1 · Academic Core</p>
+      <p className="mt-8 text-slate-700 text-[9px] font-black uppercase tracking-[0.4em]">CHAM Agent v2.1 · Academic Core</p>
     </div>
   );
 };

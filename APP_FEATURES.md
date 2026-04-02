@@ -1,4 +1,4 @@
-# APP_FEATURES.md — ST System Feature Registry
+# APP_FEATURES.md — CHAM Agent Feature Registry
 
 > Status legend: ✅ Working · 🚧 In Progress · 📋 Planned
 

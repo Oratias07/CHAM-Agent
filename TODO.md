@@ -1,4 +1,4 @@
-# ST-System Roadmap
+# CHAM Agent Roadmap
 
 Based on academic research analysis (March 2026) and codebase audit.
 

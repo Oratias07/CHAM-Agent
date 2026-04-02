@@ -1,14 +1,14 @@
 ---
-name: st-system-api
-description: "Use this skill whenever you need to interact with, build on, or automate the ST System (AI Code Grader). Triggers include: managing academic courses, enrolling students, evaluating code submissions, querying gradebooks, grading sessions, or facilitating lecturer-student communication. Also use when scripting bulk grading, migrating course materials, or integrating the AI evaluation engine into external workflows."
+name: cham-agent-api
+description: "Use this skill whenever you need to interact with, build on, or automate the CHAM Agent (AI Code Grader). Triggers include: managing academic courses, enrolling students, evaluating code submissions, querying gradebooks, grading sessions, or facilitating lecturer-student communication. Also use when scripting bulk grading, migrating course materials, or integrating the AI evaluation engine into external workflows."
 license: Internal use only
 ---
 
-# ST System — API Skill Reference
+# CHAM Agent — API Skill Reference
 
 ## Overview
 
-ST System is a full-stack academic SaaS platform for automated code evaluation and course management. It provides a REST API covering the full course lifecycle: enrollment, material sharing, assignment management, AI grading, gradebook management, and real-time messaging.
+CHAM Agent is a full-stack academic SaaS platform for automated code evaluation and course management. It provides a REST API covering the full course lifecycle: enrollment, material sharing, assignment management, AI grading, gradebook management, and real-time messaging.
 
 - **Base URL:** `/api`
 - **Auth:** Session-based via `express-session`. Requires Google OAuth 2.0 authentication (or dev bypass in development).

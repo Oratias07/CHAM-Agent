@@ -1,10 +1,10 @@
-# ARCHITECTURE.md — ST System Technical Architecture
+# ARCHITECTURE.md — CHAM Agent Technical Architecture
 
 ---
 
 ## 1. System Overview
 
-ST System is a full-stack SaaS application built on a **decoupled architecture**: a React single-page application served from Vercel's Edge CDN communicates with a single Express.js serverless function that handles all backend logic — authentication, database access, and AI orchestration.
+CHAM Agent is a full-stack SaaS application built on a **decoupled architecture**: a React single-page application served from Vercel's Edge CDN communicates with a single Express.js serverless function that handles all backend logic — authentication, database access, and AI orchestration.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -45,7 +45,7 @@ ST System is a full-stack SaaS application built on a **decoupled architecture**
 ## 2. File Structure
 
 ```
-st-system/
+cham-agent/
 ├── api/
 │   └── index.js              # Entire backend: routes, models, auth, AI
 ├── lib/

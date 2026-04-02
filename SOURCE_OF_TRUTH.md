@@ -1,6 +1,6 @@
-# SOURCE_OF_TRUTH.md — ST System Project Reference
+# SOURCE_OF_TRUTH.md — CHAM Agent Project Reference
 
-> This document is the authoritative single source of truth for the ST System codebase. It defines the project's structure, conventions, and rules. All contributors must follow these guidelines.
+> This document is the authoritative single source of truth for the CHAM Agent codebase. It defines the project's structure, conventions, and rules. All contributors must follow these guidelines.
 
 ---
 
@@ -8,7 +8,7 @@
 
 | Property | Value |
 |---|---|
-| **Name** | ST System — AI Code Grader |
+| **Name** | CHAM Agent — AI Code Grader |
 | **Version** | 2.1.0 |
 | **Live URL** | https://stsystem.vercel.app |
 | **Repository** | GitHub → `main` branch auto-deploys to Vercel |
@@ -39,7 +39,7 @@
 ## 3. File Map
 
 ```
-st-system/
+cham-agent/
 ├── api/
 │   └── index.js              ← ENTIRE backend: all routes, models, AI, auth
 ├── lib/
