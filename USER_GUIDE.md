@@ -1,6 +1,6 @@
-# USER_GUIDE.md — ST System User Guide
+# USER_GUIDE.md — CHAM Agent User Guide
 
-> **Note on the interface:** The ST System UI is in **Hebrew (עברית)** and uses right-to-left (RTL) layout throughout. All buttons, labels, error messages, and AI feedback are displayed in Hebrew. This guide uses the Hebrew label names where relevant so you can find them on screen.
+> **Note on the interface:** The CHAM Agent UI is in **Hebrew (עברית)** and uses right-to-left (RTL) layout throughout. All buttons, labels, error messages, and AI feedback are displayed in Hebrew. This guide uses the Hebrew label names where relevant so you can find them on screen.
 
 ---
 
@@ -16,7 +16,7 @@
 
 ### Accessing the System
 
-Open [https://stsystem.vercel.app](https://stsystem.vercel.app) in your browser. You will see the ST System login screen.
+Open [https://stsystem.vercel.app](https://stsystem.vercel.app) in your browser. You will see the CHAM Agent login screen.
 
 ### Login Options
 

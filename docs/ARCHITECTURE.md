@@ -1,8 +1,8 @@
-# ST-System Architecture
+# CHAM Agent Architecture
 
 ## Overview
 
-ST-System is an EdTech SaaS platform for automated code assessment. It runs as a Vercel Serverless Function (Express.js) with a React 19 frontend, MongoDB Atlas for persistence, and multiple LLM providers for AI evaluation.
+CHAM Agent is an EdTech SaaS platform for automated code assessment. It runs as a Vercel Serverless Function (Express.js) with a React 19 frontend, MongoDB Atlas for persistence, and multiple LLM providers for AI evaluation.
 
 ## System Architecture
 

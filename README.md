@@ -1,4 +1,4 @@
-# ST System — AI Code Grader
+# CHAM Agent — AI Code Grader
 
 ![Version](https://img.shields.io/badge/version-2.1.0-6366f1.svg)
 ![License](https://img.shields.io/badge/license-MIT-22c55e.svg)
@@ -33,7 +33,7 @@
 
 ## Overview
 
-ST System is a production-grade academic platform built for higher education institutions. Lecturers define exercises with rubrics and master solutions; students submit code; the AI evaluation engine (with automatic fallback across Groq, Gemini, and OpenAI) evaluates submissions and returns detailed pedagogical feedback in Hebrew — instantly.
+CHAM Agent is a production-grade academic platform built for higher education institutions. Lecturers define exercises with rubrics and master solutions; students submit code; the AI evaluation engine (with automatic fallback across Groq, Gemini, and OpenAI) evaluates submissions and returns detailed pedagogical feedback in Hebrew — instantly.
 
 The system implements the **CHAM (Contextual Hybrid Assessment Model)** — a three-layer assessment pipeline combining Judge0 sandbox execution, multi-provider LLM semantic analysis, and smart human review routing. Security hardening includes prompt injection detection (30+ patterns), rate limiting, safe JSON parsing, and role-based access control.
 
@@ -152,8 +152,8 @@ graph TD
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-org/st-system.git
-cd st-system
+git clone https://github.com/your-org/cham-agent.git
+cd cham-agent
 ```
 
 ### 2. Install dependencies
@@ -222,7 +222,7 @@ Create a `.env` file at the project root. **Never commit this file** — it is l
 
 Example `.env`:
 ```env
-MONGODB_URI=mongodb+srv://user:password@cluster.mongodb.net/st-system
+MONGODB_URI=mongodb+srv://user:password@cluster.mongodb.net/cham-agent
 GOOGLE_CLIENT_ID=990002507324-xxxx.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=GOCSPX-xxxxxxxxxxxxxxxxxxxx
 GOOGLE_CALLBACK_URL=http://localhost:3000/api/auth/google/callback
@@ -431,4 +431,4 @@ Please follow existing conventions: TypeScript for all frontend files, Hebrew la
 
 ## License
 
-MIT © ST System Team
+MIT © CHAM Agent Team
