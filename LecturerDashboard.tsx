@@ -300,7 +300,7 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
       )}
 
       <nav className="fixed left-0 top-0 h-full w-[72px] hover:w-64 bg-white dark:bg-slate-850 border-r border-slate-200 dark:border-slate-800 transition-all duration-300 z-50 flex flex-col group">
-        <div className="h-16 flex items-center px-5 border-b dark:border-slate-800"><div className="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center font-bold text-white shrink-0">ST</div></div>
+        <div className="h-16 flex items-center px-5 border-b dark:border-slate-800"><img src="/logo.png" alt="CHAM" className="w-8 h-8 rounded-lg shrink-0 object-cover" /></div>
         <div className="flex-grow py-6 px-3 space-y-2">
           {navItems.map((item) => (
             <button key={item.id} onClick={() => setViewMode(item.id as ViewMode)} className={`w-full flex items-center p-3 rounded-xl transition-all relative ${viewMode === item.id ? 'bg-brand-600 text-white' : 'text-slate-500 hover:bg-zinc-100 dark:hover:bg-slate-800'}`}>

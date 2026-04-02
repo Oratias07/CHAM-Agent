@@ -252,7 +252,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
       <main className="flex-grow flex flex-col relative">
         <header className="h-16 border-b dark:border-slate-800 bg-white dark:bg-slate-850 flex items-center px-10 justify-between transition-colors">
            <div className="flex items-center space-x-4">
-              <div className="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center font-black text-white text-xs shrink-0">ST</div>
+              <img src="/logo.png" alt="CHAM" className="w-8 h-8 rounded-lg shrink-0 object-cover" />
               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{course?.name} / {viewMode}</span>
            </div>
         </header>
