@@ -177,6 +177,7 @@ export interface Submission {
     triggers: RoutingTrigger[];
     decided_at?: Date;
   };
+  feedback_released?: boolean;
   cham?: CHAMResult;
 }
 
