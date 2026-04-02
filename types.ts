@@ -187,6 +187,12 @@ export interface CriterionScore {
   big_o?: string;
 }
 
+export interface Deduction {
+  codeQuote: string;
+  requirement: string;
+  pointsLost: number;
+}
+
 export interface AssessmentLayerData {
   id: string;
   submission_id: string;
@@ -213,6 +219,7 @@ export interface AssessmentLayerData {
     flags_for_human_review: string[];
     model_used: string;
     injection_detected?: boolean;
+    deductions?: Deduction[];
   };
   layer3?: {
     required: boolean;
