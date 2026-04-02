@@ -120,7 +120,7 @@ const InputSection: React.FC<InputSectionProps> = ({
     <div className="bg-white dark:bg-slate-850 rounded-[2.5rem] shadow-2xl flex flex-col h-full border border-slate-200 dark:border-slate-800 overflow-hidden transition-all duration-500">
       <div className="bg-zinc-50/50 dark:bg-slate-900/40 px-10 py-6 flex items-center justify-between border-b dark:border-slate-800">
         <div className="flex items-center space-x-6">
-          <div className="w-10 h-10 bg-brand-600 rounded-2xl flex items-center justify-center font-black text-white text-sm shadow-lg shadow-brand-500/20 shrink-0">ST</div>
+          <img src="/logo.png" alt="CHAM" className="w-10 h-10 rounded-2xl shadow-lg shadow-brand-500/20 shrink-0 object-cover" />
           <div className="flex flex-col">
             <span className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1" dir="rtl">הקשר פעיל</span>
             <select 

@@ -48,13 +48,13 @@ const App: React.FC = () => {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-brand-500/10 blur-[150px] rounded-full"></div>
         <div className="relative group">
           <div className="absolute inset-0 bg-brand-500 rounded-[2rem] blur-2xl opacity-20 group-hover:opacity-40 transition-opacity animate-pulse"></div>
-          <div className="relative w-24 h-24 bg-gradient-to-br from-brand-500 to-brand-700 rounded-[2rem] flex items-center justify-center text-white font-black text-4xl shadow-2xl animate-logo-secondary">
-            ST
+          <div className="relative w-24 h-24 rounded-[2rem] shadow-2xl animate-logo-secondary overflow-hidden">
+            <img src="/logo.png" alt="CHAM Agent" className="w-full h-full object-cover" />
             <div className="absolute -inset-4 border-2 border-brand-500/30 border-t-brand-500 rounded-full animate-orbit-clean"></div>
           </div>
         </div>
         <div className="mt-12 space-y-2 text-center">
-          <div className="text-[10px] font-black text-brand-400 uppercase tracking-[0.5em] animate-pulse">System Synchronizing</div>
+          <div className="text-[10px] font-black text-brand-400 uppercase tracking-[0.5em] animate-pulse">CHAM Agent Loading</div>
         </div>
       </div>
     );
