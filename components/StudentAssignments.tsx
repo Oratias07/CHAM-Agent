@@ -170,6 +170,19 @@ const StudentAssignments: React.FC<StudentAssignmentsProps> = ({ course }) => {
                             {submission.feedback && (
                               <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold italic line-clamp-2">"{submission.feedback}"</p>
                             )}
+                            {submission.deductions && submission.deductions.length > 0 && (
+                              <div className="mt-2 space-y-1">
+                                {submission.deductions.slice(0, 3).map((d, i) => (
+                                  <div key={i} className="flex items-center gap-2 text-[10px]" style={{ borderRight: '3px solid #FF9800', paddingRight: '8px' }}>
+                                    <span className="text-amber-500 font-black">-{d.pointsLost}</span>
+                                    <span className="text-slate-500 dark:text-slate-400 font-bold truncate">{d.requirement}</span>
+                                  </div>
+                                ))}
+                                {submission.deductions.length > 3 && (
+                                  <span className="text-[9px] text-slate-400 font-bold">...+{submission.deductions.length - 3} עוד</span>
+                                )}
+                              </div>
+                            )}
                           </>
                         )}
                       </div>

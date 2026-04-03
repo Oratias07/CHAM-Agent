@@ -179,6 +179,7 @@ export interface Submission {
     decided_at?: Date;
   };
   feedback_released?: boolean;
+  deductions?: Deduction[];
   cham?: CHAMResult;
 }
 

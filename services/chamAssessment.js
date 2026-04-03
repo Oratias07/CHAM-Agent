@@ -196,6 +196,7 @@ export async function assessSubmission({ submission, assignment, models }) {
         score: finalScore,
         feedback: layer2Result.feedback,
         final_score: finalScore,
+        deductions: layer2Result.deductions || [],
         routing_decision: {
           requires_human: false,
           triggers: [],
