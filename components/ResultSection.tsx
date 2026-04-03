@@ -137,6 +137,29 @@ const ResultSection: React.FC<ResultSectionProps> = ({ result, error, isEvaluati
           </p>
         </div>
 
+        {result.deductions && result.deductions.length > 0 && (
+          <div className="mt-6 bg-white dark:bg-slate-800 rounded-[2rem] p-8 border border-zinc-200 dark:border-slate-800 shadow-md" dir="rtl">
+            <h3 className="text-[9px] font-black text-amber-500 uppercase tracking-[0.3em] mb-6" style={{ fontFamily: 'Rubik, Assistant, sans-serif' }}>
+              ממצאים וניכויים ({result.deductions.length})
+            </h3>
+            <div className="space-y-3">
+              {result.deductions.map((d, i) => (
+                <div key={i} className="border-r-4 border-amber-500 bg-zinc-50 dark:bg-slate-900/60 rounded-xl p-4">
+                  <div className="text-slate-800 dark:text-slate-100 text-sm font-bold mb-2" style={{ fontFamily: 'Rubik, Assistant, sans-serif' }}>
+                    {d.requirement}
+                  </div>
+                  <div className="bg-slate-900 dark:bg-slate-950 rounded-lg p-3 mb-2" dir="ltr" style={{ fontFamily: 'Consolas, Monaco, monospace', fontSize: '12px', color: '#a5f3fc', whiteSpace: 'pre-wrap' }}>
+                    {d.codeQuote}
+                  </div>
+                  <div className="text-amber-500 text-xs font-bold">
+                    -{d.pointsLost} נקודות
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="mt-10 flex flex-col items-center space-y-4">
           <button 
             onClick={() => {

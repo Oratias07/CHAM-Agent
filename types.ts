@@ -77,6 +77,7 @@ export interface Material {
 export interface GradingResult {
   score: number;
   feedback: string;
+  deductions?: Deduction[];
 }
 
 export interface GradingInputs {
