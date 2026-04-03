@@ -63,6 +63,11 @@ export const apiService = {
     await fetch(`/api/student/materials/${materialId}/view`, { method: 'POST' });
   },
 
+  async getMaterialContent(materialId: string): Promise<{ content: string, fileType: string }> {
+    const res = await fetch(`/api/student/materials/${materialId}/content`);
+    return handleResponse(res);
+  },
+
   async getMessages(otherId: string): Promise<DirectMessage[]> {
     const res = await fetch(`/api/messages/${otherId}`);
     return handleResponse(res);
