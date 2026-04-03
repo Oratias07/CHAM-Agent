@@ -58,15 +58,17 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
 
   useEffect(() => {
     if (course) {
-      apiService.getStudentMaterials(course.id).then(setMaterials);
-      apiService.getCourseContacts(course.id).then(setContacts);
+      apiService.getStudentMaterials(course.id).then(setMaterials).catch(() => {});
+      apiService.getCourseContacts(course.id).then(setContacts).catch(() => {});
     }
   }, [course?.id, localUser.id]);
 
   useEffect(() => {
+    let active = true;
     const fetchSync = async () => {
       try {
         const sync = await apiService.getStudentSync();
+        if (!active) return;
         setUnreadMessages(sync.unreadMessages);
         if (sync.alert && sync.alert.text !== dismissedAlertRef.current) {
           setMessageAlert(sync.alert);
@@ -75,12 +77,12 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
     };
     fetchSync();
     const interval = setInterval(fetchSync, 30000);
-    return () => clearInterval(interval);
+    return () => { active = false; clearInterval(interval); };
   }, []);
 
   useEffect(() => {
     if (viewMode === 'LIBRARY') {
-      apiService.getStudentSubmissions().then(setSubmissions);
+      apiService.getStudentSubmissions().then(setSubmissions).catch(() => {});
     }
   }, [viewMode]);
 
@@ -258,7 +260,17 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
         </header>
 
         <div className="flex-grow overflow-hidden flex flex-col">
-          {viewMode === 'MATERIALS' && (
+          {!course && viewMode !== 'AI_CHAT' && (
+            <div className="flex-1 flex flex-col items-center justify-center p-12 text-center space-y-6" dir="rtl">
+              <div className="w-20 h-20 bg-zinc-100 dark:bg-slate-800 rounded-[2rem] flex items-center justify-center text-4xl">🎓</div>
+              <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tighter">אין קורס פעיל</h3>
+              <p className="text-slate-400 font-bold text-sm max-w-md">הצטרף לקורס באמצעות קוד הקורס כדי לגשת לחומרים, משימות והודעות.</p>
+              <button onClick={() => setShowJoinModal(true)} className="px-8 py-4 bg-brand-600 hover:bg-brand-500 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg transition-all">
+                הצטרף לקורס
+              </button>
+            </div>
+          )}
+          {viewMode === 'MATERIALS' && course && (
             <div className="flex-1 overflow-y-auto p-12 custom-scrollbar">
               <div className="max-w-4xl mx-auto">
                 <div className="flex justify-between items-end mb-12">
