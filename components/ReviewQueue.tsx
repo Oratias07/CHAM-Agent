@@ -241,6 +241,39 @@ export default function ReviewQueue() {
                     ⚠️ זוהה ניסיון הזרקת פרומפט בקוד התלמיד
                   </div>
                 )}
+
+                {/* Deductions panel */}
+                {assessment.layer2.deductions && assessment.layer2.deductions.length > 0 && (
+                  <div style={{ marginTop: '16px' }} dir="rtl">
+                    <h4 style={{ color: '#FF9800', margin: '0 0 12px 0', fontSize: '14px', fontWeight: 700 }}>
+                      ניכויים ({assessment.layer2.deductions.length})
+                    </h4>
+                    {assessment.layer2.deductions.map((d: any, i: number) => (
+                      <div key={i} style={{
+                        borderRight: '4px solid #FF9800',
+                        background: '#1a1a2e',
+                        borderRadius: '8px',
+                        padding: '12px',
+                        marginBottom: '8px',
+                      }}>
+                        <div style={{ color: '#e2e8f0', fontSize: '13px', marginBottom: '6px', fontWeight: 600 }}>
+                          {d.requirement}
+                        </div>
+                        <div style={{
+                          background: '#0f0f1a', borderRadius: '6px', padding: '8px 12px',
+                          fontFamily: 'Consolas, Monaco, monospace', fontSize: '12px',
+                          color: '#a5f3fc', direction: 'ltr', textAlign: 'left',
+                          whiteSpace: 'pre-wrap', marginBottom: '6px',
+                        }}>
+                          {d.codeQuote}
+                        </div>
+                        <div style={{ color: '#FF9800', fontSize: '12px', fontWeight: 700 }}>
+                          -{d.pointsLost} נקודות
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
