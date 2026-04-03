@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { apiService } from '../services/apiService';
 import type { ReviewQueueItem } from '../types';
+import CodeBlockWithLineNumbers from './CodeBlockWithLineNumbers';
 
 export default function ReviewQueue() {
   const [queue, setQueue] = useState<ReviewQueueItem[]>([]);
@@ -118,13 +119,7 @@ export default function ReviewQueue() {
               </div>
 
               <div style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '8px' }}>קוד התלמיד:</div>
-              <pre style={{
-                background: '#0f0f1a', borderRadius: '8px', padding: '16px', color: '#a5f3fc',
-                fontSize: '13px', overflow: 'auto', maxHeight: '400px', whiteSpace: 'pre-wrap',
-                fontFamily: 'Consolas, Monaco, monospace', direction: 'ltr', textAlign: 'left',
-              }}>
-                {submission?.studentCode}
-              </pre>
+              <CodeBlockWithLineNumbers code={submission?.studentCode || ''} />
             </div>
           </div>
 
