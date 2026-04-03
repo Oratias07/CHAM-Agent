@@ -866,6 +866,57 @@ router.get('/lecturer/assignments/:id/feedback-status', async (req, res) => {
   res.json({ released, pendingReviews, releasedAt: released ? new Date().toISOString() : null });
 });
 
+router.post('/lecturer/assignments/:id/submit-manual', async (req, res) => {
+  if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
+  await connectDB();
+
+  const assignment = await Assignment.findById(req.params.id);
+  if (!assignment) return res.status(404).json({ message: 'Assignment not found' });
+
+  const { studentId, code, language } = req.body;
+  if (!studentId || !code) return res.status(400).json({ message: 'studentId and code are required' });
+
+  const student = await User.findOne({ googleId: studentId });
+  const studentName = student?.name || studentId;
+
+  const submission = await Submission.create({
+    assignmentId: req.params.id,
+    courseId: assignment.courseId,
+    studentId,
+    studentName,
+    studentCode: code,
+    status: 'pending',
+    assessment_status: 'pending',
+    timestamp: new Date(),
+  });
+
+  try {
+    const chamResult = await assessSubmission({
+      submission,
+      assignment,
+      models: { Submission, AssessmentLayer, HumanReviewQueue },
+    });
+
+    const updatedSubmission = await Submission.findById(submission._id);
+    res.json({
+      success: true,
+      submissionId: updatedSubmission._id,
+      score: updatedSubmission.final_score ?? updatedSubmission.score,
+      passed: (updatedSubmission.final_score ?? updatedSubmission.score ?? 0) >= 52,
+      feedback: updatedSubmission.feedback,
+      deductions: updatedSubmission.deductions || [],
+      status: chamResult.status,
+    });
+  } catch (err) {
+    console.error('[CHAM] Manual submission pipeline error:', err);
+    res.status(500).json({
+      success: false,
+      submissionId: submission._id,
+      message: 'ההערכה האוטומטית נכשלה. ההגשה נשמרה לסקירה ידנית.',
+    });
+  }
+});
+
 // STUDENT ASSIGNMENT ROUTES
 router.get('/student/courses/:courseId/assignments', async (req, res) => {
   if (!req.user) return res.status(401).send();
