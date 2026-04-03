@@ -50,7 +50,9 @@ The system handles the full lifecycle of a course: enrollment, material sharing,
 - 📄 **Library Zone** — Upload and manage course materials (text/PDF); control visibility per student
 - 🤖 **AI Grading Engine** — Paste a question, master solution, rubric, and student code; receive a score (0–10) and detailed Hebrew feedback via multi-provider LLM (Groq → Gemini → OpenAI fallback) with prompt injection protection
 - ⚙️ **Custom AI Constraints** — Add freeform instructions enforced during evaluation (e.g. "Penalize use of global variables")
-- 📋 **Assignment Manager** — Create timed assignments with open/due dates; grant per-student deadline extensions
+- 📋 **Assignment Manager** — Create timed assignments with open/due dates; grant per-student deadline extensions; manual submission with full CHAM pipeline
+- 📝 **Deductions** — Structured code-quoted deductions with Hebrew labels, RTL layout, and expandable previews across all views
+- 🔓 **Feedback Release** — Control when students can see their evaluation results
 - 📊 **Gradebook (Sheets View)** — Spreadsheet-style grid for managing scores and feedback across the entire class; export to Hebrew-encoded CSV
 - 🗄️ **Archive Zone** — Save and restore full gradebook snapshots with class statistics
 - 💬 **Direct Chat** — Real-time messaging with any student; reply, edit, and delete messages
@@ -309,6 +311,9 @@ All endpoints are prefixed with `/api`. All routes except auth require a valid s
 | `DELETE` | `/lecturer/assignments/:id` | Lecturer | Delete an assignment |
 | `GET` | `/lecturer/assignments/:id/submissions` | Lecturer | Get all student submissions for an assignment |
 | `POST` | `/lecturer/submissions/:id/extension` | Lecturer | Grant a deadline extension. Body: `{ extensionUntil }` |
+| `POST` | `/lecturer/assignments/:id/submit-manual` | Lecturer | Manual submission with full CHAM pipeline. Body: `{ studentId, code, language }`. Returns `{ success, submissionId, score, passed, feedback, deductions }` |
+| `POST` | `/lecturer/assignments/:id/release-feedback` | Lecturer | Release feedback for all submissions. Returns `{ success, released, count }` |
+| `GET` | `/lecturer/assignments/:id/feedback-status` | Lecturer | Get feedback release status. Returns `{ released, pendingReviews, releasedAt }` |
 
 ### Lecturer — Gradebook & Archive
 
