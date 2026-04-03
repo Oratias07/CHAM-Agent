@@ -40,7 +40,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
   const [materials, setMaterials] = useState<{ lecturerMaterials: Material[], studentMaterials: Material[] }>({ lecturerMaterials: [], studentMaterials: [] });
   const [activeMaterial, setActiveMaterial] = useState<Material | null>(null);
   const [loading, setLoading] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('MATERIALS');
+  const [viewMode, setViewMode] = useState<ViewMode>('ASSIGNMENTS');
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [joinCode, setJoinCode] = useState('');
   const [contacts, setContacts] = useState<{ lecturer: User, students: User[] } | null>(null);
@@ -50,6 +50,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
   const [messageAlert, setMessageAlert] = useState<{ text: string, senderId: string } | null>(null);
   const dismissedAlertRef = useRef<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [openingMaterialId, setOpeningMaterialId] = useState<string | null>(null);
   const [joinError, setJoinError] = useState('');
   const [joinSuccess, setJoinSuccess] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -157,28 +158,33 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
   };
 
   const openMaterial = async (m: Material) => {
-    await apiService.markMaterialViewed(m.id);
-    // If content is a data URL (base64-encoded file), open in new tab with correct type
-    if (m.content && m.content.startsWith('data:')) {
-      const newTab = window.open('', '_blank');
-      if (newTab) {
-        if (m.fileType?.startsWith('image/')) {
-          newTab.document.write(`<html><head><title>${m.title}</title></head><body style="margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#111"><img src="${m.content}" style="max-width:100%;max-height:100vh;object-fit:contain" /></body></html>`);
-        } else {
-          // PDF, Word, etc. — convert data URL to blob and open
-          const byteString = atob(m.content.split(',')[1]);
-          const mimeType = m.fileType || m.content.split(';')[0].split(':')[1];
-          const ab = new ArrayBuffer(byteString.length);
-          const ia = new Uint8Array(ab);
-          for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
-          const blob = new Blob([ab], { type: mimeType });
-          const url = URL.createObjectURL(blob);
-          newTab.location.href = url;
+    setOpeningMaterialId(m.id);
+    try {
+      await apiService.markMaterialViewed(m.id);
+      // Fetch content on demand — not included in list responses
+      const { content, fileType } = await apiService.getMaterialContent(m.id);
+      const resolvedType = fileType || m.fileType || '';
+      if (content && content.startsWith('data:')) {
+        const newTab = window.open('', '_blank');
+        if (newTab) {
+          if (resolvedType.startsWith('image/')) {
+            newTab.document.write(`<html><head><title>${m.title}</title></head><body style="margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#111"><img src="${content}" style="max-width:100%;max-height:100vh;object-fit:contain" /></body></html>`);
+          } else {
+            const byteString = atob(content.split(',')[1]);
+            const mimeType = resolvedType || content.split(';')[0].split(':')[1];
+            const ab = new ArrayBuffer(byteString.length);
+            const ia = new Uint8Array(ab);
+            for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
+            const blob = new Blob([ab], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            newTab.location.href = url;
+          }
         }
+      } else {
+        setActiveMaterial({ ...m, content });
       }
-    } else {
-      // Plain text content — show in modal
-      setActiveMaterial(m);
+    } finally {
+      setOpeningMaterialId(null);
     }
   };
 
@@ -304,12 +310,13 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{material.folder || 'General'}</span>
                           </div>
                           <h4 className="text-lg font-bold text-slate-900 dark:text-white mb-2">{material.title}</h4>
-                          <p className="text-slate-500 dark:text-slate-400 text-sm line-clamp-2 mb-6">{material.content?.startsWith('data:') ? `${material.fileType || 'File'} — ${material.fileName || material.title}` : material.content}</p>
+                          <p className="text-slate-500 dark:text-slate-400 text-sm line-clamp-2 mb-6">{material.fileName ? `${material.fileType || 'File'} — ${material.fileName}` : 'מסמך טקסט'}</p>
                           <button
                             onClick={() => openMaterial(material)}
-                            className="w-full py-3 bg-slate-50 dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 rounded-xl group-hover:bg-brand-600 group-hover:text-white transition-all"
+                            disabled={openingMaterialId === material.id}
+                            className="w-full py-3 bg-slate-50 dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 rounded-xl group-hover:bg-brand-600 group-hover:text-white transition-all disabled:opacity-50 disabled:cursor-wait"
                           >
-                            צפה במסמך
+                            {openingMaterialId === material.id ? 'טוען...' : 'צפה במסמך'}
                           </button>
                         </div>
                       ))}
@@ -332,12 +339,13 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Private</span>
                           </div>
                           <h4 className="text-lg font-bold text-slate-900 dark:text-white mb-2">{material.title}</h4>
-                          <p className="text-slate-500 dark:text-slate-400 text-sm line-clamp-2 mb-6">{material.content?.startsWith('data:') ? `${material.fileType || 'File'} — ${material.fileName || material.title}` : material.content}</p>
-                          <button 
+                          <p className="text-slate-500 dark:text-slate-400 text-sm line-clamp-2 mb-6">{material.fileName ? `${material.fileType || 'File'} — ${material.fileName}` : 'מסמך טקסט'}</p>
+                          <button
                             onClick={() => openMaterial(material)}
-                            className="w-full py-3 bg-slate-50 dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 rounded-xl group-hover:bg-emerald-600 group-hover:text-white transition-all"
+                            disabled={openingMaterialId === material.id}
+                            className="w-full py-3 bg-slate-50 dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 rounded-xl group-hover:bg-emerald-600 group-hover:text-white transition-all disabled:opacity-50 disabled:cursor-wait"
                           >
-                            צפה במסמך
+                            {openingMaterialId === material.id ? 'טוען...' : 'צפה במסמך'}
                           </button>
                         </div>
                       ))}

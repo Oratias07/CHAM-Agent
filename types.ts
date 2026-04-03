@@ -62,7 +62,7 @@ export interface Material {
   userId?: string;
   courseId: string;
   title: string;
-  content: string;
+  content?: string;
   folder?: string; 
   isVisible: boolean; 
   type: 'lecturer_shared' | 'student_private';

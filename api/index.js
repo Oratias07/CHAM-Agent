@@ -527,9 +527,20 @@ router.get('/student/waitlist-history', async (req, res) => {
 router.get('/student/courses/:courseId/materials', async (req, res) => {
   if (!req.user) return res.status(401).send();
   await connectDB();
-  const lecturerMaterials = await Material.find({ courseId: req.params.courseId, isVisible: true, type: 'lecturer_shared' });
-  const studentMaterials = await Material.find({ ownerId: req.user.googleId, type: 'student_private' });
+  // Exclude content from list — fetched on demand via /student/materials/:id/content
+  const lecturerMaterials = await Material.find({ courseId: req.params.courseId, isVisible: true, type: 'lecturer_shared' }).select('-content');
+  const studentMaterials = await Material.find({ ownerId: req.user.googleId, type: 'student_private' }).select('-content');
   res.json({ lecturerMaterials, studentMaterials });
+});
+
+// Lazy-load material content (only when user opens it)
+router.get('/student/materials/:id/content', async (req, res) => {
+  if (!req.user) return res.status(401).send();
+  await connectDB();
+  const material = await Material.findById(req.params.id).select('content fileType type ownerId courseId');
+  if (!material) return res.status(404).json({ message: 'Material not found' });
+  if (material.type === 'student_private' && material.ownerId !== req.user.googleId) return res.status(403).send();
+  res.json({ content: material.content, fileType: material.fileType });
 });
 
 router.post('/student/private-materials', async (req, res) => {
@@ -1254,7 +1265,7 @@ router.post('/lecturer/courses/:id/remove-student', async (req, res) => {
 router.get('/lecturer/courses/:id/materials', async (req, res) => {
   if (!req.user) return res.status(401).send();
   await connectDB();
-  const materials = await Material.find({ courseId: req.params.id, type: 'lecturer_shared' });
+  const materials = await Material.find({ courseId: req.params.id, type: 'lecturer_shared' }).select('-content');
   res.json(materials);
 });
 
