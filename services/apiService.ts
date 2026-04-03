@@ -301,6 +301,28 @@ export const apiService = {
     return handleResponse(res);
   },
 
+  async submitManual(assignmentId: string, studentId: string, code: string, language: string): Promise<any> {
+    const res = await fetch(`/api/lecturer/assignments/${assignmentId}/submit-manual`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ studentId, code, language })
+    });
+    return handleResponse(res);
+  },
+
+  async releaseFeedback(assignmentId: string): Promise<any> {
+    const res = await fetch(`/api/lecturer/assignments/${assignmentId}/release-feedback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return handleResponse(res);
+  },
+
+  async getFeedbackStatus(assignmentId: string): Promise<any> {
+    const res = await fetch(`/api/lecturer/assignments/${assignmentId}/feedback-status`);
+    return handleResponse(res);
+  },
+
   async getStudentAssignments(courseId: string): Promise<{ assignments: Assignment[], submissions: Submission[] }> {
     const res = await fetch(`/api/student/courses/${courseId}/assignments`);
     return handleResponse(res);
