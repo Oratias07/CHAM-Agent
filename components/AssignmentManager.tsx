@@ -29,6 +29,16 @@ const AssignmentManager: React.FC<AssignmentManagerProps> = ({ course }) => {
   const [createLoading, setCreateLoading] = useState(false);
   const [formError, setFormError] = useState('');
   const [expandedDeductions, setExpandedDeductions] = useState<Record<string, boolean>>({});
+  const [showManualModal, setShowManualModal] = useState(false);
+  const [manualAssignment, setManualAssignment] = useState<Assignment | null>(null);
+  const [manualCode, setManualCode] = useState('');
+  const [manualStudentId, setManualStudentId] = useState('');
+  const [manualLanguage, setManualLanguage] = useState('javascript');
+  const [manualSubmitting, setManualSubmitting] = useState(false);
+  const [manualStage, setManualStage] = useState('');
+  const [manualResult, setManualResult] = useState<any>(null);
+  const [manualError, setManualError] = useState('');
+  const [enrolledStudents, setEnrolledStudents] = useState<any[]>([]);
 
   const [formData, setFormData] = useState({
     title: '', question: '', masterSolution: '', rubric: '',
@@ -83,6 +93,41 @@ const AssignmentManager: React.FC<AssignmentManagerProps> = ({ course }) => {
     } catch { alert('שגיאה בהארכת מועד.'); }
   };
 
+  const openManualModal = async (a: Assignment) => {
+    setManualAssignment(a);
+    setShowManualModal(true);
+    setManualCode('');
+    setManualStudentId('');
+    setManualLanguage('javascript');
+    setManualResult(null);
+    setManualError('');
+    setManualStage('');
+    try {
+      const wl = await apiService.getWaitlist(a.courseId);
+      setEnrolledStudents(wl.enrolled || []);
+    } catch { setEnrolledStudents([]); }
+  };
+
+  const handleManualSubmit = async () => {
+    if (!manualAssignment || !manualCode.trim() || !manualStudentId) return;
+    setManualSubmitting(true);
+    setManualError('');
+    setManualResult(null);
+    setManualStage('מנתח...');
+    try {
+      setTimeout(() => setManualStage('מעריך...'), 1500);
+      const result = await apiService.submitManual(manualAssignment.id, manualStudentId, manualCode, manualLanguage);
+      setManualStage('הושלם');
+      setManualResult(result);
+      if (selectedAssignment?.id === manualAssignment.id) viewSubmissions(manualAssignment);
+    } catch (e: any) {
+      setManualError(e.message || 'שגיאה בהגשה ידנית');
+      setManualStage('');
+    } finally {
+      setManualSubmitting(false);
+    }
+  };
+
   const field = (label: string, el: React.ReactNode) => (
     <div className="space-y-2">
       <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block" dir="rtl">{label}</label>
@@ -135,6 +180,13 @@ const AssignmentManager: React.FC<AssignmentManagerProps> = ({ course }) => {
                   dir="rtl"
                 >
                   צפה בהגשות
+                </button>
+                <button
+                  onClick={() => openManualModal(a)}
+                  className="py-2.5 px-4 rounded-xl font-black uppercase tracking-widest text-[10px] bg-amber-50 dark:bg-amber-950/20 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-white transition-all"
+                  dir="rtl"
+                >
+                  הגשה ידנית
                 </button>
                 <button
                   onClick={() => handleDelete(a.id)}
@@ -239,6 +291,116 @@ const AssignmentManager: React.FC<AssignmentManagerProps> = ({ course }) => {
               <button onClick={() => { setShowCreateModal(false); setFormError(''); }} className="px-6 py-3 text-slate-400 font-black uppercase tracking-widest text-xs hover:text-slate-600 transition-colors" dir="rtl">ביטול</button>
               <button onClick={handleCreate} disabled={createLoading} className="flex items-center space-x-2 px-8 py-3 bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg transition-all active:scale-95">
                 {createLoading ? <><Spinner /><span>יוצר...</span></> : <span dir="rtl">צור משימה</span>}
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Submission Modal */}
+      {showManualModal && manualAssignment && (
+        <div className="fixed inset-0 z-[200] bg-slate-900/90 backdrop-blur-xl flex items-center justify-center p-4 sm:p-6">
+          <div className="w-full max-w-3xl bg-white dark:bg-slate-850 rounded-3xl shadow-2xl overflow-hidden border border-white/5 flex flex-col max-h-[90vh]">
+            <header className="p-6 sm:p-8 border-b dark:border-slate-800 flex justify-between items-center bg-zinc-50/50 dark:bg-slate-900/20">
+              <h2 className="text-xl font-black uppercase tracking-tighter text-slate-800 dark:text-white" dir="rtl">הגשה ידנית: {manualAssignment.title}</h2>
+              <button onClick={() => setShowManualModal(false)} className="text-slate-400 hover:text-rose-500 transition-colors text-xs font-black uppercase tracking-widest">סגור</button>
+            </header>
+            <div className="flex-grow overflow-y-auto p-6 sm:p-10 space-y-6 custom-scrollbar">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {field('סטודנט *',
+                  <select
+                    value={manualStudentId}
+                    onChange={e => setManualStudentId(e.target.value)}
+                    className="w-full p-3 bg-zinc-50 dark:bg-slate-800 rounded-xl border border-transparent focus:border-brand-500 outline-none font-bold text-sm dark:text-white transition-colors"
+                    dir="rtl"
+                  >
+                    <option value="">בחר סטודנט</option>
+                    {enrolledStudents.map((s: any) => (
+                      <option key={s.googleId || s._id} value={s.googleId || s._id}>{s.name || s.email}</option>
+                    ))}
+                  </select>
+                )}
+                {field('שפת תכנות',
+                  <select
+                    value={manualLanguage}
+                    onChange={e => setManualLanguage(e.target.value)}
+                    className="w-full p-3 bg-zinc-50 dark:bg-slate-800 rounded-xl border border-transparent focus:border-brand-500 outline-none font-bold text-sm dark:text-white transition-colors"
+                  >
+                    <option value="javascript">JavaScript</option>
+                    <option value="python">Python</option>
+                    <option value="java">Java</option>
+                    <option value="c">C</option>
+                    <option value="cpp">C++</option>
+                    <option value="csharp">C#</option>
+                  </select>
+                )}
+              </div>
+              {field('קוד *',
+                <textarea
+                  rows={12}
+                  value={manualCode}
+                  onChange={e => setManualCode(e.target.value)}
+                  className="w-full p-4 bg-zinc-50 dark:bg-slate-800 rounded-xl border border-transparent focus:border-brand-500 outline-none font-mono text-xs dark:text-white resize-none transition-colors"
+                  placeholder="הדבק את קוד הסטודנט כאן..."
+                  dir="ltr"
+                />
+              )}
+
+              {/* Progress */}
+              {manualSubmitting && (
+                <div className="flex items-center gap-3 p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 rounded-2xl">
+                  <Spinner />
+                  <span className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest" dir="rtl">{manualStage}</span>
+                </div>
+              )}
+
+              {/* Error */}
+              {manualError && (
+                <div className="space-y-3">
+                  <InlineError msg={manualError} />
+                  <button
+                    onClick={handleManualSubmit}
+                    className="text-xs font-black text-brand-600 uppercase tracking-widest hover:underline" dir="rtl"
+                  >
+                    נסה שוב
+                  </button>
+                </div>
+              )}
+
+              {/* Result */}
+              {manualResult && (
+                <div className="p-6 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/40 rounded-2xl space-y-3" dir="rtl">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">הערכה הושלמה</span>
+                    <span className="text-2xl font-black text-emerald-600">{manualResult.score}%</span>
+                  </div>
+                  <div className={`text-xs font-black uppercase tracking-widest ${manualResult.passed ? 'text-emerald-500' : 'text-rose-500'}`}>
+                    {manualResult.passed ? 'עבר' : 'לא עבר'}
+                  </div>
+                  {manualResult.feedback && (
+                    <p className="text-xs text-slate-600 dark:text-slate-300 font-bold leading-relaxed line-clamp-4">"{manualResult.feedback}"</p>
+                  )}
+                  {manualResult.deductions?.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {manualResult.deductions.slice(0, 3).map((d: any, i: number) => (
+                        <div key={i} className="text-[10px] py-1" style={{ borderRight: '3px solid #FF9800', paddingRight: '8px' }}>
+                          <span className="text-amber-500 font-black">-{d.pointsLost}</span>
+                          <span className="text-slate-500 font-bold mr-2">{d.requirement}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <footer className="p-6 sm:p-8 border-t dark:border-slate-800 bg-zinc-50/50 dark:bg-slate-900/20 flex justify-end space-x-3 space-x-reverse">
+              <button onClick={() => setShowManualModal(false)} className="px-6 py-3 text-slate-400 font-black uppercase tracking-widest text-xs hover:text-slate-600 transition-colors" dir="rtl">סגור</button>
+              <button
+                onClick={handleManualSubmit}
+                disabled={manualSubmitting || !manualCode.trim() || !manualStudentId}
+                className="flex items-center space-x-2 px-8 py-3 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg transition-all active:scale-95"
+              >
+                {manualSubmitting ? <><Spinner /><span>מעריך...</span></> : <span dir="rtl">הגש והערך</span>}
               </button>
             </footer>
           </div>
