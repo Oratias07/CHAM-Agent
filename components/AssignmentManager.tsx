@@ -28,6 +28,7 @@ const AssignmentManager: React.FC<AssignmentManagerProps> = ({ course }) => {
   const [loading, setLoading] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
   const [formError, setFormError] = useState('');
+  const [expandedDeductions, setExpandedDeductions] = useState<Record<string, boolean>>({});
 
   const [formData, setFormData] = useState({
     title: '', question: '', masterSolution: '', rubric: '',
@@ -180,6 +181,26 @@ const AssignmentManager: React.FC<AssignmentManagerProps> = ({ course }) => {
                 </div>
                 {s.feedback && (
                   <p className="text-[10px] text-slate-500 font-bold line-clamp-2 mb-3 italic leading-relaxed text-right" dir="rtl">"{s.feedback}"</p>
+                )}
+                {s.deductions && s.deductions.length > 0 && (
+                  <div className="mb-3" dir="rtl">
+                    <button
+                      onClick={() => setExpandedDeductions(prev => ({ ...prev, [s.id]: !prev[s.id] }))}
+                      className="text-[9px] font-black text-amber-500 uppercase tracking-widest hover:underline mb-2 flex items-center gap-1"
+                    >
+                      ניכויים ({s.deductions.length})
+                      <span className="text-[8px]">{expandedDeductions[s.id] ? '▲' : '▼'}</span>
+                    </button>
+                    {(expandedDeductions[s.id] ? s.deductions : s.deductions.slice(0, 2)).map((d, i) => (
+                      <div key={i} className="text-[10px] py-1" style={{ borderRight: '3px solid #FF9800', paddingRight: '8px', marginBottom: '4px' }}>
+                        <span className="text-amber-500 font-black">-{d.pointsLost}</span>
+                        <span className="text-slate-500 dark:text-slate-400 font-bold mr-2">{d.requirement}</span>
+                      </div>
+                    ))}
+                    {!expandedDeductions[s.id] && s.deductions.length > 2 && (
+                      <span className="text-[9px] text-slate-400 font-bold">...+{s.deductions.length - 2} עוד</span>
+                    )}
+                  </div>
                 )}
                 <div className="flex justify-between items-center">
                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{new Date(s.timestamp).toLocaleString('he-IL')}</span>
