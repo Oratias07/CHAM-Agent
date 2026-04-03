@@ -226,7 +226,7 @@ function buildCombinedFeedback(data, deductions = []) {
   if (deductions.length > 0) {
     parts.push('\n--- ניכויים ---');
     for (const d of deductions) {
-      parts.push(`ניכוי: -${d.pointsLost} נקודות\nבעיה: ${d.requirement}\nקוד: ${d.codeQuote}`);
+      parts.push(`ממצא: ${d.requirement}\nניכוי: -${d.pointsLost} נקודות\nבעיה בקוד:\n${d.codeQuote}`);
     }
   }
 
