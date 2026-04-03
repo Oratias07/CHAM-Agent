@@ -180,6 +180,11 @@ const SubmissionSchema = new mongoose.Schema({
     decided_at: Date,
   },
   feedback_released: { type: Boolean, default: false },
+  deductions: [{
+    codeQuote: String,
+    requirement: String,
+    pointsLost: Number,
+  }],
 });
 SubmissionSchema.set('toJSON', { virtuals: true });
 
