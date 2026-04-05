@@ -5,12 +5,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // we test them indirectly through executeTests + mock fetch.
 
 // Mock codeFilter to isolate codeSandbox tests
-vi.mock('../services/codeFilter.js', () => ({
+vi.mock('../../services/codeFilter.js', () => ({
   filterCode: vi.fn(() => ({ allowed: true, violations: [] })),
 }));
 
-import { executeTests } from '../services/codeSandbox.js';
-import { filterCode } from '../services/codeFilter.js';
+import { executeTests } from '../../services/codeSandbox.js';
+import { filterCode } from '../../services/codeFilter.js';
 
 describe('codeSandbox', () => {
   beforeEach(() => {

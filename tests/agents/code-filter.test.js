@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { filterCode } from '../services/codeFilter.js';
+import { filterCode } from '../../services/codeFilter.js';
 
 describe('codeFilter', () => {
   // ── Python ──

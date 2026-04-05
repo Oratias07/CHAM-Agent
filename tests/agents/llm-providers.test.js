@@ -12,9 +12,9 @@ vi.mock('@google/genai', () => {
   };
 });
 
-import { GeminiProvider } from '../lib/llm/providers/gemini.js';
-import { GroqProvider } from '../lib/llm/providers/groq.js';
-import { OpenAIProvider } from '../lib/llm/providers/openai.js';
+import { GeminiProvider } from '../../lib/llm/providers/gemini.js';
+import { GroqProvider } from '../../lib/llm/providers/groq.js';
+import { OpenAIProvider } from '../../lib/llm/providers/openai.js';
 
 // ── Helpers ──
 function mockFetchSuccess(content) {

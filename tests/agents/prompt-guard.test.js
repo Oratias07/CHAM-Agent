@@ -4,7 +4,7 @@ import {
   sanitizeForPrompt,
   buildSafePrompt,
   validateLLMOutput,
-} from '../services/promptGuard.js';
+} from '../../services/promptGuard.js';
 
 describe('detectInjection', () => {
   it('detects "ignore previous instructions"', () => {

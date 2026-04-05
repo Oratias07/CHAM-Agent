@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Mock all three provider modules with proper classes (must be new-able)
-vi.mock('../lib/llm/providers/gemini.js', () => {
+vi.mock('../../lib/llm/providers/gemini.js', () => {
   return {
     GeminiProvider: class {
       name = 'gemini';
@@ -11,7 +11,7 @@ vi.mock('../lib/llm/providers/gemini.js', () => {
   };
 });
 
-vi.mock('../lib/llm/providers/groq.js', () => {
+vi.mock('../../lib/llm/providers/groq.js', () => {
   return {
     GroqProvider: class {
       name = 'groq';
@@ -21,7 +21,7 @@ vi.mock('../lib/llm/providers/groq.js', () => {
   };
 });
 
-vi.mock('../lib/llm/providers/openai.js', () => {
+vi.mock('../../lib/llm/providers/openai.js', () => {
   return {
     OpenAIProvider: class {
       name = 'openai';
@@ -31,7 +31,7 @@ vi.mock('../lib/llm/providers/openai.js', () => {
   };
 });
 
-import { LLMOrchestrator } from '../lib/llm/orchestrator.js';
+import { LLMOrchestrator } from '../../lib/llm/orchestrator.js';
 
 function successResult(provider = 'groq', model = 'llama-3.3-70b') {
   return {

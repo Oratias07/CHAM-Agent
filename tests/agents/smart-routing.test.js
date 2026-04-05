@@ -5,7 +5,7 @@ import {
   checkQuestionTypeTrigger,
   checkStudentHistoryTrigger,
   evaluateRoutingDecision,
-} from '../services/smartRouting.js';
+} from '../../services/smartRouting.js';
 
 // ── Trigger 1: Confidence ──
 describe('checkConfidenceTrigger', () => {

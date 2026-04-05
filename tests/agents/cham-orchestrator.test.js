@@ -1,20 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock all dependencies
-vi.mock('../services/codeSandbox.js', () => ({
+vi.mock('../../services/codeSandbox.js', () => ({
   executeTests: vi.fn(),
 }));
-vi.mock('../services/semanticAssessment.js', () => ({
+vi.mock('../../services/semanticAssessment.js', () => ({
   analyzeCodeQuality: vi.fn(),
 }));
-vi.mock('../services/smartRouting.js', () => ({
+vi.mock('../../services/smartRouting.js', () => ({
   evaluateRoutingDecision: vi.fn(),
 }));
 
-import { assessSubmission } from '../services/chamAssessment.js';
-import { executeTests } from '../services/codeSandbox.js';
-import { analyzeCodeQuality } from '../services/semanticAssessment.js';
-import { evaluateRoutingDecision } from '../services/smartRouting.js';
+import { assessSubmission } from '../../services/chamAssessment.js';
+import { executeTests } from '../../services/codeSandbox.js';
+import { analyzeCodeQuality } from '../../services/semanticAssessment.js';
+import { evaluateRoutingDecision } from '../../services/smartRouting.js';
 
 describe('chamAssessment orchestrator', () => {
   let mockModels;

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Mock the LLM orchestrator
 const mockEvaluateWithFallback = vi.fn();
-vi.mock('../lib/llm/orchestrator.js', () => {
+vi.mock('../../lib/llm/orchestrator.js', () => {
   return {
     LLMOrchestrator: {
       getInstance: () => ({
@@ -13,7 +13,7 @@ vi.mock('../lib/llm/orchestrator.js', () => {
 });
 
 // Mock promptGuard — keep real validateLLMOutput, mock buildSafePrompt
-vi.mock('../services/promptGuard.js', async (importOriginal) => {
+vi.mock('../../services/promptGuard.js', async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,
@@ -25,8 +25,8 @@ vi.mock('../services/promptGuard.js', async (importOriginal) => {
   };
 });
 
-import { analyzeCodeQuality } from '../services/semanticAssessment.js';
-import { buildSafePrompt } from '../services/promptGuard.js';
+import { analyzeCodeQuality } from '../../services/semanticAssessment.js';
+import { buildSafePrompt } from '../../services/promptGuard.js';
 
 // Valid parsed LLM response matching the required schema
 function validParsedResponse(overrides = {}) {

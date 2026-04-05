@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { safeParseLLMResponse } from '../lib/llm/safeParse.js';
+import { safeParseLLMResponse } from '../../lib/llm/safeParse.js';
 
 describe('safeParseLLMResponse', () => {
   // ── Null / empty inputs ──
