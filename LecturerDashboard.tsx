@@ -62,6 +62,8 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
   const [isSaved, setIsSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabOption>(TabOption.QUESTION);
+  // Audit #7: replaces prompt() in onResetSystem — null = hidden, '' = open but empty
+  const [archiveNameInput, setArchiveNameInput] = useState<string | null>(null);
 
   useEffect(() => {
     apiService.getLecturerDashboardData().then(d => {
@@ -254,9 +256,13 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
     }
   };
 
-  const onResetSystem = async () => {
-    const sessionName = prompt("Enter a name for this session to archive it:");
-    if (!sessionName) return;
+  // Audit #7: replaced prompt() — first opens inline modal, doArchive executes on confirm
+  const onResetSystem = () => { setArchiveNameInput(''); };
+
+  const doArchive = async () => {
+    if (!archiveNameInput?.trim()) return;
+    const sessionName = archiveNameInput.trim();
+    setArchiveNameInput(null);
     let total = 0, count = 0, dist = { high: 0, mid: 0, low: 0 };
     gradeBookState.exercises.forEach(ex => Object.values(ex.entries).forEach(e => {
       total += e.score; count++;
@@ -458,6 +464,26 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
           {viewMode === 'SHEETS' && <GradeBook state={gradeBookState} onUpdateStudentName={onUpdateStudentName} onUpdateMaxScore={onUpdateMaxScore} onUpdateEntry={onUpdateEntry} onAddExercise={onAddExercise} onAddStudent={onAddStudent} onResetSystem={onResetSystem} isResetting={false} />}
         </main>
       </div>
+      {/* Audit #7: inline archive-name modal replaces prompt() */}
+      {archiveNameInput !== null && (
+        <div className="fixed inset-0 z-[300] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-6">
+          <div className="w-full max-w-sm bg-white dark:bg-slate-850 rounded-3xl p-8 border border-zinc-200 dark:border-slate-700 shadow-2xl space-y-4" dir="rtl">
+            <h3 className="text-lg font-black uppercase tracking-tighter text-slate-800 dark:text-slate-100">שמור גרסת ארכיון</h3>
+            <input
+              autoFocus
+              value={archiveNameInput}
+              onChange={e => setArchiveNameInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && doArchive()}
+              placeholder="שם הסשן..."
+              className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-slate-800 border border-transparent focus:border-brand-500 outline-none font-bold text-slate-800 dark:text-white"
+            />
+            <div className="flex space-x-3 space-x-reverse justify-end">
+              <button onClick={() => setArchiveNameInput(null)} className="px-5 py-2 text-slate-400 hover:text-slate-600 font-black text-xs uppercase tracking-widest transition-colors">ביטול</button>
+              <button onClick={doArchive} disabled={!archiveNameInput?.trim()} className="px-6 py-2 bg-brand-600 hover:bg-brand-500 disabled:opacity-40 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all">ארכיון</button>
+            </div>
+          </div>
+        </div>
+      )}
       <ChatBot darkMode={darkMode} />
     </div>
   );

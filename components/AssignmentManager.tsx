@@ -39,6 +39,11 @@ const AssignmentManager: React.FC<AssignmentManagerProps> = ({ course }) => {
   const [manualResult, setManualResult] = useState<any>(null);
   const [manualError, setManualError] = useState('');
   const [enrolledStudents, setEnrolledStudents] = useState<any[]>([]);
+  // Audit #7: replace confirm() and prompt() with inline state
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [extendingSubId, setExtendingSubId] = useState<string | null>(null);
+  const [extendDate, setExtendDate] = useState('');
+  const [extendError, setExtendError] = useState('');
 
   const [formData, setFormData] = useState({
     title: '', question: '', masterSolution: '', rubric: '',
@@ -76,7 +81,9 @@ const AssignmentManager: React.FC<AssignmentManagerProps> = ({ course }) => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('למחוק משימה זו? כל ההגשות יימחקו גם כן.')) return;
+    // Audit #7: first click arms confirm; second click executes — replaces confirm()
+    if (deletingId !== id) { setDeletingId(id); return; }
+    setDeletingId(null);
     try {
       await apiService.deleteAssignment(id);
       if (selectedAssignment?.id === id) { setSelectedAssignment(null); setSubmissions([]); }
@@ -84,13 +91,20 @@ const AssignmentManager: React.FC<AssignmentManagerProps> = ({ course }) => {
     } catch { /* silent */ }
   };
 
-  const handleGrantExtension = async (subId: string) => {
-    const date = prompt('הזן תאריך הארכה (YYYY-MM-DD):');
-    if (!date) return;
+  const handleGrantExtension = (subId: string) => {
+    // Audit #7: opens inline date input instead of prompt()
+    setExtendingSubId(subId);
+    setExtendDate('');
+    setExtendError('');
+  };
+
+  const submitExtension = async () => {
+    if (!extendingSubId || !extendDate) return;
     try {
-      await apiService.grantExtension(subId, new Date(date));
+      await apiService.grantExtension(extendingSubId, new Date(extendDate));
       if (selectedAssignment) viewSubmissions(selectedAssignment);
-    } catch { alert('שגיאה בהארכת מועד.'); }
+      setExtendingSubId(null);
+    } catch { setExtendError('שגיאה בהארכת מועד.'); }
   };
 
   const openManualModal = async (a: Assignment) => {
@@ -188,11 +202,13 @@ const AssignmentManager: React.FC<AssignmentManagerProps> = ({ course }) => {
                 >
                   הגשה ידנית
                 </button>
+                {/* Audit #7: two-step confirm replaces confirm() */}
                 <button
                   onClick={() => handleDelete(a.id)}
-                  className="p-2.5 bg-rose-50 dark:bg-rose-950/20 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all"
+                  className={`px-3 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${deletingId === a.id ? 'bg-rose-500 text-white' : 'bg-rose-50 dark:bg-rose-950/20 text-rose-500 hover:bg-rose-500 hover:text-white'}`}
+                  dir="rtl"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  {deletingId === a.id ? 'אישור מחיקה?' : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>}
                 </button>
               </div>
             </div>
@@ -254,12 +270,27 @@ const AssignmentManager: React.FC<AssignmentManagerProps> = ({ course }) => {
                     )}
                   </div>
                 )}
-                <div className="flex justify-between items-center">
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{new Date(s.timestamp).toLocaleString('he-IL')}</span>
-                  <button onClick={() => handleGrantExtension(s.id)} className="text-[9px] font-black text-brand-600 uppercase tracking-widest hover:underline" dir="rtl">
-                    הארך מועד
-                  </button>
-                </div>
+                {/* Audit #7: inline date input replaces prompt() */}
+                {extendingSubId === s.id ? (
+                  <div className="flex items-center space-x-2 space-x-reverse mt-1" dir="rtl">
+                    <input
+                      type="date"
+                      value={extendDate}
+                      onChange={e => setExtendDate(e.target.value)}
+                      className="text-[10px] font-bold px-2 py-1 rounded-lg bg-zinc-100 dark:bg-slate-700 border border-brand-500 outline-none text-slate-700 dark:text-white"
+                    />
+                    <button onClick={submitExtension} className="text-[9px] font-black text-emerald-600 uppercase tracking-widest hover:underline">אישור</button>
+                    <button onClick={() => setExtendingSubId(null)} className="text-[9px] font-black text-slate-400 uppercase tracking-widest hover:underline">ביטול</button>
+                    {extendError && <span className="text-[9px] text-rose-500 font-bold">{extendError}</span>}
+                  </div>
+                ) : (
+                  <div className="flex justify-between items-center">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{new Date(s.timestamp).toLocaleString('he-IL')}</span>
+                    <button onClick={() => handleGrantExtension(s.id)} className="text-[9px] font-black text-brand-600 uppercase tracking-widest hover:underline" dir="rtl">
+                      הארך מועד
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>

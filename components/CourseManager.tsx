@@ -29,6 +29,7 @@ const CourseManager: React.FC<{ courses: Course[], onCourseUpdate: () => void, o
   const [showMaterialEditor, setShowMaterialEditor] = useState<Material | Partial<Material> | null>(null);
   const [matError, setMatError] = useState('');
   const [matLoading, setMatLoading] = useState(false);
+  const [deletingMatId, setDeletingMatId] = useState<string | null>(null); // Audit #7: replaces confirm()
 
   useEffect(() => {
     if (editingCourse) apiService.getMaterials(editingCourse.id).then(setMaterials);
@@ -91,7 +92,10 @@ const CourseManager: React.FC<{ courses: Course[], onCourseUpdate: () => void, o
   };
 
   const deleteMaterial = async (id: string) => {
-    if (!confirm('למחוק חומר זה?') || !editingCourse) return;
+    // Audit #7: first click sets confirm state; second click executes — replaces confirm()
+    if (deletingMatId !== id) { setDeletingMatId(id); return; }
+    if (!editingCourse) return;
+    setDeletingMatId(null);
     try {
       await apiService.deleteMaterial(id);
       apiService.getMaterials(editingCourse.id).then(setMaterials);
@@ -244,7 +248,14 @@ const CourseManager: React.FC<{ courses: Course[], onCourseUpdate: () => void, o
                       </div>
                       <div className="flex space-x-1">
                         <button onClick={() => setShowMaterialEditor(m)} className="p-1.5 text-slate-400 hover:text-brand-500 rounded-lg transition-colors"><Icons.Edit /></button>
-                        <button onClick={() => deleteMaterial(m.id)} className="p-1.5 text-slate-400 hover:text-rose-500 rounded-lg transition-colors"><Icons.Trash /></button>
+                        {/* Audit #7: two-step confirm replaces confirm() */}
+                        <button
+                          onClick={() => deleteMaterial(m.id)}
+                          className={`p-1.5 rounded-lg transition-colors text-xs font-black ${deletingMatId === m.id ? 'bg-rose-500 text-white px-2' : 'text-slate-400 hover:text-rose-500'}`}
+                          title={deletingMatId === m.id ? 'לחץ שוב לאישור מחיקה' : 'מחק'}
+                        >
+                          {deletingMatId === m.id ? 'אישור?' : <Icons.Trash />}
+                        </button>
                       </div>
                     </div>
                   ))}
