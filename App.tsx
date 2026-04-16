@@ -11,6 +11,9 @@ const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') !== 'light');
+  // Audit #7: inline error states replace alert()
+  const [loginError, setLoginError] = useState('');
+  const [joinMsg, setJoinMsg] = useState('');
 
   useEffect(() => {
     const root = document.documentElement;
@@ -27,10 +30,11 @@ const App: React.FC = () => {
   }, []);
 
   const handleDevLogin = async (role: string) => {
+    setLoginError('');
     try {
       const u = await apiService.devLogin(role);
       setUser(u);
-    } catch (e) { alert("Login failed."); }
+    } catch (e) { setLoginError('שגיאה בהתחברות. נסה שוב.'); } // Audit #7: replaces alert()
   };
 
   const handleRoleSelect = async (role: UserRole) => {
@@ -60,7 +64,16 @@ const App: React.FC = () => {
     );
   }
 
-  if (!user) return <Login onLogin={handleGoogleLogin} onDevLogin={handleDevLogin} />;
+  if (!user) return (
+    <>
+      <Login onLogin={handleGoogleLogin} onDevLogin={handleDevLogin} />
+      {loginError && (
+        <div className="fixed bottom-4 right-4 bg-rose-500 text-white px-4 py-3 rounded-2xl text-xs font-black shadow-xl" dir="rtl">
+          {loginError}
+        </div>
+      )}
+    </>
+  );
   if (!user.role) return <RoleSelector onSelect={handleRoleSelect} />;
 
   const logout = () => { window.location.href = "/api/auth/logout"; };
@@ -70,17 +83,24 @@ const App: React.FC = () => {
       return (
         <div className="h-screen bg-zinc-100 dark:bg-slate-900 flex items-center justify-center p-6">
            <div className="max-w-md w-full bg-white dark:bg-slate-850 p-10 rounded-[2.5rem] shadow-2xl text-center border dark:border-slate-800 transition-colors">
-             <h2 className="text-3xl font-black mb-4 uppercase tracking-tighter text-slate-800 dark:text-slate-100">Join Academy</h2>
-             <p className="text-slate-500 font-bold mb-8 text-sm">Enter the course code provided by your instructor.</p>
-             <input 
-                placeholder="Course Code" 
-                className="w-full p-4 rounded-xl bg-zinc-50 dark:bg-slate-800 border-none mb-6 text-center font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-brand-500 dark:text-white" 
+             <h2 className="text-3xl font-black mb-4 uppercase tracking-tighter text-slate-800 dark:text-slate-100" dir="rtl">הצטרף לקורס</h2>
+             <p className="text-slate-500 font-bold mb-8 text-sm" dir="rtl">הזן את קוד הקורס שקיבלת מהמרצה.</p>
+             {/* Audit #7: inline message replaces alert() */}
+             {joinMsg && (
+               <div className="mb-4 px-4 py-2 rounded-xl text-xs font-black bg-brand-50 dark:bg-brand-950/20 text-brand-600 dark:text-brand-400 border border-brand-200 dark:border-brand-900/40" dir="rtl">
+                 {joinMsg}
+               </div>
+             )}
+             <input
+                placeholder="קוד קורס"
+                className="w-full p-4 rounded-xl bg-zinc-50 dark:bg-slate-800 border-none mb-6 text-center font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-brand-500 dark:text-white"
+                dir="rtl"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     apiService.joinCourseRequest((e.target as any).value).then(res => {
-                       alert(res.message);
+                       setJoinMsg(res.message);
                        (e.target as any).value = "";
-                    }).catch(err => alert(err.message));
+                    }).catch(err => setJoinMsg(err.message)); // Audit #7: replaces alert()
                   }
                 }}
              />

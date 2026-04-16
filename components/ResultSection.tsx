@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { GradingResult } from '../types';
 
 interface ResultSectionProps {
@@ -19,6 +19,8 @@ const Icons = {
 };
 
 const ResultSection: React.FC<ResultSectionProps> = ({ result, error, isEvaluating, isSaved }) => {
+  // Audit #7: replaced alert() with inline copied state
+  const [copied, setCopied] = useState(false);
   if (isEvaluating) {
     return (
       <div className="h-full flex flex-col items-center justify-center bg-white dark:bg-slate-850 rounded-3xl shadow-xl border border-zinc-100 dark:border-slate-800 p-10 text-center transition-all">
@@ -161,14 +163,15 @@ const ResultSection: React.FC<ResultSectionProps> = ({ result, error, isEvaluati
         )}
 
         <div className="mt-10 flex flex-col items-center space-y-4">
-          <button 
+          <button
             onClick={() => {
               navigator.clipboard.writeText(result.feedback);
-              alert('Pedagogical feedback copied!');
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2000);
             }}
             className="w-full py-4 bg-slate-900 dark:bg-brand-600 hover:bg-black dark:hover:bg-brand-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg active:scale-[0.98]"
           >
-            Copy Professional Review
+            {copied ? '✓ הועתק' : 'Copy Professional Review'}
           </button>
           <div className="flex items-center space-x-2 text-[8px] text-slate-400 dark:text-slate-500 uppercase tracking-[0.3em] font-black">
              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>

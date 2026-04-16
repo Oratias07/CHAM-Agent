@@ -4,6 +4,9 @@
  * Validates LLM output against expected schema.
  */
 
+// Audit #5: use safeParseLLMResponse so validateLLMOutput handles markdown-fenced JSON
+import { safeParseLLMResponse } from '../lib/llm/safeParse.js';
+
 // Patterns that look like prompt injection attempts
 const INJECTION_PATTERNS = [
   /ignore\s+(all\s+)?previous\s+instructions/i,
@@ -118,22 +121,10 @@ ${outputSchema}`;
  * Returns parsed object or null with errors.
  */
 export function validateLLMOutput(rawText, requiredFields) {
-  // Try to extract JSON from response
-  let parsed;
-  try {
-    parsed = JSON.parse(rawText);
-  } catch {
-    // Try to find JSON in the response
-    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      try {
-        parsed = JSON.parse(jsonMatch[0]);
-      } catch {
-        return { valid: false, data: null, errors: ['Failed to parse JSON from LLM response'] };
-      }
-    } else {
-      return { valid: false, data: null, errors: ['No JSON found in LLM response'] };
-    }
+  // Audit #5: delegate parsing to safeParseLLMResponse — handles bare JSON, markdown fences, and embedded JSON
+  const parsed = safeParseLLMResponse(rawText);
+  if (!parsed) {
+    return { valid: false, data: null, errors: ['Failed to parse JSON from LLM response'] };
   }
 
   // Check required fields
