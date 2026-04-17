@@ -18,7 +18,15 @@
       "Read(//c/Users/atias/OneDrive - Braude College of Engineering - EDU/Desktop/Software Engineering/researches//**)",
       "Read(//c/Users/atias/OneDrive - Braude College of Engineering - EDU/Desktop/Software Engineering/researches/**)",
       "Bash(npx tsc:*)",
-      "Bash(find C:UsersatiasST-System -type f \\\\\\(-name *.md -o -name *.txt -o -name *.rst \\\\\\))"
+      "Bash(find C:UsersatiasST-System -type f \\\\\\(-name *.md -o -name *.txt -o -name *.rst \\\\\\))",
+      "Bash(npm test:*)",
+      "Bash(npm run:*)",
+      "Bash(grep:*)",
+      "Bash(node:*)",
+      "Bash(MONGODB_URI=\"mongodb://Vercel-Admin-st-system-db:AFGkvWViMkf9ucHT@ac-d5h6cow-shard-00-00.lznnim2.mongodb.net:27017,ac-d5h6cow-shard-00-01.lznnim2.mongodb.net:27017,ac-d5h6cow-shard-00-02.lznnim2.mongodb.net:27017/?ssl=true&replicaSet=atlas-urbb7v-shard-0&authSource=admin&appName=st-system-db&dbName=st-system\" node:*)",
+      "Bash(MONGODB_URI=\"mongodb://Vercel-Admin-st-system-db:RsPJMRrw5lAVWBl5@ac-d5h6cow-shard-00-00.lznnim2.mongodb.net:27017,ac-d5h6cow-shard-00-01.lznnim2.mongodb.net:27017,ac-d5h6cow-shard-00-02.lznnim2.mongodb.net:27017/?ssl=true&replicaSet=atlas-urbb7v-shard-0&authSource=admin&appName=st-system-db\" node:*)",
+      "Bash(GIT_DIR=\"/c/Users/atias/CHAM-Agent/.git\" GIT_WORK_TREE=\"/c/Users/atias/CHAM-Agent\" git *)",
+      "Bash(git *)"
     ]
   },
   "outputStyle": "default"
