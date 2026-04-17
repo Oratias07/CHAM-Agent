@@ -5,7 +5,6 @@
  * Uses LLM orchestrator for multi-provider fallback.
  */
 
-import { GoogleGenAI } from '@google/genai';
 import { buildSafePrompt, validateLLMOutput } from './promptGuard.js';
 import { LLMOrchestrator } from '../lib/llm/orchestrator.js';
 
@@ -104,22 +103,20 @@ export async function analyzeCodeQuality(code, language, questionContext, master
       jsonMode: true,
     });
 
-    if (!result.parsed) {
-      // Fallback: try validateLLMOutput on raw text
-      const validation = validateLLMOutput(result.raw, REQUIRED_FIELDS);
-      if (!validation.valid) {
-        return {
-          score: null, criteria_breakdown: null, overall_score: null,
-          confidence: 0,
-          feedback: 'הניתוח הסמנטי החזיר פלט לא תקין. נדרשת בדיקה ידנית.',
-          flags_for_human_review: ['llm_output_invalid'],
-          model_used: result.model, error: validation.errors.join(', '),
-        };
-      }
-      result.parsed = validation.data;
-    }
+    let data = result.parsed;
 
-    const data = result.parsed;
+    // Always validate output, whether parsed or raw
+    const validation = validateLLMOutput(data || result.raw, REQUIRED_FIELDS);
+    if (!validation.valid) {
+      return {
+        score: null, criteria_breakdown: null, overall_score: null,
+        confidence: 0,
+        feedback: 'הניתוח הסמנטי החזיר פלט לא תקין. נדרשת בדיקה ידנית.',
+        flags_for_human_review: ['llm_output_invalid'],
+        model_used: result.model, error: validation.errors.join(', '),
+      };
+    }
+    data = validation.data;
 
     // Validate required fields
     const missingFields = REQUIRED_FIELDS.filter(f => !(f in data));
