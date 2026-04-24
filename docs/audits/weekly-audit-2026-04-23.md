@@ -11,19 +11,19 @@
 
 | # | Severity | Check | Finding | Status |
 |---|----------|-------|---------|--------|
-| 1 | CRITICAL | Unprotected LLM call sites | `/chat` and `/student/chat` use `sanitizeForPrompt()` directly — injection detection bypassed | **Open** |
-| 2 | CRITICAL | Missing rate limiting | `POST /lecturer/materials` and `PUT /lecturer/materials/:id` accept file content without rate limit | **Open** |
-| 3 | CRITICAL | RBAC regression | `GET /student/course-contacts/:courseId` asserts authentication but not student role | **Open** |
+| 1 | CRITICAL | Unprotected LLM call sites | `/chat` and `/student/chat` use `sanitizeForPrompt()` directly — injection detection bypassed | Fixed |
+| 2 | CRITICAL | Missing rate limiting | `POST /lecturer/materials` and `PUT /lecturer/materials/:id` accept file content without rate limit | Fixed |
+| 3 | CRITICAL | RBAC regression | `GET /student/course-contacts/:courseId` asserts authentication but not student role | Fixed |
 | 4 | CRITICAL | Secrets in code | No violations found | ✓ Clean |
 | 5 | HIGH | Unsafe JSON parsing | All LLM parsing goes through `safeParseLLMResponse` | ✓ Clean |
-| 6 | HIGH | Missing output validation | Nested criterion scores (`code_quality.score` etc.) escape range check in `validateLLMOutput` | **Open** |
+| 6 | HIGH | Missing output validation | Nested criterion scores (`code_quality.score` etc.) escape range check in `validateLLMOutput` | Fixed |
 | 7 | HIGH | `alert()` in UI | No violations found | ✓ Clean |
 | 8 | MEDIUM | Hebrew/RTL consistency | `GradeBook.tsx:40` `scrollBy` uses physical `left`/`right` — not RTL-aware (carried from 2026-04-17) | Report only |
 | 9 | MEDIUM | Prompt version drift | `PROMPT_VERSION` not stamped on CHAM Layer 2 assessment documents (carried from 2026-04-17) | Report only |
 | 10 | MEDIUM | Dead code | `server_reference.js`, `server.js` deleted ✓; `geminiService.ts` has misleading name but is referenced | Report only |
 
-**CRITICAL open:** 3 findings → 3 GitHub issues (label: `security`)
-**HIGH open:** 1 finding → 1 consolidated GitHub issue (label: `code-quality`)
+**CRITICAL:** 3 findings → all fixed
+**HIGH:** 1 finding → fixed
 
 ---
 

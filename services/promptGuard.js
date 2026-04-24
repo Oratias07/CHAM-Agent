@@ -121,10 +121,15 @@ ${outputSchema}`;
  * Returns parsed object or null with errors.
  */
 export function validateLLMOutput(rawText, requiredFields) {
-  // Audit #5: delegate parsing to safeParseLLMResponse — handles bare JSON, markdown fences, and embedded JSON
-  const parsed = safeParseLLMResponse(rawText);
-  if (!parsed) {
-    return { valid: false, data: null, errors: ['Failed to parse JSON from LLM response'] };
+  // Accept already-parsed objects (e.g. result.parsed from orchestrator) or raw strings
+  let parsed;
+  if (rawText !== null && typeof rawText === 'object') {
+    parsed = rawText;
+  } else {
+    parsed = safeParseLLMResponse(rawText);
+    if (!parsed) {
+      return { valid: false, data: null, errors: ['No JSON found in LLM response'] };
+    }
   }
 
   // Check required fields
@@ -135,14 +140,20 @@ export function validateLLMOutput(rawText, requiredFields) {
     }
   }
 
-  // Validate score ranges (any field ending in 'score' should be 0-100)
-  for (const [key, value] of Object.entries(parsed)) {
-    if (key.toLowerCase().includes('score') && typeof value === 'number') {
-      if (value < 0 || value > 100) {
-        errors.push(`${key} out of range: ${value} (expected 0-100)`);
+  // Validate score ranges (any field ending in 'score' should be 0-100), including nested objects
+  const checkScores = (obj, prefix = '') => {
+    for (const [key, value] of Object.entries(obj)) {
+      const path = prefix ? `${prefix}.${key}` : key;
+      if (key.toLowerCase().includes('score') && typeof value === 'number') {
+        if (value < 0 || value > 100) {
+          errors.push(`${path} out of range: ${value} (expected 0-100)`);
+        }
+      } else if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+        checkScores(value, path);
       }
     }
-  }
+  };
+  checkScores(parsed);
 
   return {
     valid: errors.length === 0,
