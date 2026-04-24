@@ -52,6 +52,8 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
   const [chatTarget, setChatTarget] = useState<Student | null>(null);
   const [allUsers, setAllUsers] = useState<Student[]>([]);
   const [allSubmissions, setAllSubmissions] = useState<Submission[]>([]);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const syncGenRef = useRef(0);
 
   const [activeExerciseId, setActiveExerciseId] = useState<string>('ex-1');
   const [selectedStudentId, setSelectedStudentId] = useState<string>('student-1');
@@ -110,11 +112,14 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
 
   useEffect(() => {
     if (activeCourse) {
+      const gen = ++syncGenRef.current;
+      setIsSyncing(true);
       const syncGradebook = async () => {
         try {
           const assignments = await apiService.getLecturerAssignments(activeCourse.id);
           const { enrolled } = await apiService.getWaitlist(activeCourse.id);
-          
+          if (syncGenRef.current !== gen) return;
+
           const students: Student[] = enrolled.map((u: any) => ({
             id: u.googleId,
             name: u.name,
@@ -147,10 +152,13 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
             };
           }));
 
+          if (syncGenRef.current !== gen) return;
           setGradeBookState({ students, exercises });
           if (exercises.length > 0) setActiveExerciseId(exercises[0].id);
         } catch (e) {
           console.error("Failed to sync gradebook:", e);
+        } finally {
+          if (syncGenRef.current === gen) setIsSyncing(false);
         }
       };
       syncGradebook();
@@ -448,18 +456,28 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
              </div>
           )}
           {viewMode === 'EVALUATION' && (
-            <div className="grid grid-cols-1 xl:grid-cols-10 gap-8 h-full min-h-[800px]">
-               <section className="xl:col-span-3 h-full"><ResultSection result={result} error={error} isEvaluating={isEvaluating} isSaved={isSaved} /></section>
-               <section className="xl:col-span-7 h-full">
-                 <InputSection 
-                   activeExercise={gradeBookState.exercises.find(e => e.id === activeExerciseId) || gradeBookState.exercises[0]} 
-                   studentCode={studentCode} setStudentCode={setStudentCode} onEvaluate={onEvaluate} isEvaluating={isEvaluating} 
-                   activeTab={activeTab} setActiveTab={setActiveTab} onUpdateExerciseData={onUpdateExerciseData} students={gradeBookState.students} 
-                   selectedStudentId={selectedStudentId} setSelectedStudentId={setSelectedStudentId} exercises={gradeBookState.exercises} setActiveExerciseId={setActiveExerciseId} onAddExercise={onAddExercise} 
-                   autoAdvance={autoAdvance} setAutoAdvance={setAutoAdvance}
-                 />
-               </section>
-            </div>
+            isSyncing ? (
+              <div className="h-full flex flex-col items-center justify-center space-y-4 text-slate-400">
+                <svg className="animate-spin w-8 h-8 text-brand-500" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                <span className="text-[10px] font-black uppercase tracking-widest">טוען נתוני קורס...</span>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 xl:grid-cols-10 gap-8 h-full min-h-[800px]">
+                <section className="xl:col-span-3 h-full"><ResultSection result={result} error={error} isEvaluating={isEvaluating} isSaved={isSaved} /></section>
+                <section className="xl:col-span-7 h-full">
+                  <InputSection
+                    activeExercise={gradeBookState.exercises.find(e => e.id === activeExerciseId) || gradeBookState.exercises[0]}
+                    studentCode={studentCode} setStudentCode={setStudentCode} onEvaluate={onEvaluate} isEvaluating={isEvaluating}
+                    activeTab={activeTab} setActiveTab={setActiveTab} onUpdateExerciseData={onUpdateExerciseData} students={gradeBookState.students}
+                    selectedStudentId={selectedStudentId} setSelectedStudentId={setSelectedStudentId} exercises={gradeBookState.exercises} setActiveExerciseId={setActiveExerciseId} onAddExercise={onAddExercise}
+                    autoAdvance={autoAdvance} setAutoAdvance={setAutoAdvance}
+                  />
+                </section>
+              </div>
+            )
           )}
           {viewMode === 'SHEETS' && <GradeBook state={gradeBookState} onUpdateStudentName={onUpdateStudentName} onUpdateMaxScore={onUpdateMaxScore} onUpdateEntry={onUpdateEntry} onAddExercise={onAddExercise} onAddStudent={onAddStudent} onResetSystem={onResetSystem} isResetting={false} />}
         </main>
