@@ -105,8 +105,8 @@ export async function analyzeCodeQuality(code, language, questionContext, master
 
     let data = result.parsed;
 
-    // Always validate output, whether parsed or raw
-    const validation = validateLLMOutput(data || result.raw, REQUIRED_FIELDS);
+    // Validate structure + score ranges; required-field check follows separately
+    const validation = validateLLMOutput(data || result.raw, []);
     if (!validation.valid) {
       return {
         score: null, criteria_breakdown: null, overall_score: null,
@@ -130,16 +130,18 @@ export async function analyzeCodeQuality(code, language, questionContext, master
       };
     }
 
+    const clamp = (v) => Math.min(100, Math.max(0, v || 0));
+
     // Compute weighted overall if LLM's overall seems off
     const computed = Math.round(
-      (data.code_quality.score || data.code_quality) * CRITERIA_WEIGHTS.code_quality +
-      (data.documentation.score || data.documentation) * CRITERIA_WEIGHTS.documentation +
-      (data.complexity.score || data.complexity) * CRITERIA_WEIGHTS.complexity +
-      (data.error_handling.score || data.error_handling) * CRITERIA_WEIGHTS.error_handling +
-      (data.best_practices.score || data.best_practices) * CRITERIA_WEIGHTS.best_practices
+      clamp(data.code_quality.score ?? data.code_quality) * CRITERIA_WEIGHTS.code_quality +
+      clamp(data.documentation.score ?? data.documentation) * CRITERIA_WEIGHTS.documentation +
+      clamp(data.complexity.score ?? data.complexity) * CRITERIA_WEIGHTS.complexity +
+      clamp(data.error_handling.score ?? data.error_handling) * CRITERIA_WEIGHTS.error_handling +
+      clamp(data.best_practices.score ?? data.best_practices) * CRITERIA_WEIGHTS.best_practices
     );
 
-    const llmOverall = data.overall_score;
+    const llmOverall = clamp(data.overall_score);
     const overallScore = Math.abs(computed - llmOverall) > 15 ? computed : llmOverall;
 
     // If injection was detected, cap confidence and flag for review
