@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { User, Material } from '../types';
 import { apiService } from '../services/apiService';
 import DirectChat from './DirectChat';
@@ -375,7 +376,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
           {viewMode === 'AI_CHAT' && (
             <>
               <div className="flex-grow overflow-y-auto p-12 space-y-8 custom-scrollbar">
-                 <div className="bg-brand-50 dark:bg-brand-950/20 border border-brand-200 dark:border-brand-900/40 p-6 rounded-3xl text-center mb-10"><p className="text-[10px] font-black uppercase text-brand-600 dark:text-brand-400 tracking-widest">מצב הקשר מוגבל: העוזר יכול להשתמש רק בחומרי הקורס.</p></div>
+                 <div className="bg-brand-50 dark:bg-brand-950/20 border border-brand-200 dark:border-brand-900/40 p-4 rounded-3xl text-center mb-8" dir="rtl"><p className="text-[10px] font-black uppercase text-brand-600 dark:text-brand-400 tracking-widest">עוזר AI · מבוסס חומרי קורס · תשובות מידע כללי מסומנות בבירור 💡</p></div>
                  {messages.map((m, i) => {
                    const isSystemMsg = m.role === 'model' && (m.type === 'quota_error' || m.type === 'no_materials' || m.type === 'error');
                    return (
@@ -392,8 +393,10 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
                            <p className="text-sm font-bold">{m.text}</p>
                          </div>
                        ) : (
-                         <div className={`p-6 rounded-[2rem] max-w-[80%] shadow-sm border ${m.role === 'user' ? 'bg-slate-900 dark:bg-brand-600 text-white border-transparent' : 'bg-white dark:bg-slate-850 border-zinc-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 font-bold'}`}>
-                           <p className="text-sm">{m.text}</p>
+                         <div className={`p-6 rounded-[2rem] max-w-[80%] shadow-sm border ${m.role === 'user' ? 'bg-slate-900 dark:bg-brand-600 text-white border-transparent' : 'bg-white dark:bg-slate-850 border-zinc-200 dark:border-slate-800 text-slate-800 dark:text-slate-100'}`}>
+                           <div className="prose dark:prose-invert prose-sm max-w-none prose-p:leading-relaxed prose-pre:bg-slate-900 prose-pre:text-slate-100 prose-code:text-brand-600 dark:prose-code:text-brand-400">
+                             <ReactMarkdown>{m.text}</ReactMarkdown>
+                           </div>
                          </div>
                        )}
                      </div>
