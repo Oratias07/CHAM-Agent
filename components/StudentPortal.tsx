@@ -35,7 +35,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
     if (user.activeCourse) names[user.activeCourse.id] = user.activeCourse.name;
     return names;
   });
-  const [messages, setMessages] = useState<{ role: 'user' | 'model', text: string }[]>([]);
+  const [messages, setMessages] = useState<{ role: 'user' | 'model', text: string, type?: string }[]>([]);
   const [input, setInput] = useState('');
   const [materials, setMaterials] = useState<{ lecturerMaterials: Material[], studentMaterials: Material[] }>({ lecturerMaterials: [], studentMaterials: [] });
   const [activeMaterial, setActiveMaterial] = useState<Material | null>(null);
@@ -123,9 +123,9 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
     try {
       // Fixed: replaced _id with id to match Course interface
       const res = await apiService.studentChat(course.id, msg);
-      setMessages(prev => [...prev, { role: 'model', text: res.text }]);
+      setMessages(prev => [...prev, { role: 'model', text: res.text, type: res.type }]);
     } catch (e) {
-      setMessages(prev => [...prev, { role: 'model', text: "Logic core unavailable." }]);
+      setMessages(prev => [...prev, { role: 'model', text: 'שגיאה בחיבור לשרת. בדוק את החיבור ונסה שוב.', type: 'error' }]);
     } finally { setLoading(false); }
   };
 
@@ -376,13 +376,29 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
             <>
               <div className="flex-grow overflow-y-auto p-12 space-y-8 custom-scrollbar">
                  <div className="bg-brand-50 dark:bg-brand-950/20 border border-brand-200 dark:border-brand-900/40 p-6 rounded-3xl text-center mb-10"><p className="text-[10px] font-black uppercase text-brand-600 dark:text-brand-400 tracking-widest">מצב הקשר מוגבל: העוזר יכול להשתמש רק בחומרי הקורס.</p></div>
-                 {messages.map((m, i) => (
-                   <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                     <div className={`p-6 rounded-[2rem] max-w-[80%] shadow-sm border ${m.role === 'user' ? 'bg-slate-900 dark:bg-brand-600 text-white border-transparent' : 'bg-white dark:bg-slate-850 border-zinc-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 font-bold'}`}>
-                       <p className="text-sm">{m.text}</p>
+                 {messages.map((m, i) => {
+                   const isSystemMsg = m.role === 'model' && (m.type === 'quota_error' || m.type === 'no_materials' || m.type === 'error');
+                   return (
+                     <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                       {isSystemMsg ? (
+                         <div className={`p-5 rounded-[2rem] max-w-[80%] border flex items-start gap-3 ${
+                           m.type === 'quota_error' ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200'
+                           : m.type === 'no_materials' ? 'bg-sky-50 dark:bg-sky-950/30 border-sky-200 dark:border-sky-800 text-sky-800 dark:text-sky-200'
+                           : 'bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200'
+                         }`} dir="rtl">
+                           {m.type === 'quota_error' && <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+                           {m.type === 'no_materials' && <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>}
+                           {m.type === 'error' && <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>}
+                           <p className="text-sm font-bold">{m.text}</p>
+                         </div>
+                       ) : (
+                         <div className={`p-6 rounded-[2rem] max-w-[80%] shadow-sm border ${m.role === 'user' ? 'bg-slate-900 dark:bg-brand-600 text-white border-transparent' : 'bg-white dark:bg-slate-850 border-zinc-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 font-bold'}`}>
+                           <p className="text-sm">{m.text}</p>
+                         </div>
+                       )}
                      </div>
-                   </div>
-                 ))}
+                   );
+                 })}
                  <div ref={chatEndRef} />
               </div>
               <div className="p-10 border-t dark:border-slate-800">

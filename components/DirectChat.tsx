@@ -18,6 +18,16 @@ const DirectChat: React.FC<DirectChatProps> = ({ currentUser, targetUser, onClos
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const getDateLabel = (timestamp: Date | string): string => {
+    const date = new Date(timestamp);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    if (date.toDateString() === today.toDateString()) return 'היום';
+    if (date.toDateString() === yesterday.toDateString()) return 'אתמול';
+    return date.toLocaleDateString('he-IL', { day: 'numeric', month: 'long', year: 'numeric' });
+  };
+
   const fetchMessages = async () => {
     try {
       const msgs = await apiService.getMessages(targetUser.id);
@@ -108,9 +118,22 @@ const DirectChat: React.FC<DirectChatProps> = ({ currentUser, targetUser, onClos
         {messages.map((m, i) => {
           const isMe = m.senderId === currentUser.id;
           const isMenuOpen = activeMenu === m.id;
-          
+          const prevMsg = i > 0 ? messages[i - 1] : null;
+          const showDateDivider = !prevMsg ||
+            new Date(m.timestamp).toDateString() !== new Date(prevMsg.timestamp).toDateString();
+
           return (
-            <div key={m.id || i} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+            <React.Fragment key={m.id || i}>
+              {showDateDivider && (
+                <div className="flex items-center my-2 px-2">
+                  <div className="flex-grow h-px bg-zinc-200 dark:bg-slate-700" />
+                  <span className="mx-4 text-[9px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-slate-500 whitespace-nowrap">
+                    {getDateLabel(m.timestamp)}
+                  </span>
+                  <div className="flex-grow h-px bg-zinc-200 dark:bg-slate-700" />
+                </div>
+              )}
+            <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
               <div className="relative group max-w-[80%]">
                 {/* Reply Preview */}
                 {m.replyText && (
@@ -152,6 +175,7 @@ const DirectChat: React.FC<DirectChatProps> = ({ currentUser, targetUser, onClos
                 </div>
               </div>
             </div>
+            </React.Fragment>
           );
         })}
         <div ref={scrollRef} />

@@ -207,10 +207,20 @@ const InputSection: React.FC<InputSectionProps> = ({
       </div>
 
       <div className="flex-grow relative flex overflow-hidden border-b dark:border-slate-800">
-        <textarea 
+        <div
+          ref={gutterRef}
+          className="w-12 shrink-0 bg-zinc-50 dark:bg-slate-900/60 border-r border-zinc-100 dark:border-slate-800 overflow-hidden select-none text-right pr-3 pt-10 pb-10 text-[9px] font-mono text-slate-300 dark:text-slate-600"
+          style={{ lineHeight: '1.8rem' }}
+          aria-hidden="true"
+        >
+          {currentVal.split('\n').map((_, idx) => (
+            <div key={idx}>{idx + 1}</div>
+          ))}
+        </div>
+        <textarea
           ref={textareaRef}
           onScroll={handleScroll}
-          className="flex-grow p-10 text-sm font-mono bg-white dark:bg-slate-850 text-slate-800 dark:text-slate-200 outline-none resize-none overflow-y-auto custom-scrollbar selection:bg-brand-100 dark:selection:bg-brand-900/50 placeholder:text-slate-300 dark:placeholder:text-slate-700 whitespace-pre-wrap break-words" 
+          className="flex-grow pl-4 pr-10 pt-10 pb-10 text-sm font-mono bg-white dark:bg-slate-850 text-slate-800 dark:text-slate-200 outline-none resize-none overflow-y-auto custom-scrollbar selection:bg-brand-100 dark:selection:bg-brand-900/50 placeholder:text-slate-300 dark:placeholder:text-slate-700 whitespace-pre-wrap break-words"
           style={{ lineHeight: '1.8rem', minHeight: '18rem' }}
           value={currentVal} 
           onChange={(e) => handleChange(e.target.value)} 
