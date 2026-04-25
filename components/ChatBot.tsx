@@ -6,6 +6,7 @@ import { sendChatMessage, sendStudentChatMessage } from '../services/geminiServi
 interface Message {
   role: 'user' | 'model';
   text: string;
+  type?: string;
 }
 
 interface ChatBotProps {
@@ -53,15 +54,15 @@ const ChatBot: React.FC<ChatBotProps> = ({ context, mode = 'lecturer', courseId 
     setIsLoading(true);
 
     try {
-      let responseText = '';
       if (mode === 'student' && courseId) {
-        responseText = await sendStudentChatMessage(userMessage, courseId);
+        const response = await sendStudentChatMessage(userMessage, courseId);
+        setMessages(prev => [...prev, { role: 'model', text: response.text, type: response.type }]);
       } else {
-        responseText = await sendChatMessage(userMessage, context);
+        const responseText = await sendChatMessage(userMessage, context);
+        setMessages(prev => [...prev, { role: 'model', text: responseText }]);
       }
-      setMessages(prev => [...prev, { role: 'model', text: responseText }]);
     } catch {
-      setMessages(prev => [...prev, { role: 'model', text: 'שגיאה בחיבור לעוזר. נסה שוב.' }]);
+      setMessages(prev => [...prev, { role: 'model', text: 'שגיאה בחיבור לשרת. בדוק את החיבור ונסה שוב.', type: 'error' }]);
     } finally {
       setIsLoading(false);
     }
@@ -89,22 +90,45 @@ const ChatBot: React.FC<ChatBotProps> = ({ context, mode = 'lecturer', courseId 
           </div>
 
           <div className="flex-grow overflow-y-auto p-4 sm:p-5 bg-zinc-50 dark:bg-slate-900/40 custom-scrollbar space-y-4">
-            {messages.map((msg, idx) => (
-              <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-start' : 'justify-end'}`}>
-                <div
-                  className={`max-w-[85%] rounded-2xl px-4 sm:px-5 py-3 text-xs font-bold leading-relaxed ${
-                    msg.role === 'user'
-                      ? 'bg-slate-800 dark:bg-brand-600 text-white shadow-md'
-                      : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-zinc-100 dark:border-slate-700 shadow-sm'
-                  }`}
-                  dir="rtl"
-                >
-                  <div className="prose dark:prose-invert prose-xs max-w-none">
-                    <ReactMarkdown>{msg.text}</ReactMarkdown>
-                  </div>
+            {messages.map((msg, idx) => {
+              const isSystemMsg = msg.role === 'model' && (msg.type === 'quota_error' || msg.type === 'no_materials' || msg.type === 'error');
+              return (
+                <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-start' : 'justify-end'}`}>
+                  {isSystemMsg ? (
+                    <div
+                      className={`max-w-[90%] rounded-2xl px-4 sm:px-5 py-3 text-xs font-bold leading-relaxed border ${
+                        msg.type === 'quota_error'
+                          ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200'
+                          : msg.type === 'no_materials'
+                          ? 'bg-sky-50 dark:bg-sky-950/30 border-sky-200 dark:border-sky-800 text-sky-800 dark:text-sky-200'
+                          : 'bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200'
+                      }`}
+                      dir="rtl"
+                    >
+                      <div className="flex items-start gap-2">
+                        {msg.type === 'quota_error' && <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+                        {msg.type === 'no_materials' && <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>}
+                        {msg.type === 'error' && <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>}
+                        <span>{msg.text}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      className={`max-w-[85%] rounded-2xl px-4 sm:px-5 py-3 text-xs font-bold leading-relaxed ${
+                        msg.role === 'user'
+                          ? 'bg-slate-800 dark:bg-brand-600 text-white shadow-md'
+                          : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-zinc-100 dark:border-slate-700 shadow-sm'
+                      }`}
+                      dir="rtl"
+                    >
+                      <div className="prose dark:prose-invert prose-xs max-w-none">
+                        <ReactMarkdown>{msg.text}</ReactMarkdown>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
             {isLoading && (
               <div className="flex justify-end">
                 <div className="bg-white dark:bg-slate-800 border border-zinc-100 dark:border-slate-700 rounded-2xl px-5 py-3 shadow-sm">

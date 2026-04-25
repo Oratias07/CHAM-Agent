@@ -589,6 +589,14 @@ router.post('/student/chat', llmRateLimit, async (req, res) => {
   const lecturerMaterials = await Material.find({ courseId, isVisible: true, type: 'lecturer_shared' });
   const studentMaterials = await Material.find({ ownerId: req.user.googleId, type: 'student_private' });
   const allMaterials = [...lecturerMaterials, ...studentMaterials];
+
+  if (allMaterials.length === 0) {
+    return res.json({
+      text: 'לא נמצאו חומרי לימוד זמינים לקורס זה. המרצה טרם העלה חומרים, או שהם אינם גלויים כרגע. לחיפוש מידע כללי, ניתן להיעזר במנועי חיפוש באינטרנט.',
+      type: 'no_materials',
+    });
+  }
+
   const context = allMaterials.map(m => `### ${m.title} ###\n${m.content}`).join('\n\n');
 
   const combinedPrompt = `You are a helpful and specialized Course Assistant.
@@ -611,12 +619,13 @@ Student question: ${sanitizedMessage}`;
       temperature: 0.7,
       jsonMode: false,
     });
-    return res.json({ text: result.raw, injection_detected: injectionDetected });
+    return res.json({ text: result.raw, type: 'success', injection_detected: injectionDetected });
   } catch (err) {
-    const msg = err.message?.includes('429')
+    const isQuota = err.message?.includes('429');
+    const msg = isQuota
       ? "מכסת ה-AI נוצלה. נסה שוב מאוחר יותר."
       : "שגיאה בשירות ה-AI: " + err.message;
-    res.json({ text: msg });
+    res.json({ text: msg, type: isQuota ? 'quota_error' : 'error' });
   }
 });
 

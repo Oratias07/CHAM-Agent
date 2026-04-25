@@ -241,7 +241,7 @@ export const apiService = {
     return handleResponse(res);
   },
 
-  async studentChat(courseId: string, message: string): Promise<{ text: string }> {
+  async studentChat(courseId: string, message: string): Promise<{ text: string; type?: string }> {
     const res = await fetch(`/api/student/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
