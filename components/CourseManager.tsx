@@ -111,14 +111,20 @@ const CourseManager: React.FC<{ courses: Course[], onCourseUpdate: () => void, o
             <h3 className="text-xl font-black mb-6 uppercase tracking-tighter text-slate-800 dark:text-slate-100" dir="rtl">עריכת חומר לימוד</h3>
             <div className="space-y-4">
               <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2" dir="rtl">כותרת</label>
-                <input
-                  value={(showMaterialEditor as any).title || ''}
-                  onChange={e => setShowMaterialEditor({ ...showMaterialEditor, title: e.target.value })}
-                  placeholder="שם החומר"
-                  className="w-full p-4 bg-zinc-50 dark:bg-slate-800 rounded-2xl outline-none font-bold text-slate-700 dark:text-white border border-transparent focus:border-brand-500 transition-colors"
-                  dir="rtl"
-                />
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2" dir="rtl">שם הקובץ</label>
+                {(showMaterialEditor as any).fileName ? (
+                  <div className="w-full p-4 bg-zinc-100 dark:bg-slate-700 rounded-2xl font-bold text-slate-500 dark:text-slate-300 text-sm select-all" dir="ltr">
+                    {(showMaterialEditor as any).fileName}
+                  </div>
+                ) : (
+                  <input
+                    value={(showMaterialEditor as any).title || ''}
+                    onChange={e => setShowMaterialEditor({ ...showMaterialEditor, title: e.target.value })}
+                    placeholder="שם החומר"
+                    className="w-full p-4 bg-zinc-50 dark:bg-slate-800 rounded-2xl outline-none font-bold text-slate-700 dark:text-white border border-transparent focus:border-brand-500 transition-colors"
+                    dir="rtl"
+                  />
+                )}
               </div>
               <div>
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2" dir="rtl">תוכן (לשימוש ה-RAG)</label>
