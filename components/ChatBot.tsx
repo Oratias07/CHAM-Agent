@@ -86,7 +86,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ context, mode = 'lecturer', courseId 
             <h3 className="text-white font-black text-[10px] uppercase tracking-[0.2em]">
               {mode === 'student' ? 'עוזר לימודי' : 'עוזר הערכה'}
             </h3>
-            <p className="text-[8px] text-slate-400 uppercase tracking-widest mt-1">Gemini AI · מחובר</p>
+            <p className="text-[8px] text-slate-400 uppercase tracking-widest mt-1">AI Assistant · פעיל</p>
           </div>
 
           <div className="flex-grow overflow-y-auto p-4 sm:p-5 bg-zinc-50 dark:bg-slate-900/40 custom-scrollbar space-y-4">
