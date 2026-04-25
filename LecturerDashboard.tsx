@@ -21,7 +21,7 @@ interface LecturerDashboardProps {
   onSignOut: () => void;
 }
 
-type ViewMode = 'EVALUATION' | 'SHEETS' | 'STUDENTS' | 'COURSES' | 'MESSAGES' | 'ARCHIVES' | 'ASSIGNMENTS' | 'SNAPSHOTS' | 'LIBRARY' | 'REVIEW_QUEUE';
+type ViewMode = 'EVALUATION' | 'SHEETS' | 'STUDENTS' | 'COURSES' | 'MESSAGES' | 'ARCHIVES' | 'ASSIGNMENTS' | 'SNAPSHOTS' | 'REVIEW_QUEUE';
 
 const Icons = {
   Evaluation: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>,
@@ -35,7 +35,6 @@ const Icons = {
   SignOut: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>,
   Theme: (isDark: boolean) => isDark ? <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m12.728 12.728l.707.707M12 8a4 4 0 100 8 4 4 0 000-8z" /></svg> : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>,
   Close: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>,
-  Library: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" /></svg>
 };
 
 const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, setDarkMode, onSignOut }) => {
@@ -288,16 +287,15 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
   };
 
   const navItems = [
-    { id: 'COURSES', label: 'Nodes', icon: <Icons.Courses /> },
-    { id: 'STUDENTS', label: 'Waitlist', icon: <Icons.Students />, badge: pendingCount },
-    { id: 'MESSAGES', label: 'Inbox', icon: <Icons.Messages />, badge: unreadMessages, pulsing: true },
-    { id: 'ASSIGNMENTS', label: 'Tasks', icon: <Icons.Solution /> },
-    { id: 'REVIEW_QUEUE', label: 'Review Queue', icon: <Icons.Evaluation />, badge: reviewQueueCount },
-    { id: 'LIBRARY', label: 'Library Zone', icon: <Icons.Library /> },
-    { id: 'ARCHIVES', label: 'Snapshot Zone', icon: <Icons.Archives /> },
-    { id: 'SNAPSHOTS', label: 'Gradebook Snapshots', icon: <Icons.Solution /> },
-    { id: 'EVALUATION', label: 'Core', icon: <Icons.Evaluation /> },
-    { id: 'SHEETS', label: 'Grid', icon: <Icons.Gradebook /> }
+    { id: 'COURSES', label: 'קורסים', icon: <Icons.Courses /> },
+    { id: 'STUDENTS', label: 'סטודנטים', icon: <Icons.Students />, badge: pendingCount },
+    { id: 'MESSAGES', label: 'הודעות', icon: <Icons.Messages />, badge: unreadMessages, pulsing: true },
+    { id: 'ASSIGNMENTS', label: 'משימות', icon: <Icons.Solution /> },
+    { id: 'REVIEW_QUEUE', label: 'תור סקירה', icon: <Icons.Evaluation />, badge: reviewQueueCount },
+    { id: 'ARCHIVES', label: 'הגשות', icon: <Icons.Archives /> },
+    { id: 'SNAPSHOTS', label: 'גיבויים', icon: <Icons.Database /> },
+    { id: 'EVALUATION', label: 'הערכה', icon: <Icons.Evaluation /> },
+    { id: 'SHEETS', label: 'ציונים', icon: <Icons.Gradebook /> }
   ];
 
   return (
@@ -345,57 +343,6 @@ const LecturerDashboard: React.FC<LecturerDashboardProps> = ({ user, darkMode, s
         <main className="flex-grow p-8 overflow-y-auto custom-scrollbar relative">
           {viewMode === 'ASSIGNMENTS' && (activeCourse ? <AssignmentManager course={activeCourse} /> : <div className="h-full flex items-center justify-center text-slate-400 font-black text-[10px] uppercase tracking-widest border-2 border-dashed dark:border-slate-800 rounded-[3rem]">Select a course from the header dropdown to manage assignments</div>)}
           {viewMode === 'REVIEW_QUEUE' && <ReviewQueue />}
-          {viewMode === 'LIBRARY' && (
-            <div className="space-y-12 pb-20">
-              <header className="flex justify-between items-end">
-                <div>
-                  <h3 className="text-4xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Academy Library</h3>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">Comprehensive Course Repository</p>
-                </div>
-              </header>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {courses.map(course => (
-                  <div key={course.id} className="bg-white dark:bg-slate-850 p-8 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-2xl transition-all group">
-                    <div className="flex justify-between items-start mb-6">
-                      <div className="p-4 bg-brand-50 dark:bg-brand-900/20 rounded-2xl text-brand-600">
-                        <Icons.Courses />
-                      </div>
-                      <span className="px-4 py-1 bg-emerald-50 dark:bg-emerald-900/20 rounded-full text-[8px] font-black uppercase tracking-widest text-emerald-600">Active Node</span>
-                    </div>
-                    <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2">{course.name}</h3>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm mb-6 line-clamp-3 font-medium leading-relaxed">{course.description || 'No description provided for this node.'}</p>
-                    
-                    <div className="space-y-4 mb-8">
-                      <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Enrolled Units</span>
-                        <span className="text-sm font-black text-slate-900 dark:text-white">{course.enrolledCount || 0}</span>
-                      </div>
-                      <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Stored Objects</span>
-                        <span className="text-sm font-black text-slate-900 dark:text-white">{course.materialsCount || 0}</span>
-                      </div>
-                    </div>
-
-                      <div className="flex space-x-3">
-                        <button 
-                          onClick={() => { setActiveCourse(course); setViewMode('COURSES'); }}
-                          className="flex-1 py-4 bg-brand-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-brand-500/20 hover:bg-brand-500 transition-all"
-                        >
-                          Manage
-                        </button>
-                        <button 
-                          onClick={() => { setActiveCourse(course); setViewMode('ARCHIVES'); }}
-                          className="px-6 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
-                        >
-                          History
-                        </button>
-                      </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
           {viewMode === 'ARCHIVES' && activeCourse && (
             <div className="space-y-8 overflow-y-auto custom-scrollbar pb-20">
               <header>

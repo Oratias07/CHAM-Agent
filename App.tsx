@@ -12,7 +12,6 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') !== 'light');
   // Audit #7: inline error states replace alert()
-  const [loginError, setLoginError] = useState('');
   const [joinMsg, setJoinMsg] = useState('');
 
   useEffect(() => {
@@ -28,14 +27,6 @@ const App: React.FC = () => {
       setLoading(false);
     }).catch(() => setLoading(false));
   }, []);
-
-  const handleDevLogin = async (role: string) => {
-    setLoginError('');
-    try {
-      const u = await apiService.devLogin(role);
-      setUser(u);
-    } catch (e) { setLoginError('שגיאה בהתחברות. נסה שוב.'); } // Audit #7: replaces alert()
-  };
 
   const handleRoleSelect = async (role: UserRole) => {
     const updated = await apiService.updateUserRole(role);
@@ -64,16 +55,7 @@ const App: React.FC = () => {
     );
   }
 
-  if (!user) return (
-    <>
-      <Login onLogin={handleGoogleLogin} onDevLogin={handleDevLogin} />
-      {loginError && (
-        <div className="fixed bottom-4 right-4 bg-rose-500 text-white px-4 py-3 rounded-2xl text-xs font-black shadow-xl" dir="rtl">
-          {loginError}
-        </div>
-      )}
-    </>
-  );
+  if (!user) return <Login onLogin={handleGoogleLogin} />;
   if (!user.role) return <RoleSelector onSelect={handleRoleSelect} />;
 
   const logout = () => { window.location.href = "/api/auth/logout"; };
