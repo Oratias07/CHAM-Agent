@@ -423,7 +423,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
                   >
                     <div className="flex items-center space-x-4">
                       <div className="w-12 h-12 bg-brand-600 rounded-2xl flex items-center justify-center font-black text-white">L</div>
-                      <div className="text-left">
+                      <div>
                         <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-tighter">{contacts.lecturer.name}</h4>
                         <p className="text-[10px] text-brand-600 font-black uppercase tracking-widest">מרצה הקורס</p>
                       </div>
@@ -439,7 +439,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user, darkMode, setDarkMo
                   >
                     <div className="flex items-center space-x-4">
                       <div className="w-12 h-12 bg-zinc-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center font-black text-slate-500">S</div>
-                      <div className="text-left">
+                      <div>
                         <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-tighter">{s.name}</h4>
                         <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">סטודנט</p>
                       </div>

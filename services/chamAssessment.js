@@ -7,6 +7,7 @@
 import { executeTests } from './codeSandbox.js';
 import { analyzeCodeQuality } from './semanticAssessment.js';
 import { evaluateRoutingDecision } from './smartRouting.js';
+import { PROMPT_VERSION } from '../lib/constants.js';
 
 /**
  * Run the full CHAM pipeline on a submission.
@@ -108,6 +109,7 @@ export async function assessSubmission({ submission, assignment, models }) {
       model_used: layer2Result.model_used || 'gemini-2.0-flash',
       injection_detected: layer2Result.injection_detected,
       deductions: layer2Result.deductions || [],
+      prompt_version: PROMPT_VERSION,
     },
     created_at: new Date(),
   });
