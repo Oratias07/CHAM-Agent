@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { sendChatMessage, sendStudentChatMessage } from '../services/geminiService';
+import { sendChatMessage, sendStudentChatMessage } from '../services/chatService';
 
 interface Message {
   role: 'user' | 'model';
