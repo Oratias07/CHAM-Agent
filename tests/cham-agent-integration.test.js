@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 
@@ -255,5 +255,68 @@ describe('Deduction UI across components', () => {
   it('ReviewQueue shows deduction cards with orange border', () => {
     const rq = fs.readFileSync('components/ReviewQueue.tsx', 'utf8');
     expect(rq).toContain('4px solid #FF9800');
+  });
+});
+
+// ── Suite 10: Audit 2026-04-30 regression guards ──
+describe('Audit 2026-04-30 — CRITICAL fix regressions', () => {
+  let api;
+  beforeAll(() => { api = fs.readFileSync('api/index.js', 'utf8'); });
+
+  // CRITICAL-3: POST /chat must require lecturer role
+  it('POST /chat requires req.user.role === lecturer', () => {
+    const idx = api.indexOf("router.post('/chat'");
+    const snippet = api.slice(idx, idx + 600);
+    expect(snippet).toContain("req.user.role !== 'lecturer'");
+  });
+
+  it('POST /chat role check is present before any LLM call', () => {
+    const idx = api.indexOf("router.post('/chat'");
+    const snippet = api.slice(idx, idx + 1800);
+    const roleCheckIdx = snippet.indexOf("req.user.role !== 'lecturer'");
+    const llmIdx = snippet.indexOf('evaluateWithFallback');
+    expect(roleCheckIdx).toBeGreaterThan(-1);
+    expect(llmIdx).toBeGreaterThan(-1);
+    expect(roleCheckIdx).toBeLessThan(llmIdx);
+  });
+
+  // CRITICAL-2: POST and PUT /lecturer/assignments must have uploadRateLimit
+  it('POST /lecturer/assignments uses uploadRateLimit', () => {
+    expect(api).toMatch(/router\.post\(['"]\/lecturer\/assignments['"],\s*uploadRateLimit/);
+  });
+
+  it('PUT /lecturer/assignments/:id uses uploadRateLimit', () => {
+    expect(api).toMatch(/router\.put\(['"]\/lecturer\/assignments\/:id['"],\s*uploadRateLimit/);
+  });
+
+  // CRITICAL-1a: /student/chat must call sanitizeForPrompt on material title and content
+  it('/student/chat sanitizes material title before embedding in prompt', () => {
+    const studentChatIdx = api.indexOf("router.post('/student/chat'");
+    const routeEnd = api.indexOf('\n// ', studentChatIdx + 1);
+    const routeBody = api.slice(studentChatIdx, routeEnd);
+    expect(routeBody).toMatch(/sanitizeForPrompt\(m\.title\)/);
+  });
+
+  it('/student/chat sanitizes material content before embedding in prompt', () => {
+    const studentChatIdx = api.indexOf("router.post('/student/chat'");
+    const routeEnd = api.indexOf('\n// ', studentChatIdx + 1);
+    const routeBody = api.slice(studentChatIdx, routeEnd);
+    expect(routeBody).toMatch(/sanitizeForPrompt\(m\.content\)/);
+  });
+
+  // CRITICAL-1b: /student/chat injection warning must be embedded in prompt (not just logged)
+  it('/student/chat embeds injectionWarning inside combinedPrompt string', () => {
+    const studentChatIdx = api.indexOf("router.post('/student/chat'");
+    const routeEnd = api.indexOf('\n// ', studentChatIdx + 1);
+    const routeBody = api.slice(studentChatIdx, routeEnd);
+    expect(routeBody).toContain('${injectionWarning}');
+  });
+
+  // CRITICAL-1b: /chat injection warning must be embedded in combinedPrompt (not just logged)
+  it('/chat embeds injectionWarning inside combinedPrompt, not only console.warn', () => {
+    const chatIdx = api.indexOf("router.post('/chat'");
+    const routeEnd = api.indexOf('\n// ', chatIdx + 1);
+    const routeBody = api.slice(chatIdx, routeEnd);
+    expect(routeBody).toContain('${injectionWarning}');
   });
 });
