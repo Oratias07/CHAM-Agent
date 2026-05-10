@@ -186,23 +186,23 @@ describe('semanticAssessment', () => {
 
   // ── Missing API key ──
   describe('missing API key', () => {
-    it('throws when no API key configured', async () => {
+    it('does not throw on missing GEMINI_API_KEY — delegates provider selection to orchestrator', async () => {
       vi.stubEnv('GEMINI_API_KEY', '');
       vi.stubEnv('API_KEY', '');
 
-      await expect(
-        analyzeCodeQuality('code', 'python', 'q', null, null)
-      ).rejects.toThrow('API key not configured');
+      mockEvaluateWithFallback.mockResolvedValueOnce(validOrchestratorResult());
+      // Should not throw — premature key check removed (audit-2026-05-07 CRITICAL-1b fix)
+      const result = await analyzeCodeQuality('code', 'python', 'q', null, null);
+      expect(result.score).toBeTypeOf('number');
     });
 
-    it('uses API_KEY fallback when GEMINI_API_KEY is missing', async () => {
+    it('still calls evaluateWithFallback when GEMINI_API_KEY absent', async () => {
       vi.stubEnv('GEMINI_API_KEY', '');
-      vi.stubEnv('API_KEY', 'fallback-key');
+      vi.stubEnv('API_KEY', '');
 
       mockEvaluateWithFallback.mockResolvedValueOnce(validOrchestratorResult());
-      const result = await analyzeCodeQuality('code', 'python', 'q', null, null);
-
-      expect(result.score).toBeTypeOf('number');
+      await analyzeCodeQuality('code', 'python', 'q', null, null);
+      expect(mockEvaluateWithFallback).toHaveBeenCalled();
     });
   });
 

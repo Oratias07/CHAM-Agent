@@ -71,10 +71,6 @@ Scoring guidelines:
  * @returns {object} Structured assessment with scores, feedback, and confidence
  */
 export async function analyzeCodeQuality(code, language, questionContext, masterSolution, rubric) {
-  const aiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
-  if (!aiKey) {
-    throw new Error('AI API key not configured');
-  }
 
   // Build context
   let fullContext = `Question: ${questionContext}`;

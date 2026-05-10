@@ -1,13 +1,4 @@
 
-import { GradingInputs, GradingResult } from "../types";
-import { apiService } from "./apiService";
-
-export const evaluateSubmission = async (
-  inputs: GradingInputs
-): Promise<GradingResult> => {
-  return await apiService.evaluate(inputs);
-};
-
 export const sendChatMessage = async (
   message: string,
   context?: any
