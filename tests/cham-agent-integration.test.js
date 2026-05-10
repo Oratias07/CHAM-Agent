@@ -320,3 +320,74 @@ describe('Audit 2026-04-30 — CRITICAL fix regressions', () => {
     expect(routeBody).toContain('${injectionWarning}');
   });
 });
+
+// ── Suite 11: Audit 2026-05-07 regression guards ──
+describe('Audit 2026-05-07 — CRITICAL fix regressions', () => {
+  let api;
+  let semanticSvc;
+  beforeAll(() => {
+    api = fs.readFileSync('api/index.js', 'utf8');
+    semanticSvc = fs.readFileSync('services/semanticAssessment.js', 'utf8');
+  });
+
+  // CRITICAL-1b: semanticAssessment.js premature Gemini key check removed
+  it('semanticAssessment.js does not have premature GEMINI_API_KEY guard', () => {
+    const analyzeIdx = semanticSvc.indexOf('export async function analyzeCodeQuality');
+    const snippet = semanticSvc.slice(analyzeIdx, analyzeIdx + 300);
+    expect(snippet).not.toContain("throw new Error('AI API key not configured')");
+    expect(snippet).not.toMatch(/if\s*\(!aiKey\)/);
+  });
+
+  it('analyzeCodeQuality delegates to LLMOrchestrator without key pre-check', () => {
+    const analyzeIdx = semanticSvc.indexOf('export async function analyzeCodeQuality');
+    const snippet = semanticSvc.slice(analyzeIdx, analyzeIdx + 300);
+    // No early return before orchestrator call
+    expect(snippet).not.toContain('GEMINI_API_KEY');
+  });
+
+  // CRITICAL-3a: POST /evaluate must require lecturer role
+  it('POST /evaluate requires req.user.role === lecturer', () => {
+    const idx = api.indexOf("router.post('/evaluate'");
+    const snippet = api.slice(idx, idx + 200);
+    expect(snippet).toContain("req.user.role !== 'lecturer'");
+  });
+
+  // CRITICAL-3b: POST /user/update-role must block role change if already set
+  it('POST /user/update-role guards against privilege escalation (existing role check)', () => {
+    const idx = api.indexOf("router.post('/user/update-role'");
+    const snippet = api.slice(idx, idx + 600);
+    expect(snippet).toContain('existingUser?.role');
+    expect(snippet).toContain('403');
+  });
+
+  it('POST /user/update-role validates role value before DB write', () => {
+    const idx = api.indexOf("router.post('/user/update-role'");
+    const snippet = api.slice(idx, idx + 400);
+    expect(snippet).toMatch(/newRole\s*!==\s*'lecturer'/);
+    expect(snippet).toMatch(/newRole\s*!==\s*'student'/);
+  });
+
+  // CRITICAL-2: rate limits on 4 newly guarded routes
+  it('POST /lecturer/courses has rate limit', () => {
+    expect(api).toMatch(/router\.post\(['"]\/lecturer\/courses['"],\s*uploadRateLimit/);
+  });
+
+  it('PUT /lecturer/courses/:id has rate limit', () => {
+    expect(api).toMatch(/router\.put\(['"]\/lecturer\/courses\/:id['"],\s*uploadRateLimit/);
+  });
+
+  it('POST /user/update-role has rate limit', () => {
+    expect(api).toMatch(/router\.post\(['"]\/user\/update-role['"],\s*uploadRateLimit/);
+  });
+
+  it('POST /teacher/submit-review has rate limit', () => {
+    expect(api).toMatch(/router\.post\(['"]\/teacher\/submit-review['"],\s*submitRateLimit/);
+  });
+
+  // MEDIUM-3: evaluateSubmission dead export removed from chatService.ts
+  it('chatService.ts does not export evaluateSubmission', () => {
+    const chatSvc = fs.readFileSync('services/chatService.ts', 'utf8');
+    expect(chatSvc).not.toContain('evaluateSubmission');
+    expect(chatSvc).not.toContain('apiService.evaluate');
+  });
+});
