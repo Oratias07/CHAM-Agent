@@ -289,35 +289,41 @@ describe('Audit 2026-04-30 — CRITICAL fix regressions', () => {
     expect(api).toMatch(/router\.put\(['"]\/lecturer\/assignments\/:id['"],\s*uploadRateLimit/);
   });
 
-  // CRITICAL-1a: /student/chat must call sanitizeForPrompt on material title and content
-  it('/student/chat sanitizes material title before embedding in prompt', () => {
+  // CRITICAL-1 (2026-05-14): /student/chat must use buildSafeChatPrompt for composite injection protection
+  it('/student/chat uses buildSafeChatPrompt for composite injection protection', () => {
     const studentChatIdx = api.indexOf("router.post('/student/chat'");
     const routeEnd = api.indexOf('\n// ', studentChatIdx + 1);
     const routeBody = api.slice(studentChatIdx, routeEnd);
-    expect(routeBody).toMatch(/sanitizeForPrompt\(m\.title\)/);
+    expect(routeBody).toContain('buildSafeChatPrompt');
   });
 
-  it('/student/chat sanitizes material content before embedding in prompt', () => {
+  it('/student/chat passes message to buildSafeChatPrompt as userQuestion', () => {
     const studentChatIdx = api.indexOf("router.post('/student/chat'");
     const routeEnd = api.indexOf('\n// ', studentChatIdx + 1);
     const routeBody = api.slice(studentChatIdx, routeEnd);
-    expect(routeBody).toMatch(/sanitizeForPrompt\(m\.content\)/);
+    expect(routeBody).toMatch(/userQuestion:\s*message/);
   });
 
-  // CRITICAL-1b: /student/chat injection warning must be embedded in prompt (not just logged)
-  it('/student/chat embeds injectionWarning inside combinedPrompt string', () => {
+  it('/student/chat passes course materials as courseContext to buildSafeChatPrompt', () => {
     const studentChatIdx = api.indexOf("router.post('/student/chat'");
     const routeEnd = api.indexOf('\n// ', studentChatIdx + 1);
     const routeBody = api.slice(studentChatIdx, routeEnd);
-    expect(routeBody).toContain('${injectionWarning}');
+    expect(routeBody).toMatch(/courseContext/);
   });
 
-  // CRITICAL-1b: /chat injection warning must be embedded in combinedPrompt (not just logged)
-  it('/chat embeds injectionWarning inside combinedPrompt, not only console.warn', () => {
+  // CRITICAL-1 (2026-05-14): /chat must use buildSafePrompt for code fencing with proper injection protection
+  it('/chat uses buildSafePrompt when context.studentCode is present', () => {
     const chatIdx = api.indexOf("router.post('/chat'");
     const routeEnd = api.indexOf('\n// ', chatIdx + 1);
     const routeBody = api.slice(chatIdx, routeEnd);
-    expect(routeBody).toContain('${injectionWarning}');
+    expect(routeBody).toContain('buildSafePrompt');
+  });
+
+  it('/chat passes studentCode to buildSafePrompt for code fencing', () => {
+    const chatIdx = api.indexOf("router.post('/chat'");
+    const routeEnd = api.indexOf('\n// ', chatIdx + 1);
+    const routeBody = api.slice(chatIdx, routeEnd);
+    expect(routeBody).toMatch(/code:\s*context\.studentCode/);
   });
 });
 
