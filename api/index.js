@@ -688,7 +688,7 @@ router.delete('/messages/:id', async (req, res) => {
 });
 
 // PERSISTENCE ROUTES
-router.post('/grades/save', async (req, res) => {
+router.post('/grades/save', uploadRateLimit, async (req, res) => {
   if (!req.user || req.user.role !== 'lecturer') return res.status(403).json({ error: 'Forbidden' });
   await connectDB();
   const { exerciseId, studentId, score, feedback } = req.body;
@@ -832,6 +832,11 @@ Include deductions array with every specific point deduction. Each must have the
 router.post('/lecturer/assignments', uploadRateLimit, async (req, res) => {
   if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
   await connectDB();
+
+  // Verify courseId belongs to the lecturer
+  const course = await Course.findOne({ _id: req.body.courseId, lecturerId: req.user.googleId });
+  if (!course) return res.status(403).json({ message: 'Forbidden' });
+
   const assignment = await Assignment.create(req.body);
   res.json(assignment);
 });
@@ -846,13 +851,29 @@ router.get('/lecturer/courses/:courseId/assignments', async (req, res) => {
 router.put('/lecturer/assignments/:id', uploadRateLimit, async (req, res) => {
   if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
   await connectDB();
-  const assignment = await Assignment.findByIdAndUpdate(req.params.id, req.body, { new: true });
-  res.json(assignment);
+
+  // Verify assignment belongs to a course owned by the lecturer
+  const assignment = await Assignment.findById(req.params.id);
+  if (!assignment) return res.status(404).json({ message: 'Assignment not found' });
+
+  const course = await Course.findOne({ _id: assignment.courseId, lecturerId: req.user.googleId });
+  if (!course) return res.status(403).json({ message: 'Forbidden' });
+
+  const updatedAssignment = await Assignment.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  res.json(updatedAssignment);
 });
 
 router.delete('/lecturer/assignments/:id', async (req, res) => {
   if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
   await connectDB();
+
+  // Verify assignment belongs to a course owned by the lecturer
+  const assignment = await Assignment.findById(req.params.id);
+  if (!assignment) return res.status(404).json({ message: 'Assignment not found' });
+
+  const course = await Course.findOne({ _id: assignment.courseId, lecturerId: req.user.googleId });
+  if (!course) return res.status(403).json({ message: 'Forbidden' });
+
   await Assignment.findByIdAndDelete(req.params.id);
   await Submission.deleteMany({ assignmentId: req.params.id });
   res.json({ success: true });
@@ -861,6 +882,14 @@ router.delete('/lecturer/assignments/:id', async (req, res) => {
 router.get('/lecturer/assignments/:id/submissions', async (req, res) => {
   if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
   await connectDB();
+
+  // Verify assignment belongs to a course owned by the lecturer
+  const assignment = await Assignment.findById(req.params.id);
+  if (!assignment) return res.status(404).json({ message: 'Assignment not found' });
+
+  const course = await Course.findOne({ _id: assignment.courseId, lecturerId: req.user.googleId });
+  if (!course) return res.status(403).json({ message: 'Forbidden' });
+
   const submissions = await Submission.find({ assignmentId: req.params.id }).sort({ timestamp: -1 });
   res.json(submissions);
 });
@@ -875,8 +904,14 @@ router.post('/lecturer/submissions/:id/extension', async (req, res) => {
 router.post('/lecturer/assignments/:id/release-feedback', async (req, res) => {
   if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
   await connectDB();
+
   const assignment = await Assignment.findById(req.params.id);
   if (!assignment) return res.status(404).json({ message: 'Assignment not found' });
+
+  // Verify assignment belongs to a course owned by the lecturer
+  const course = await Course.findOne({ _id: assignment.courseId, lecturerId: req.user.googleId });
+  if (!course) return res.status(403).json({ message: 'Forbidden' });
+
   const result = await Submission.updateMany(
     { assignmentId: req.params.id },
     { $set: { feedback_released: true } }
@@ -887,8 +922,14 @@ router.post('/lecturer/assignments/:id/release-feedback', async (req, res) => {
 router.get('/lecturer/assignments/:id/feedback-status', async (req, res) => {
   if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
   await connectDB();
+
   const assignment = await Assignment.findById(req.params.id);
   if (!assignment) return res.status(404).json({ message: 'Assignment not found' });
+
+  // Verify assignment belongs to a course owned by the lecturer
+  const course = await Course.findOne({ _id: assignment.courseId, lecturerId: req.user.googleId });
+  if (!course) return res.status(403).json({ message: 'Forbidden' });
+
   const submissions = await Submission.find({ assignmentId: req.params.id });
   const released = submissions.length > 0 && submissions.every(s => s.feedback_released === true);
   const pendingReviews = submissions.filter(s => s.assessment_status === 'awaiting_review').length;
@@ -901,6 +942,10 @@ router.post('/lecturer/assignments/:id/submit-manual', llmRateLimit, async (req,
 
   const assignment = await Assignment.findById(req.params.id);
   if (!assignment) return res.status(404).json({ message: 'Assignment not found' });
+
+  // Verify assignment belongs to a course owned by the lecturer
+  const course = await Course.findOne({ _id: assignment.courseId, lecturerId: req.user.googleId });
+  if (!course) return res.status(403).json({ message: 'Forbidden' });
 
   const { studentId, code, language } = req.body;
   if (!studentId || !code) return res.status(400).json({ message: 'studentId and code are required' });
@@ -1302,18 +1347,28 @@ router.post('/lecturer/materials', uploadRateLimit, async (req, res) => {
 router.put('/lecturer/materials/:id', uploadRateLimit, async (req, res) => {
   if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
   await connectDB();
+
+  // Verify material belongs to the lecturer
+  const material = await Material.findOne({ _id: req.params.id, ownerId: req.user.googleId });
+  if (!material) return res.status(403).json({ message: 'Forbidden' });
+
   const { title, content, fileName, fileType, fileSize, folder, isVisible } = req.body;
-  const material = await Material.findByIdAndUpdate(
+  const updatedMaterial = await Material.findByIdAndUpdate(
     req.params.id,
     { title, content, fileName, fileType, fileSize, folder, isVisible },
     { new: true }
   );
-  res.json(material);
+  res.json(updatedMaterial);
 });
 
 router.delete('/lecturer/materials/:id', async (req, res) => {
   if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
   await connectDB();
+
+  // Verify material belongs to the lecturer
+  const material = await Material.findOne({ _id: req.params.id, ownerId: req.user.googleId });
+  if (!material) return res.status(403).json({ message: 'Forbidden' });
+
   await Material.findByIdAndDelete(req.params.id);
   res.json({ success: true });
 });

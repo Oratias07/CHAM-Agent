@@ -1,0 +1,21 @@
+
+> cham-agent@1.1.0 test
+> vitest run
+
+[2m12:47:04 PM[22m [33m[1m[vite][22m[39m [33mwarning: `esbuild` option was specified by "vite:react-babel" plugin. This option is deprecated, please use `oxc` instead.[39m
+[2m12:47:04 PM[22m [33m[1m[vite][22m[39m [33mwarning: `optimizeDeps.esbuildOptions` option was specified by "vite:react-babel" plugin. This option is deprecated, please use `optimizeDeps.rolldownOptions` instead.[39m
+[33mBoth esbuild and oxc options were set. oxc options will be used and esbuild options will be ignored.[39m The following esbuild options were set: `{ jsx: 'automatic', jsxImportSource: undefined }`
+
+ RUN  v4.1.2 C:/Users/atias/CHAM-Agent
+
+
+ Test Files  13 passed (13)
+      Tests  377 passed (377)
+   Start at  12:47:04
+   Duration  3.17s (transform 1.99s, setup 0ms, import 2.99s, tests 2.73s, environment 5ms)
+
+npm notice
+npm notice New minor version of npm available! 11.9.0 -> 11.15.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.15.0
+npm notice To update run: npm install -g npm@11.15.0
+npm notice
