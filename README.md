@@ -1,6 +1,6 @@
 # CHAM Agent — AI Code Grader
 
-![Version](https://img.shields.io/badge/version-2.1.0-6366f1.svg)
+![Version](https://img.shields.io/badge/version-2.1.1-6366f1.svg)
 ![License](https://img.shields.io/badge/license-MIT-22c55e.svg)
 ![Platform](https://img.shields.io/badge/platform-Vercel-000000.svg)
 ![Database](https://img.shields.io/badge/database-MongoDB%20Atlas-47A248.svg)
@@ -132,6 +132,30 @@ graph TD
 4. `LLMOrchestrator.evaluateWithFallback()` tries Groq → Gemini → OpenAI (each with internal model fallback on 429)
 5. `validateLLMOutput()` enforces score ranges and cross-checks weighted scores
 6. Returns result to frontend; `ResultSection` renders the score and Hebrew feedback
+
+---
+
+## Security
+
+### Hardening & Protections (v2.1.1+)
+
+- **Prompt Injection Defense** — 30+ pattern detection via `promptGuard.js`; all user inputs sanitized before LLM submission
+- **LLM Call Protection** — All AI evaluation routes use `buildSafePrompt()` with code fencing to isolate user submissions
+- **Rate Limiting** — All POST/PUT routes with text input limited to 100 req/hr (`POST /evaluate`), 60 req/hr for uploads, 30 req/hr for chat messages
+- **RBAC + Ownership Checks** — Lecturers can only modify/delete their own assignments and materials; students isolated by course enrollment
+- **IDOR Prevention** — All assignment/material routes verify ownership before read/write/delete (v2.1.1)
+- **Safe JSON Parsing** — All LLM responses validated via `safeParseLLMResponse()` with schema enforcement
+- **Output Validation** — Score ranges, required fields, and deduction structure enforced via `validateLLMOutput()`
+- **Session Security** — Google OAuth 2.0 with passport.js; session secrets signed; no sensitive data in cookies
+- **Code Sandbox Isolation** — Judge0 with network disabled, 5s CPU limit, no file I/O
+
+### Recent Fixes (2026-05-21)
+
+**v2.1.1** resolves two critical findings from security audit 2026-05-21:
+- **CRITICAL-1**: Added rate limit middleware to `POST /grades/save` (prevents DB flooding)
+- **CRITICAL-2**: Enforced ownership checks on 9 assignment/material routes (prevents cross-lecturer IDOR attacks)
+
+See [docs/audits/weekly-audit-2026-05-21.md](docs/audits/weekly-audit-2026-05-21.md) for full audit details.
 
 ---
 
