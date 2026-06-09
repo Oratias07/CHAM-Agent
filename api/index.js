@@ -897,8 +897,13 @@ router.get('/lecturer/assignments/:id/submissions', async (req, res) => {
 router.post('/lecturer/submissions/:id/extension', async (req, res) => {
   if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
   await connectDB();
-  const submission = await Submission.findByIdAndUpdate(req.params.id, { extensionUntil: req.body.extensionUntil }, { new: true });
-  res.json(submission);
+  // Audit #6: verify submission belongs to a course owned by the lecturer
+  const submission = await Submission.findById(req.params.id);
+  if (!submission) return res.status(404).json({ message: 'Submission not found' });
+  const course = await Course.findOne({ _id: submission.courseId, lecturerId: req.user.googleId });
+  if (!course) return res.status(403).json({ message: 'Forbidden' });
+  const updated = await Submission.findByIdAndUpdate(req.params.id, { extensionUntil: req.body.extensionUntil }, { new: true });
+  res.json(updated);
 });
 
 router.post('/lecturer/assignments/:id/release-feedback', async (req, res) => {
@@ -1139,6 +1144,9 @@ router.get('/lecturer/courses/:id/waitlist-history', async (req, res) => {
 router.get('/lecturer/courses/:id/all-submissions', async (req, res) => {
   if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
   await connectDB();
+  // Audit #6: verify course belongs to the lecturer
+  const course = await Course.findOne({ _id: req.params.id, lecturerId: req.user.googleId });
+  if (!course) return res.status(403).json({ message: 'Forbidden' });
   // Include both old 'evaluated' and new CHAM 'graded' submissions
   const submissions = await Submission.find({
     courseId: req.params.id,
@@ -1207,6 +1215,10 @@ router.get('/teacher/review/:submissionId', async (req, res) => {
   const submission = await Submission.findById(req.params.submissionId);
   if (!submission) return res.status(404).json({ message: 'Submission not found' });
 
+  // Audit #6: verify submission's course belongs to the lecturer
+  const course = await Course.findOne({ _id: submission.courseId, lecturerId: req.user.googleId });
+  if (!course) return res.status(403).json({ message: 'Forbidden' });
+
   const assignment = await Assignment.findById(submission.assignmentId);
   const assessment = await AssessmentLayer.findOne({ submission_id: submission._id });
   const student = await User.findOne({ googleId: submission.studentId });
@@ -1233,6 +1245,10 @@ router.post('/teacher/submit-review', submitRateLimit, async (req, res) => {
 
   const submission = await Submission.findById(submission_id);
   if (!submission) return res.status(404).json({ message: 'Submission not found' });
+
+  // Audit #6: verify submission's course belongs to the lecturer
+  const course = await Course.findOne({ _id: submission.courseId, lecturerId: req.user.googleId });
+  if (!course) return res.status(403).json({ message: 'Forbidden' });
 
   const assessment = await AssessmentLayer.findOne({ submission_id });
 
@@ -1284,10 +1300,12 @@ router.post('/lecturer/courses/:id/approve', async (req, res) => {
   if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
   await connectDB();
   const { studentId } = req.body;
-  const course = await Course.findById(req.params.id);
+  // Audit #6: verify course belongs to the lecturer
+  const course = await Course.findOne({ _id: req.params.id, lecturerId: req.user.googleId });
+  if (!course) return res.status(403).json({ message: 'Forbidden' });
   await Course.updateOne({ _id: req.params.id }, { $pull: { pendingStudentIds: studentId }, $addToSet: { enrolledStudentIds: studentId } });
   await User.updateOne({ googleId: studentId }, { $addToSet: { enrolledCourseIds: req.params.id }, $inc: { unseenApprovals: 1 } });
-  
+
   await WaitlistHistory.create({
     studentId,
     courseId: req.params.id,
@@ -1302,9 +1320,11 @@ router.post('/lecturer/courses/:id/reject', async (req, res) => {
   if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
   await connectDB();
   const { studentId } = req.body;
-  const course = await Course.findById(req.params.id);
+  // Audit #6: verify course belongs to the lecturer
+  const course = await Course.findOne({ _id: req.params.id, lecturerId: req.user.googleId });
+  if (!course) return res.status(403).json({ message: 'Forbidden' });
   await Course.updateOne({ _id: req.params.id }, { $pull: { pendingStudentIds: studentId } });
-  
+
   await WaitlistHistory.create({
     studentId,
     courseId: req.params.id,
@@ -1319,6 +1339,9 @@ router.post('/lecturer/courses/:id/remove-student', async (req, res) => {
   if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
   await connectDB();
   const { studentId } = req.body;
+  // Audit #6: verify course belongs to the lecturer
+  const course = await Course.findOne({ _id: req.params.id, lecturerId: req.user.googleId });
+  if (!course) return res.status(403).json({ message: 'Forbidden' });
   await Course.updateOne({ _id: req.params.id }, { $pull: { enrolledStudentIds: studentId } });
   await User.updateOne({ googleId: studentId }, { $pull: { enrolledCourseIds: req.params.id } });
   res.json({ success: true });
