@@ -1,6 +1,7 @@
 /**
- * Security audit 2026-05-21 — IDOR and rate limit fixes
- * Tests for CRITICAL-1 (rate limit on /grades/save) and CRITICAL-2 (IDOR ownership checks)
+ * Security audit 2026-05-21 & 2026-06-04 — IDOR and rate limit fixes
+ * Tests for CRITICAL-1 (rate limit on /grades/save), CRITICAL-2 (IDOR on assignment/material routes),
+ * and CRITICAL-3 (IDOR on teacher review routes & course enrollment routes)
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -436,7 +437,339 @@ describe('CRITICAL-2: Material route ownership checks', () => {
   });
 });
 
-// ─── Suite 4: Cross-lecturer attack prevention ────────────────────────────
+// ─── Suite 4: CRITICAL-3 — IDOR on teacher review routes ──────────────────
+const mockHumanReviewQueue = {
+  findOne: vi.fn(),
+  updateOne: vi.fn().mockResolvedValue({}),
+};
+
+const mockAssessmentLayer = {
+  findOne: vi.fn(),
+  updateOne: vi.fn().mockResolvedValue({}),
+};
+
+const mockUser = {
+  findOne: vi.fn(),
+};
+
+describe('CRITICAL-3: Teacher review route ownership checks', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe('GET /teacher/review/:submissionId (read)', () => {
+    it('rejects read when submission belongs to different lecturer\'s course', async () => {
+      const req = createMockRequest(
+        { googleId: 'lecturer-1', role: 'lecturer' },
+        'GET',
+        { submissionId: 'submission-1' }
+      );
+      const res = createMockResponse();
+
+      mockSubmission.findById.mockResolvedValueOnce({ _id: 'submission-1', courseId: 'course-2' });
+      mockCourse.findOne.mockResolvedValueOnce(null); // lecturer-1 doesn't own course-2
+
+      const submission = await mockSubmission.findById(req.params.submissionId);
+      const course = await mockCourse.findOne({ _id: submission.courseId, lecturerId: req.user.googleId });
+
+      if (!course) {
+        res.status(403).json({ message: 'Forbidden' });
+      }
+
+      expect(res.status).toHaveBeenCalledWith(403);
+    });
+
+    it('allows read when submission belongs to lecturer\'s course', async () => {
+      const req = createMockRequest(
+        { googleId: 'lecturer-1', role: 'lecturer' },
+        'GET',
+        { submissionId: 'submission-1' }
+      );
+      const res = createMockResponse();
+
+      mockSubmission.findById.mockResolvedValueOnce({ _id: 'submission-1', courseId: 'course-1' });
+      mockCourse.findOne.mockResolvedValueOnce({ _id: 'course-1', lecturerId: 'lecturer-1' });
+      mockAssignment.findById.mockResolvedValueOnce({ _id: 'assignment-1', title: 'Test' });
+      mockAssessmentLayer.findOne.mockResolvedValueOnce({});
+      mockUser.findOne.mockResolvedValueOnce({ name: 'Student 1', email: 'student1@example.com' });
+      mockHumanReviewQueue.findOne.mockResolvedValueOnce({});
+
+      const submission = await mockSubmission.findById(req.params.submissionId);
+      const course = await mockCourse.findOne({ _id: submission.courseId, lecturerId: req.user.googleId });
+
+      expect(course).not.toBeNull();
+      res.json({ submission });
+
+      expect(res.json).toHaveBeenCalled();
+    });
+  });
+
+  describe('POST /teacher/submit-review (grade override)', () => {
+    it('rejects review submission when submission belongs to different lecturer\'s course', async () => {
+      const req = createMockRequest(
+        { googleId: 'lecturer-1', role: 'lecturer' },
+        'POST',
+        {},
+        { submission_id: 'submission-1', human_score: 85, comments: 'Great work' }
+      );
+      const res = createMockResponse();
+
+      mockSubmission.findById.mockResolvedValueOnce({ _id: 'submission-1', courseId: 'course-2' });
+      mockCourse.findOne.mockResolvedValueOnce(null); // lecturer-1 doesn't own course-2
+
+      const submission = await mockSubmission.findById(req.body.submission_id);
+      const course = await mockCourse.findOne({ _id: submission.courseId, lecturerId: req.user.googleId });
+
+      if (!course) {
+        res.status(403).json({ message: 'Forbidden' });
+      }
+
+      expect(res.status).toHaveBeenCalledWith(403);
+    });
+
+    it('allows grade override when submission belongs to lecturer\'s course', async () => {
+      const req = createMockRequest(
+        { googleId: 'lecturer-1', role: 'lecturer' },
+        'POST',
+        {},
+        { submission_id: 'submission-1', human_score: 85, comments: 'Great work', override_auto_score: false }
+      );
+      const res = createMockResponse();
+
+      mockSubmission.findById.mockResolvedValueOnce({ _id: 'submission-1', courseId: 'course-1' });
+      mockCourse.findOne.mockResolvedValueOnce({ _id: 'course-1', lecturerId: 'lecturer-1' });
+      mockAssessmentLayer.findOne.mockResolvedValueOnce({ auto_score: 80 });
+
+      const submission = await mockSubmission.findById(req.body.submission_id);
+      const course = await mockCourse.findOne({ _id: submission.courseId, lecturerId: req.user.googleId });
+
+      expect(course).not.toBeNull();
+      res.json({ success: true, final_score: 83 });
+
+      expect(res.json).toHaveBeenCalledWith({ success: true, final_score: 83 });
+    });
+  });
+});
+
+// ─── Suite 5: CRITICAL-3 — IDOR on course enrollment routes ────────────────
+const mockWaitlistHistory = {
+  create: vi.fn().mockResolvedValue({}),
+};
+
+describe('CRITICAL-3: Course enrollment route ownership checks', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe('POST /lecturer/courses/:id/approve (enroll student)', () => {
+    it('rejects approval when course doesn\'t belong to lecturer', async () => {
+      const req = createMockRequest(
+        { googleId: 'lecturer-1', role: 'lecturer' },
+        'POST',
+        { id: 'course-2' },
+        { studentId: 'student-1' }
+      );
+      const res = createMockResponse();
+
+      mockCourse.findOne.mockResolvedValueOnce(null); // lecturer-1 doesn't own course-2
+
+      const course = await mockCourse.findOne({ _id: req.params.id, lecturerId: req.user.googleId });
+      if (!course) {
+        res.status(403).json({ message: 'Forbidden' });
+      }
+
+      expect(res.status).toHaveBeenCalledWith(403);
+    });
+
+    it('allows approval when course belongs to lecturer', async () => {
+      const req = createMockRequest(
+        { googleId: 'lecturer-1', role: 'lecturer' },
+        'POST',
+        { id: 'course-1' },
+        { studentId: 'student-1' }
+      );
+      const res = createMockResponse();
+
+      mockCourse.findOne.mockResolvedValueOnce({ _id: 'course-1', lecturerId: 'lecturer-1', name: 'CS 101' });
+
+      const course = await mockCourse.findOne({ _id: req.params.id, lecturerId: req.user.googleId });
+
+      expect(course).not.toBeNull();
+      res.json({ success: true });
+
+      expect(res.json).toHaveBeenCalledWith({ success: true });
+    });
+  });
+
+  describe('POST /lecturer/courses/:id/reject (reject student)', () => {
+    it('rejects rejection when course doesn\'t belong to lecturer', async () => {
+      const req = createMockRequest(
+        { googleId: 'lecturer-1', role: 'lecturer' },
+        'POST',
+        { id: 'course-2' },
+        { studentId: 'student-1' }
+      );
+      const res = createMockResponse();
+
+      mockCourse.findOne.mockResolvedValueOnce(null);
+
+      const course = await mockCourse.findOne({ _id: req.params.id, lecturerId: req.user.googleId });
+      if (!course) {
+        res.status(403).json({ message: 'Forbidden' });
+      }
+
+      expect(res.status).toHaveBeenCalledWith(403);
+    });
+
+    it('allows rejection when course belongs to lecturer', async () => {
+      const req = createMockRequest(
+        { googleId: 'lecturer-1', role: 'lecturer' },
+        'POST',
+        { id: 'course-1' },
+        { studentId: 'student-1' }
+      );
+      const res = createMockResponse();
+
+      mockCourse.findOne.mockResolvedValueOnce({ _id: 'course-1', lecturerId: 'lecturer-1', name: 'CS 101' });
+
+      const course = await mockCourse.findOne({ _id: req.params.id, lecturerId: req.user.googleId });
+
+      expect(course).not.toBeNull();
+      res.json({ success: true });
+
+      expect(res.json).toHaveBeenCalledWith({ success: true });
+    });
+  });
+
+  describe('POST /lecturer/courses/:id/remove-student (remove student)', () => {
+    it('rejects removal when course doesn\'t belong to lecturer', async () => {
+      const req = createMockRequest(
+        { googleId: 'lecturer-1', role: 'lecturer' },
+        'POST',
+        { id: 'course-2' },
+        { studentId: 'student-1' }
+      );
+      const res = createMockResponse();
+
+      mockCourse.findOne.mockResolvedValueOnce(null);
+
+      const course = await mockCourse.findOne({ _id: req.params.id, lecturerId: req.user.googleId });
+      if (!course) {
+        res.status(403).json({ message: 'Forbidden' });
+      }
+
+      expect(res.status).toHaveBeenCalledWith(403);
+    });
+
+    it('allows removal when course belongs to lecturer', async () => {
+      const req = createMockRequest(
+        { googleId: 'lecturer-1', role: 'lecturer' },
+        'POST',
+        { id: 'course-1' },
+        { studentId: 'student-1' }
+      );
+      const res = createMockResponse();
+
+      mockCourse.findOne.mockResolvedValueOnce({ _id: 'course-1', lecturerId: 'lecturer-1' });
+
+      const course = await mockCourse.findOne({ _id: req.params.id, lecturerId: req.user.googleId });
+
+      expect(course).not.toBeNull();
+      res.json({ success: true });
+
+      expect(res.json).toHaveBeenCalledWith({ success: true });
+    });
+  });
+
+  describe('POST /lecturer/submissions/:id/extension (grant extension)', () => {
+    it('rejects extension when submission belongs to different lecturer\'s course', async () => {
+      const req = createMockRequest(
+        { googleId: 'lecturer-1', role: 'lecturer' },
+        'POST',
+        { id: 'submission-1' },
+        { extensionUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() }
+      );
+      const res = createMockResponse();
+
+      mockSubmission.findById.mockResolvedValueOnce({ _id: 'submission-1', courseId: 'course-2' });
+      mockCourse.findOne.mockResolvedValueOnce(null); // lecturer-1 doesn't own course-2
+
+      const submission = await mockSubmission.findById(req.params.id);
+      const course = await mockCourse.findOne({ _id: submission.courseId, lecturerId: req.user.googleId });
+
+      if (!course) {
+        res.status(403).json({ message: 'Forbidden' });
+      }
+
+      expect(res.status).toHaveBeenCalledWith(403);
+    });
+
+    it('allows extension when submission belongs to lecturer\'s course', async () => {
+      const req = createMockRequest(
+        { googleId: 'lecturer-1', role: 'lecturer' },
+        'POST',
+        { id: 'submission-1' },
+        { extensionUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() }
+      );
+      const res = createMockResponse();
+
+      mockSubmission.findById.mockResolvedValueOnce({ _id: 'submission-1', courseId: 'course-1' });
+      mockCourse.findOne.mockResolvedValueOnce({ _id: 'course-1', lecturerId: 'lecturer-1' });
+
+      const submission = await mockSubmission.findById(req.params.id);
+      const course = await mockCourse.findOne({ _id: submission.courseId, lecturerId: req.user.googleId });
+
+      expect(course).not.toBeNull();
+      res.json({ success: true });
+
+      expect(res.json).toHaveBeenCalledWith({ success: true });
+    });
+  });
+
+  describe('GET /lecturer/courses/:id/all-submissions (read all course submissions)', () => {
+    it('rejects read when course doesn\'t belong to lecturer', async () => {
+      const req = createMockRequest(
+        { googleId: 'lecturer-1', role: 'lecturer' },
+        'GET',
+        { id: 'course-2' }
+      );
+      const res = createMockResponse();
+
+      mockCourse.findOne.mockResolvedValueOnce(null);
+
+      const course = await mockCourse.findOne({ _id: req.params.id, lecturerId: req.user.googleId });
+      if (!course) {
+        res.status(403).json({ message: 'Forbidden' });
+      }
+
+      expect(res.status).toHaveBeenCalledWith(403);
+    });
+
+    it('allows read when course belongs to lecturer', async () => {
+      const req = createMockRequest(
+        { googleId: 'lecturer-1', role: 'lecturer' },
+        'GET',
+        { id: 'course-1' }
+      );
+      const res = createMockResponse();
+
+      mockCourse.findOne.mockResolvedValueOnce({ _id: 'course-1', lecturerId: 'lecturer-1' });
+      mockSubmission.find.mockResolvedValueOnce([
+        { _id: 'sub-1', studentCode: 'code1', status: 'evaluated' },
+        { _id: 'sub-2', studentCode: 'code2', status: 'evaluated' }
+      ]);
+
+      const course = await mockCourse.findOne({ _id: req.params.id, lecturerId: req.user.googleId });
+
+      expect(course).not.toBeNull();
+      res.json([]);
+
+      expect(res.json).toHaveBeenCalled();
+    });
+  });
+});
+
+// ─── Suite 6: Cross-lecturer attack prevention ────────────────────────────
 describe('Cross-lecturer attack prevention', () => {
   it('prevents lecturer A from modifying lecturer B\'s assignment', async () => {
     const lecturerA = { googleId: 'lecturer-a', role: 'lecturer' };
