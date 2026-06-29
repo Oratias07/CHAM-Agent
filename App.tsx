@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { apiService } from './services/apiService';
 import { User, UserRole } from './types';
 import Login from './components/Login';
-import LecturerDashboard from './LecturerDashboard';
+import LecturerDashboard from './components/LecturerDashboard';
 import StudentPortal from './components/StudentPortal';
 import RoleSelector from './components/RoleSelector';
 
