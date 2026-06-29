@@ -1,18 +1,18 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import InputSection from './components/InputSection';
-import ResultSection from './components/ResultSection';
-import GradeBook from './components/GradeBook';
-import ChatBot from './components/ChatBot';
-import CourseManager from './components/CourseManager';
-import StudentManagement from './components/StudentManagement';
-import DirectChat from './components/DirectChat';
-import ArchiveViewer from './components/ArchiveViewer';
-import AssignmentManager from './components/AssignmentManager';
-import ReviewQueue from './components/ReviewQueue';
-import { apiService } from './services/apiService';
-import { GradingResult, TabOption, GradeBookState, User, Course, Student, Exercise, Archive, GradeEntry, Submission } from './types';
-import { INITIAL_GRADEBOOK_STATE } from './constants';
+import InputSection from './InputSection';
+import ResultSection from './ResultSection';
+import GradeBook from './GradeBook';
+import ChatBot from './ChatBot';
+import CourseManager from './CourseManager';
+import StudentManagement from './StudentManagement';
+import DirectChat from './DirectChat';
+import ArchiveViewer from './ArchiveViewer';
+import AssignmentManager from './AssignmentManager';
+import ReviewQueue from './ReviewQueue';
+import { apiService } from '../services/apiService';
+import { GradingResult, TabOption, GradeBookState, User, Course, Student, Exercise, Archive, GradeEntry, Submission } from '../types';
+import { INITIAL_GRADEBOOK_STATE } from '../constants';
 
 interface LecturerDashboardProps {
   user: User;

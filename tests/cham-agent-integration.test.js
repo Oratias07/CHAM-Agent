@@ -10,12 +10,12 @@ describe('Rebranding - no ST System references', () => {
     'components/Login.tsx',
     '.env.example',
     'README.md',
-    'ARCHITECTURE.md',
-    'APP_FEATURES.md',
-    'USER_GUIDE.md',
-    'TODO.md',
-    'SOURCE_OF_TRUTH.md',
-    'SKILLS.md',
+    'docs/ARCHITECTURE_FULL.md',
+    'docs/APP_FEATURES.md',
+    'docs/USER_GUIDE.md',
+    'docs/TODO.md',
+    'docs/SOURCE_OF_TRUTH.md',
+    'docs/SKILLS.md',
   ];
 
   for (const file of filesToCheck) {
@@ -227,7 +227,7 @@ describe('Logo and favicon', () => {
 
   it('No text-based "ST" logos remain in components', () => {
     const files = [
-      'LecturerDashboard.tsx',
+      'components/LecturerDashboard.tsx',
       'components/StudentPortal.tsx',
       'components/InputSection.tsx',
     ];
@@ -395,5 +395,34 @@ describe('Audit 2026-05-07 — CRITICAL fix regressions', () => {
     const chatSvc = fs.readFileSync('services/chatService.ts', 'utf8');
     expect(chatSvc).not.toContain('evaluateSubmission');
     expect(chatSvc).not.toContain('apiService.evaluate');
+  });
+});
+
+// ── Suite 12: Score-scale consistency (/evaluate prompt ↔ ResultSection UI) ──
+describe('Score scale — /evaluate prompt and ResultSection agree on 0–10', () => {
+  let api;
+  let resultSection;
+  beforeAll(() => {
+    api = fs.readFileSync('api/index.js', 'utf8');
+    resultSection = fs.readFileSync('components/ResultSection.tsx', 'utf8');
+  });
+
+  it('/evaluate output schema requests a 0-10 score', () => {
+    const idx = api.indexOf("router.post('/evaluate'");
+    const routeBody = api.slice(idx, api.indexOf('\n// ', idx + 1));
+    expect(routeBody).toContain('"score": number (0-10');
+  });
+
+  it('/evaluate output schema no longer requests a 0-100 score (regression guard)', () => {
+    const idx = api.indexOf("router.post('/evaluate'");
+    const routeBody = api.slice(idx, api.indexOf('\n// ', idx + 1));
+    expect(routeBody).not.toContain('"score": number (0-100)');
+  });
+
+  it('ResultSection renders the score on the same 0-10 scale', () => {
+    expect(resultSection).toContain('out of 10.0');
+    // 0-10 grade-band thresholds, not 0-100
+    expect(resultSection).toMatch(/result\.score >= 9\b/);
+    expect(resultSection).not.toMatch(/result\.score >= 90\b/);
   });
 });

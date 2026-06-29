@@ -1,4 +1,4 @@
-# ARCHITECTURE.md — CHAM Agent Technical Architecture
+# ARCHITECTURE_FULL.md — CHAM Agent Technical Architecture
 
 ---
 
