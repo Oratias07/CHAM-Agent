@@ -131,7 +131,7 @@ const StudentAssignments: React.FC<StudentAssignmentsProps> = ({ course }) => {
                           )}
                         </div>
                       </div>
-                      <div className="text-left">
+                      <div className="text-end">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">תאריך הגשה</p>
                         <p className="text-xs font-black text-slate-800 dark:text-slate-100">
                           {new Date(submission?.extensionUntil || a.dueDate).toLocaleDateString('he-IL')}
@@ -173,7 +173,7 @@ const StudentAssignments: React.FC<StudentAssignmentsProps> = ({ course }) => {
                             {submission.deductions && submission.deductions.length > 0 && (
                               <div className="mt-2 space-y-1">
                                 {submission.deductions.slice(0, 3).map((d, i) => (
-                                  <div key={i} className="flex items-center gap-2 text-[10px]" style={{ borderRight: '3px solid #FF9800', paddingRight: '8px' }}>
+                                  <div key={i} className="flex items-center gap-2 text-[10px]" style={{ borderInlineEnd: '3px solid #FF9800', paddingInlineEnd: '8px' }}>
                                     <span className="text-amber-500 font-black">-{d.pointsLost}</span>
                                     <span className="text-slate-500 dark:text-slate-400 font-bold truncate">{d.requirement}</span>
                                   </div>

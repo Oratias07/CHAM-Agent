@@ -260,7 +260,7 @@ const AssignmentManager: React.FC<AssignmentManagerProps> = ({ course }) => {
                       <span className="text-[8px]">{expandedDeductions[s.id] ? '▲' : '▼'}</span>
                     </button>
                     {(expandedDeductions[s.id] ? s.deductions : s.deductions.slice(0, 2)).map((d, i) => (
-                      <div key={i} className="text-[10px] py-1" style={{ borderRight: '3px solid #FF9800', paddingRight: '8px', marginBottom: '4px' }}>
+                      <div key={i} className="text-[10px] py-1" style={{ borderInlineEnd: '3px solid #FF9800', paddingInlineEnd: '8px', marginBottom: '4px' }}>
                         <span className="text-amber-500 font-black">-{d.pointsLost}</span>
                         <span className="text-slate-500 dark:text-slate-400 font-bold mr-2">{d.requirement}</span>
                       </div>
@@ -414,7 +414,7 @@ const AssignmentManager: React.FC<AssignmentManagerProps> = ({ course }) => {
                   {manualResult.deductions?.length > 0 && (
                     <div className="mt-2 space-y-1">
                       {manualResult.deductions.slice(0, 3).map((d: any, i: number) => (
-                        <div key={i} className="text-[10px] py-1" style={{ borderRight: '3px solid #FF9800', paddingRight: '8px' }}>
+                        <div key={i} className="text-[10px] py-1" style={{ borderInlineEnd: '3px solid #FF9800', paddingInlineEnd: '8px' }}>
                           <span className="text-amber-500 font-black">-{d.pointsLost}</span>
                           <span className="text-slate-500 font-bold mr-2">{d.requirement}</span>
                         </div>
