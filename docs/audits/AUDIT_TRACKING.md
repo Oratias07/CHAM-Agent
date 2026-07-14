@@ -3,12 +3,28 @@
 Consolidated, deduplicated tracker for actionable items from the weekly security & architecture audits.
 Purpose: let future audit runs skip items already resolved, and record deliberate won't-fix decisions.
 
-**Last reconciled:** 2026-07-13 (verified against working tree of `main`, commit `a698589`).
-**Audits covered in this reconciliation:** `weekly-audit-2026-05-07`, `-05-14`, `-05-21`, `-06-04`.
+**Last reconciled:** 2026-07-14 (verified against working tree of `main`, commit `f93db71`).
+**Audits covered in this reconciliation:** `weekly-audit-2026-05-07`, `-05-14`, `-05-21`, `-06-04`, `-07-02`, `-07-09`.
 
 Status legend: ✅ Done · ❌ Open · ⚠️ Won't fix (with rationale)
 
-## Security (CRITICAL) — all resolved
+> ⚠️ **6 CRITICAL items OPEN as of 2026-07-09 audit** (items 20–25 below). All verified against source on 2026-07-14. Item 20 (live DB creds in git) is not remediable by a doc/code edit alone — it needs credential rotation + history scrub.
+
+## Security (CRITICAL) — OPEN (2026-07-09 audit, verified from source 2026-07-14)
+
+| # | Item | Source audit | Status | Evidence (current code, verified) |
+|---|------|--------------|--------|-----------------------------------|
+| 20 | Live MongoDB Atlas creds in git-tracked `.claude/settings.local.json` | 2026-07-09 | ❌ Open (partial) | Mitigated 2026-07-14: file `git rm --cached` + added to `.gitignore`. **STILL OPEN — creds remain in git history and on disk; rotate both Atlas passwords + `git filter-repo` history scrub still required.** Issue #41 |
+| 21 | `API_KEY` baked into client JS bundle | 2026-07-09 | ✅ Fixed (working tree) | `define` block removed from `vite.config.ts` 2026-07-14; grep confirms no `process.env.API_KEY` reference in any TSX/TS. Uncommitted/undeployed — verify after redeploy. Issue #42 |
+| 22 | No rate limit on `POST /student/join-course` | 2026-07-02 (carried, 2 audits) | ✅ Fixed (working tree) | `submitRateLimit` added at `api/index.js:456` 2026-07-14. Uncommitted. Issue #43 |
+| 23 | IDOR — lecturer reads any course (4 read-routes, ownership unchecked) | 2026-07-09 | ✅ Fixed (working tree) | `Course.findOne({ _id, lecturerId })` → 403 added at `api/index.js:851` assignments, `:1124` waitlist, `:1139` waitlist-history, `:1365` materials, 2026-07-14. Uncommitted. Issue #44 |
+| 24 | IDOR — student reads any course without enrollment (2 read-routes) | 2026-07-09 | ✅ Fixed (working tree) | `enrolledCourseIds.includes()` → 403 added at `api/index.js:1009` assignments, `:553` materials, 2026-07-14. Uncommitted. Issue #45 |
+| 25 | Mass assignment in `POST /lecturer/archive` — `lecturerId` overridable | 2026-07-09 | ✅ Fixed (working tree) | `...req.body` moved before server fields at `api/index.js:436-440` 2026-07-14. Uncommitted. Issue #46 |
+
+Full detail: `docs/audits/weekly-audit-2026-07-09.md`. HIGH checks (JSON parsing, output validation, `alert()` in UI) all clean.
+**Fix status note (2026-07-14):** Items 21–25 code-fixed in working tree, syntax-checked, NOT yet committed or deployed — do not close until committed + runtime-verified. Item 20 only partially mitigated (see row).
+
+## Security (CRITICAL) — historical (all resolved through 2026-06-04)
 
 | # | Item | Source audit | Status | Evidence (current code) |
 |---|------|--------------|--------|-------------------------|
@@ -39,6 +55,8 @@ Status legend: ✅ Done · ❌ Open · ⚠️ Won't fix (with rationale)
 
 ## Notes for future audit runs
 
+- **Items 20–25 are OPEN CRITICAL (2026-07-09 audit), verified from source 2026-07-14.** Priority order: 20 → 21 → 23 → 24 → 25 → 22. Re-verify each against the cited lines before re-flagging or closing.
+- Item 20 (live DB creds) is only truly closed once passwords are rotated in Atlas AND git history is scrubbed — deleting the file from the working tree is not sufficient.
 - Items 1–17 are settled; do not re-flag unless the referenced code regresses.
 - Item 18 is a deliberate won't-fix — stop recommending `package.json` ↔ `PROMPT_VERSION` alignment.
-- Item 19 is the only genuinely-open item and is cosmetic (repo cleanliness), not security.
+- Item 19 (`ForExample/` dead files) remains open, cosmetic only, not security.

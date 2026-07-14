@@ -434,8 +434,8 @@ router.post('/lecturer/archive', uploadRateLimit, async (req, res) => { // Audit
   if (!req.user || req.user.role !== 'lecturer') return res.status(401).send(); // Audit #3d
   await connectDB();
   const archive = await Archive.create({
-    lecturerId: req.user.googleId,
     ...req.body,
+    lecturerId: req.user.googleId, // Audit 2026-07-09 C-6: server field after spread so client cannot override
     timestamp: new Date()
   });
   res.json(archive);
@@ -453,7 +453,7 @@ router.post('/student/materials/:id/view', async (req, res) => {
 });
 
 // STUDENT ROUTES
-router.post('/student/join-course', async (req, res) => {
+router.post('/student/join-course', submitRateLimit, async (req, res) => {
   if (!req.user || req.user.role !== 'student') return res.status(401).send();
   await connectDB();
   const { code } = req.body;
@@ -550,6 +550,9 @@ router.get('/student/waitlist-history', async (req, res) => {
 router.get('/student/courses/:courseId/materials', async (req, res) => {
   if (!req.user || req.user.role !== 'student') return res.status(401).send();
   await connectDB();
+  if (!req.user.enrolledCourseIds.includes(req.params.courseId)) { // Audit 2026-07-09 C-5: enrollment
+    return res.status(403).json({ message: 'Not enrolled in this course' });
+  }
   // Exclude content from list — fetched on demand via /student/materials/:id/content
   const lecturerMaterials = await Material.find({ courseId: req.params.courseId, isVisible: true, type: 'lecturer_shared' }).select('-content');
   const studentMaterials = await Material.find({ ownerId: req.user.googleId, type: 'student_private' }).select('-content');
@@ -845,6 +848,8 @@ router.post('/lecturer/assignments', uploadRateLimit, async (req, res) => {
 router.get('/lecturer/courses/:courseId/assignments', async (req, res) => {
   if (!req.user || req.user.role !== 'lecturer') return res.status(401).send(); // Audit #3b
   await connectDB();
+  const course = await Course.findOne({ _id: req.params.courseId, lecturerId: req.user.googleId }); // Audit 2026-07-09 C-4: ownership
+  if (!course) return res.status(403).json({ message: 'Forbidden' });
   const assignments = await Assignment.find({ courseId: req.params.courseId }).sort({ createdAt: -1 });
   res.json(assignments);
 });
@@ -1001,6 +1006,9 @@ router.post('/lecturer/assignments/:id/submit-manual', llmRateLimit, async (req,
 router.get('/student/courses/:courseId/assignments', async (req, res) => {
   if (!req.user || req.user.role !== 'student') return res.status(401).send();
   await connectDB();
+  if (!req.user.enrolledCourseIds.includes(req.params.courseId)) { // Audit 2026-07-09 C-5: enrollment
+    return res.status(403).json({ message: 'Not enrolled in this course' });
+  }
   const assignments = await Assignment.find({ courseId: req.params.courseId }).sort({ createdAt: -1 });
   // Also fetch student's submissions for these assignments
   const submissions = await Submission.find({ studentId: req.user.googleId, courseId: req.params.courseId });
@@ -1113,9 +1121,9 @@ router.delete('/lecturer/courses/:id', async (req, res) => {
 router.get('/lecturer/courses/:id/waitlist', async (req, res) => {
   if (!req.user || req.user.role !== 'lecturer') return res.status(401).send(); // Audit #3a
   await connectDB();
-  const course = await Course.findById(req.params.id);
-  if (!course) return res.status(404).send();
-  
+  const course = await Course.findOne({ _id: req.params.id, lecturerId: req.user.googleId }); // Audit 2026-07-09 C-4: ownership
+  if (!course) return res.status(403).json({ message: 'Forbidden' });
+
   const pending = await User.find({ googleId: { $in: course.pendingStudentIds } });
   const enrolled = await User.find({ googleId: { $in: course.enrolledStudentIds } });
 
@@ -1128,6 +1136,8 @@ router.get('/lecturer/courses/:id/waitlist', async (req, res) => {
 router.get('/lecturer/courses/:id/waitlist-history', async (req, res) => {
   if (!req.user || req.user.role !== 'lecturer') return res.status(401).send();
   await connectDB();
+  const course = await Course.findOne({ _id: req.params.id, lecturerId: req.user.googleId }); // Audit 2026-07-09 C-4: ownership
+  if (!course) return res.status(403).json({ message: 'Forbidden' });
   const history = await WaitlistHistory.find({ courseId: req.params.id }).sort({ timestamp: -1 });
   const studentIds = history.map(h => h.studentId);
   const students = await User.find({ googleId: { $in: studentIds } });
@@ -1352,6 +1362,8 @@ router.post('/lecturer/courses/:id/remove-student', async (req, res) => {
 router.get('/lecturer/courses/:id/materials', async (req, res) => {
   if (!req.user || req.user.role !== 'lecturer') return res.status(401).send(); // Audit #3c
   await connectDB();
+  const course = await Course.findOne({ _id: req.params.id, lecturerId: req.user.googleId }); // Audit 2026-07-09 C-4: ownership
+  if (!course) return res.status(403).json({ message: 'Forbidden' });
   const materials = await Material.find({ courseId: req.params.id, type: 'lecturer_shared' }).select('-content');
   res.json(materials);
 });

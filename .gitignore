@@ -3,6 +3,9 @@
 .env.local
 .env.production
 
+# Local Claude Code permissions — may contain secrets in allow-list entries (Audit 2026-07-09 C-1)
+.claude/settings.local.json
+
 # Dependencies
 node_modules/
 
