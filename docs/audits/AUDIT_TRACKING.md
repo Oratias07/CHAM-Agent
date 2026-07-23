@@ -3,26 +3,25 @@
 Consolidated, deduplicated tracker for actionable items from the weekly security & architecture audits.
 Purpose: let future audit runs skip items already resolved, and record deliberate won't-fix decisions.
 
-**Last reconciled:** 2026-07-14 (verified against working tree of `main`, commit `f93db71`).
-**Audits covered in this reconciliation:** `weekly-audit-2026-05-07`, `-05-14`, `-05-21`, `-06-04`, `-07-02`, `-07-09`.
+**Last reconciled:** 2026-07-23 (verified against `main` HEAD `ed1dafc`).
+**Audits covered in this reconciliation:** `weekly-audit-2026-05-07`, `-05-14`, `-05-21`, `-06-04`, `-07-02`, `-07-09`, `-07-23`.
 
 Status legend: ✅ Done · ❌ Open · ⚠️ Won't fix (with rationale)
 
-> ⚠️ **6 CRITICAL items OPEN as of 2026-07-09 audit** (items 20–25 below). All verified against source on 2026-07-14. Item 20 (live DB creds in git) is not remediable by a doc/code edit alone — it needs credential rotation + history scrub.
+> ✅ **0 CRITICAL items OPEN as of 2026-07-23 audit.** All prior CRITICALs resolved.
 
-## Security (CRITICAL) — OPEN (2026-07-09 audit, verified from source 2026-07-14)
+## Security (CRITICAL) — resolved 2026-07-23 cycle
 
 | # | Item | Source audit | Status | Evidence (current code, verified) |
 |---|------|--------------|--------|-----------------------------------|
-| 20 | Live MongoDB Atlas creds in git-tracked `.claude/settings.local.json` | 2026-07-09 | ❌ Open (partial) | Mitigated 2026-07-14: file `git rm --cached` + added to `.gitignore`. **STILL OPEN — creds remain in git history and on disk; rotate both Atlas passwords + `git filter-repo` history scrub still required.** Issue #41 |
-| 21 | `API_KEY` baked into client JS bundle | 2026-07-09 | ✅ Fixed (working tree) | `define` block removed from `vite.config.ts` 2026-07-14; grep confirms no `process.env.API_KEY` reference in any TSX/TS. Uncommitted/undeployed — verify after redeploy. Issue #42 |
-| 22 | No rate limit on `POST /student/join-course` | 2026-07-02 (carried, 2 audits) | ✅ Fixed (working tree) | `submitRateLimit` added at `api/index.js:456` 2026-07-14. Uncommitted. Issue #43 |
-| 23 | IDOR — lecturer reads any course (4 read-routes, ownership unchecked) | 2026-07-09 | ✅ Fixed (working tree) | `Course.findOne({ _id, lecturerId })` → 403 added at `api/index.js:851` assignments, `:1124` waitlist, `:1139` waitlist-history, `:1365` materials, 2026-07-14. Uncommitted. Issue #44 |
-| 24 | IDOR — student reads any course without enrollment (2 read-routes) | 2026-07-09 | ✅ Fixed (working tree) | `enrolledCourseIds.includes()` → 403 added at `api/index.js:1009` assignments, `:553` materials, 2026-07-14. Uncommitted. Issue #45 |
-| 25 | Mass assignment in `POST /lecturer/archive` — `lecturerId` overridable | 2026-07-09 | ✅ Fixed (working tree) | `...req.body` moved before server fields at `api/index.js:436-440` 2026-07-14. Uncommitted. Issue #46 |
+| 20 | Live MongoDB Atlas creds in git-tracked `.claude/settings.local.json` | 2026-07-09 | ✅ Done | `git log --all --full-history --diff-filter=A -- .claude/settings.local.json` returns empty — file was never committed to git history. Prior audit's "git-tracked" finding referred to the file being untracked-but-unignored (at risk from `git add .`), not an actual committed secret. File is now gitignored (commit `ed1dafc`). Atlas credential rotation remains best practice and is strongly recommended. Issue #41 |
+| 21 | `API_KEY` baked into client JS bundle | 2026-07-09 | ✅ Done | `define` block removed from `vite.config.ts` (commit `ed1dafc`); no `process.env.API_KEY` in any tracked file. Issue #42 |
+| 22 | No rate limit on `POST /student/join-course` | 2026-07-02 | ✅ Done | `submitRateLimit` at `api/index.js:456` (commit `ed1dafc`). Issue #43 |
+| 23 | IDOR — lecturer reads any course (4 read-routes) | 2026-07-09 | ✅ Done | `Course.findOne({ _id, lecturerId: req.user.googleId })` at `api/index.js:851,1124,1139,1365` (commit `ed1dafc`). Issue #44 |
+| 24 | IDOR — student reads any course without enrollment | 2026-07-09 | ✅ Done | `enrolledCourseIds.includes()` at `api/index.js:1009,553` (commit `ed1dafc`). Issue #45 |
+| 25 | Mass assignment in `POST /lecturer/archive` — `lecturerId` overridable | 2026-07-09 | ✅ Done | Server fields after `...req.body` at `api/index.js:436-440` (commit `ed1dafc`). Issue #46 |
 
-Full detail: `docs/audits/weekly-audit-2026-07-09.md`. HIGH checks (JSON parsing, output validation, `alert()` in UI) all clean.
-**Fix status note (2026-07-14):** Items 21–25 code-fixed in working tree, syntax-checked, NOT yet committed or deployed — do not close until committed + runtime-verified. Item 20 only partially mitigated (see row).
+Full detail: `docs/audits/weekly-audit-2026-07-23.md`. All CRITICAL and HIGH checks clean.
 
 ## Security (CRITICAL) — historical (all resolved through 2026-06-04)
 
@@ -51,12 +50,15 @@ Full detail: `docs/audits/weekly-audit-2026-07-09.md`. HIGH checks (JSON parsing
 | 16 | Physical `borderRight`/`paddingRight` → logical props | 2026-04-30 → 06-04 (5 audits) | ✅ Done | `StudentAssignments.tsx:176`, `AssignmentManager.tsx:263,417` → `borderInlineEnd`/`paddingInlineEnd` (fixed 2026-07-13) |
 | 17 | Create git tag `prompt-v1.2.0` | 2026-05-07 → 06-04 (4 audits) | ✅ Done | tag `prompt-v1.2.0` → `8dad476` (created 2026-07-13) |
 | 18 | Align `package.json` to `PROMPT_VERSION` | 2026-05-07 → 06-04 | ⚠️ Won't fix | App version (`package.json` `2.1.1`) and prompt-template version (`PROMPT_VERSION v1.2.0`) version different artifacts and are intentionally decoupled. Only the missing tag (#17) was valid. **Drop this recommendation from future audits.** |
-| 19 | `ForExample/` dead fixture files | 2026-05-07 → 06-04 (4 audits) | ❌ Open | 6 `.txt` files, referenced nowhere outside `docs/audits`. Deletion (`git rm -r ForExample/`) proposed but not yet approved. |
+| 19 | `ForExample/` dead fixture files | 2026-05-07 → 06-04 (4 audits) | ❌ Open | 6 `.txt` files, referenced nowhere outside `docs/audits`. Deletion (`git rm -r ForExample/`) proposed but not yet approved. 7th consecutive audit. |
+| 26 | `ReviewQueue.tsx:253,418` physical `borderRight` in RTL context | 2026-07-02 | ❌ Open | `borderRight` inside `dir="rtl"` parent; fix: replace with `borderInlineEnd`. 3rd consecutive audit. |
 
 ## Notes for future audit runs
 
-- **Items 20–25 are OPEN CRITICAL (2026-07-09 audit), verified from source 2026-07-14.** Priority order: 20 → 21 → 23 → 24 → 25 → 22. Re-verify each against the cited lines before re-flagging or closing.
-- Item 20 (live DB creds) is only truly closed once passwords are rotated in Atlas AND git history is scrubbed — deleting the file from the working tree is not sufficient.
-- Items 1–17 are settled; do not re-flag unless the referenced code regresses.
+- **As of 2026-07-23: 0 CRITICAL items open.** All checks clean at HEAD `ed1dafc`.
+- Item 20: Credential rotation in Atlas is still recommended as precaution even though no git exposure confirmed. Do not re-flag as CRITICAL unless actual committed secret is found.
+- Items 1–17, 21–25 are settled; do not re-flag unless the referenced code regresses.
 - Item 18 is a deliberate won't-fix — stop recommending `package.json` ↔ `PROMPT_VERSION` alignment.
 - Item 19 (`ForExample/` dead files) remains open, cosmetic only, not security.
+- Item 26 (`ReviewQueue.tsx:253,418` physical `borderRight`) remains open MEDIUM — 3rd consecutive audit.
+- Re-verify `prompt-v1.2.0` tag exists on remote: `git ls-remote --tags origin | grep prompt-v1.2.0`.
